@@ -829,9 +829,9 @@ M.setup = function(opts)
 		M.error("curl is not installed, run :checkhealth gp")
 	end
 
-	if type(M.config.openai_api_key) == "table" then
+	if type(M.config.api_key) == "table" then
 		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(M.config.openai_api_key)
+		local copy = vim.deepcopy(M.config.api_key)
 		---@diagnostic disable-next-line: param-type-mismatch
 		local cmd = table.remove(copy, 1)
 		local args = copy
@@ -841,18 +841,18 @@ M.setup = function(opts)
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
 					M.warning(
-						"response from the config.openai_api_key command "
-							.. vim.inspect(M.config.openai_api_key)
+						"response from the config.api_key command "
+							.. vim.inspect(M.config.api_key)
 							.. " is empty"
 					)
 					return
 				end
-				M.config.openai_api_key = content
+				M.config.api_key = content
 			else
 				M.warning(
-					"config.openai_api_key command "
-						.. vim.inspect(M.config.openai_api_key)
-						.. " to retrieve openai_api_key failed:\ncode: "
+					"config.api_key command "
+						.. vim.inspect(M.config.api_key)
+						.. " to retrieve api_key failed:\ncode: "
 						.. code
 						.. ", signal: "
 						.. signal
@@ -869,10 +869,10 @@ M.setup = function(opts)
 end
 
 M.valid_api_key = function()
-	local api_key = M.config.openai_api_key
+	local api_key = M.config.api_key
 
 	if type(api_key) == "table" then
-		M.error("openai_api_key is still an unresolved command: " .. vim.inspect(api_key))
+		M.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
 		return false
 	end
 
@@ -880,7 +880,7 @@ M.valid_api_key = function()
 		return true
 	end
 
-	M.error("config.openai_api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
+	M.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
 	return false
 end
 
@@ -1104,7 +1104,7 @@ M.query = function(buf, payload, handler, on_exit)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-				if line:match("chat%.completion%.chunk") then
+				if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
 					line = vim.json.decode(line)
 					local content = line.choices[1].delta.content
 					if content ~= nil then
@@ -1160,7 +1160,7 @@ M.query = function(buf, payload, handler, on_exit)
 	end
 
 	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.config.openai_api_endpoint, "{{model}}", payload.model)
+	local endpoint = M._H.template_replace(M.config.api_endpoint, "{{model}}", payload.model)
 
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
 	local args = {
@@ -1171,9 +1171,9 @@ M.query = function(buf, payload, handler, on_exit)
 		"Content-Type: application/json",
 		-- api-key is for azure, authorization is for openai
 		"-H",
-		"Authorization: Bearer " .. M.config.openai_api_key,
+		"Authorization: Bearer " .. M.config.api_key,
 		"-H",
-		"api-key: " .. M.config.openai_api_key,
+		"api-key: " .. M.config.api_key,
 		"-d",
 		vim.json.encode(payload),
 		--[[ "--doesnt_exist" ]]
@@ -2931,7 +2931,7 @@ M.Whisper = function(callback)
 			.. curl
 			.. " --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
 			.. '-H "Authorization: Bearer '
-			.. M.config.openai_api_key
+			.. M.config.api_key
 			.. '" -H "Content-Type: multipart/form-data" '
 			.. '-F model="whisper-1" -F language="'
 			.. M.config.whisper_language
@@ -3113,7 +3113,7 @@ function M.generate_image(prompt, model, quality, style, size)
 		"-H",
 		"Content-Type: application/json",
 		"-H",
-		"Authorization: Bearer " .. M.config.openai_api_key,
+		"Authorization: Bearer " .. M.config.api_key,
 		"-d",
 		vim.json.encode(payload),
 		"https://api.openai.com/v1/images/generations",

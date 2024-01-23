@@ -4,22 +4,34 @@
 --------------------------------------------------------------------------------
 -- Default config
 --------------------------------------------------------------------------------
+local system_chat_prompt = "You are a general AI assistant.\n\n"
+				.. "The user provided the additional info about how they would like you to respond:\n\n"
+				.. "- If you're unsure don't guess and say you don't know instead.\n"
+				.. "- Ask question if you need clarification to provide better answer.\n"
+				.. "- Think deeply and carefully from first principles step by step.\n"
+				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+				.. "- Don't elide any code from your output if the answer requires coding.\n"
+				.. "- Take a deep breath; You've got this!\n"
+local system_code_prompt = "You are an AI working as a code editor.\n\n"
+				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+				.. "START AND END YOUR ANSWER WITH:\n\n```"
 
 local config = {
 	-- Please start with minimal config possible.
-	-- Just openai_api_key if you don't have OPENAI_API_KEY env set up.
+	-- Just api_key if you don't have api_key env set up.
 	-- Defaults change over time to improve things, options might get deprecated.
 	-- It's better to change only things where the default doesn't fit your needs.
 
 	-- required openai api key (string or table with command and arguments)
-	-- openai_api_key = { "cat", "path_to/openai_api_key" },
-	-- openai_api_key = { "bw", "get", "password", "OPENAI_API_KEY" },
-	-- openai_api_key: "sk-...",
-	-- openai_api_key = os.getenv("env_name.."),
-	openai_api_key = os.getenv("OPENAI_API_KEY"),
+	-- api_key = { "cat", "path_to/api_key" },
+	-- api_key = { "bw", "get", "password", "api_key" },
+	-- api_key: "sk-...",
+	-- api_key = os.getenv("env_name.."),
+	api_key = os.getenv("api_key"),
 	-- api endpoint (you can change this to azure endpoint)
-	openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
-	-- openai_api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
+	api_endpoint = "https://api.perplexity.ai/chat/completions",
+	-- api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
 	cmd_prefix = "Gp",
 	-- optional curl parameters (for proxy, etc.)
@@ -35,61 +47,73 @@ local config = {
 	-- to remove some default agent completely set it just with the name like:
 	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
+		-- chat agents
 		{
-			name = "ChatGPT4",
+			name = "Perplexity-7b",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+			model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = system_chat_prompt,
 		},
 		{
-			name = "ChatGPT3-5",
+			name = "Perplexity-70b",
 			chat = true,
 			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+			model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n",
+			system_prompt = system_chat_prompt,
 		},
 		{
-			name = "CodeGPT4",
-			chat = false,
-			command = true,
+			name = "Perplexity-7b-Online",
+			chat = true,
+			command = false,
 			-- string with model name or table with model name and parameters
-			model = { model = "gpt-4-1106-preview", temperature = 0.8, top_p = 1 },
+			model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
 			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			system_prompt = system_chat_prompt,
 		},
 		{
-			name = "CodeGPT3-5",
+			name = "Perplexity-70b-Online",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = system_chat_prompt,
+		},
+		{
+			name = "Llama-70b",
+			chat = true,
+			command = false,
+			-- string with model name or table with model name and parameters
+			model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
+			-- system prompt (use this to specify the persona/role of the AI)
+			system_prompt = system_chat_prompt,
+		},
+		-- code agents
+		{
+			name = "CodeLlama-34b",
 			chat = false,
 			command = true,
-			-- string with model name or table with model name and parameters
-			model = { model = "gpt-3.5-turbo-1106", temperature = 0.8, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```",
+			model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
+			system_prompt = system_code_prompt,
+		},
+		{
+			name = "Mistral-7b",
+			chat = false,
+			command = true,
+			model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+			system_prompt = system_code_prompt,
+		},
+		{
+			name = "Mistral-8x7b",
+			chat = false,
+			command = true,
+			model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+			system_prompt = system_code_prompt,
 		},
 	},
 
@@ -106,7 +130,7 @@ local config = {
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model (string with model name or table with model name and parameters)
-	chat_topic_gen_model = "gpt-3.5-turbo-16k",
+  chat_topic_gen_model = "mistral-7b-instruct",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat
@@ -297,8 +321,8 @@ local config = {
 		InspectPlugin = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
-			local key = copy.config.openai_api_key
-			copy.config.openai_api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
+			local key = copy.config.api_key
+			copy.config.api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
 			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(copy))
 			local params_info = string.format("Command params:\n%s", vim.inspect(params))
 			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
