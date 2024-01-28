@@ -1,39 +1,44 @@
 -- Gp (GPT prompt) lua plugin for Neovim
 -- https://github.com/Robitx/gp.nvim/
+--
+--
 
 --------------------------------------------------------------------------------
 -- Default config
 --------------------------------------------------------------------------------
-local system_chat_prompt = "You are a general AI assistant.\n\n"
-				.. "The user provided the additional info about how they would like you to respond:\n\n"
-				.. "- If you're unsure don't guess and say you don't know instead.\n"
-				.. "- Ask question if you need clarification to provide better answer.\n"
-				.. "- Think deeply and carefully from first principles step by step.\n"
-				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
-				.. "- Use Socratic method to improve your thinking and coding skills.\n"
-				.. "- Don't elide any code from your output if the answer requires coding.\n"
-				.. "- Take a deep breath; You've got this!\n"
-local system_code_prompt = "You are an AI working as a code editor.\n\n"
-				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
-				.. "START AND END YOUR ANSWER WITH:\n\n```"
+local system_chat_prompt = "You are a versatile AI assistant with capabilities\n"
+	.. "extending to general knowledge and coding support. When engaging\n"
+	.. "with users, please adhere to the following guidelines to ensure\n"
+	.. "the highest quality of interaction:\n\n"
+	.. "- Admit when unsure by saying 'I don't know.'\n"
+	.. "- Ask for clarification when needed.\n"
+	.. "- Use first principles thinking to analyze queries.\n"
+	.. "- Start with the big picture, then focus on details.\n"
+	.. "- Apply the Socratic method to enhance understanding.\n"
+	.. "- Include all necessary code in your responses."
+	.. "- Stay calm and confident with each task.\n"
+-- local system_chat_prompt = "You are a general AI assistant.\n\n"
+-- 				.. "The user provided the additional info about how they would like you to respond:\n\n"
+-- 				.. "- If you're unsure don't guess and say you don't know instead.\n"
+-- 				.. "- Ask question if you need clarification to provide better answer.\n"
+-- 				.. "- Think deeply and carefully from first principles step by step.\n"
+-- 				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
+-- 				.. "- Use Socratic method to improve your thinking and coding skills.\n"
+-- 				.. "- Don't elide any code from your output if the answer requires coding.\n"
+-- 				.. "- Take a deep breath; You've got this!\n"
+local system_code_prompt = "You are an AI specializing in software development"
+	.. "tasks, including code editing, completion, and debugging. Your"
+	.. "responses should strictly pertain to the code provided. Please"
+	.. "ensure that your reply is solely focused on the code snippet in question.\n\n"
+-- "You are an AI working as a code editor.\n\n"
+-- 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
+-- 				.. "START AND END YOUR ANSWER WITH:\n\n```"
 
 local config = {
-	-- Please start with minimal config possible.
-	-- Just api_key if you don't have api_key env set up.
-	-- Defaults change over time to improve things, options might get deprecated.
-	-- It's better to change only things where the default doesn't fit your needs.
-
-	-- required openai api key (string or table with command and arguments)
-	-- api_key = { "cat", "path_to/api_key" },
-	-- api_key = { "bw", "get", "password", "api_key" },
-	-- api_key: "sk-...",
-	-- api_key = os.getenv("env_name.."),
-	api_key = os.getenv("api_key"),
-	-- api endpoint (you can change this to azure endpoint)
+	api_key = "",
 	api_endpoint = "https://api.perplexity.ai/chat/completions",
-	-- api_endpoint = "https://$URL.openai.azure.com/openai/deployments/{{model}}/chat/completions?api-version=2023-03-15-preview",
 	-- prefix for all commands
-	cmd_prefix = "Gp",
+	cmd_prefix = "GPT",
 	-- optional curl parameters (for proxy, etc.)
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
@@ -48,72 +53,89 @@ local config = {
 	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
 		-- chat agents
-		{
-			name = "Perplexity-7b",
-			chat = true,
-			command = false,
-			-- string with model name or table with model name and parameters
-			model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = system_chat_prompt,
+		chat = {
+			{
+				name = "Perplexity-7b",
+				model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Perplexity-70b",
+				model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Perplexity-7b-Online",
+				model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Perplexity-70b-Online",
+				model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Llama-70b",
+				model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "CodeLlama-34b",
+				model = { model = "codellama-34b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Mistral-7b",
+				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Mistral-8x7b",
+				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
 		},
-		{
-			name = "Perplexity-70b",
-			chat = true,
-			command = false,
-			-- string with model name or table with model name and parameters
-			model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = system_chat_prompt,
-		},
-		{
-			name = "Perplexity-7b-Online",
-			chat = true,
-			command = false,
-			-- string with model name or table with model name and parameters
-			model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = system_chat_prompt,
-		},
-		{
-			name = "Perplexity-70b-Online",
-			chat = true,
-			command = false,
-			-- string with model name or table with model name and parameters
-			model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = system_chat_prompt,
-		},
-		{
-			name = "Llama-70b",
-			chat = true,
-			command = false,
-			-- string with model name or table with model name and parameters
-			model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
-			-- system prompt (use this to specify the persona/role of the AI)
-			system_prompt = system_chat_prompt,
-		},
-		-- code agents
-		{
-			name = "CodeLlama-34b",
-			chat = false,
-			command = true,
-			model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = system_code_prompt,
-		},
-		{
-			name = "Mistral-7b",
-			chat = false,
-			command = true,
-			model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = system_code_prompt,
-		},
-		{
-			name = "Mistral-8x7b",
-			chat = false,
-			command = true,
-			model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
-			system_prompt = system_code_prompt,
+		command = {
+			{
+				name = "Perplexity-7b",
+				model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
+				name = "Perplexity-70b",
+				model = { model = "pplx-70b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "Perplexity-7b-Online",
+				model = { model = "pplx-7b-online", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "Perplexity-70b-Online",
+				model = { model = "pplx-70b-online", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "Llama-70b",
+				model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "CodeLlama-34b",
+				model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "Mistral-7b",
+				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
+				name = "Mistral-8x7b",
+				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
 		},
 	},
 
@@ -130,7 +152,7 @@ local config = {
 	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
 		.. " in two or three words. Respond only with those words.",
 	-- chat topic model (string with model name or table with model name and parameters)
-  chat_topic_gen_model = "mistral-7b-instruct",
+	chat_topic_gen_model = "mistral-7b-instruct",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat
@@ -193,131 +215,6 @@ local config = {
 		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
 	template_command = "{{command}}",
 
-	-- https://platform.openai.com/docs/guides/speech-to-text/quickstart
-	-- Whisper costs $0.006 / minute (rounded to the nearest second)
-	-- by eliminating silence and speeding up the tempo of the recording
-	-- we can reduce the cost by 50% or more and get the results faster
-	-- directory for storing whisper files
-	whisper_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_whisper",
-	-- multiplier of RMS level dB for threshold used by sox to detect silence vs speech
-	-- decibels are negative, the recording is normalized to -3dB =>
-	-- increase this number to pick up more (weaker) sounds as possible speech
-	-- decrease this number to pick up only louder sounds as possible speech
-	-- you can disable silence trimming by setting this a very high number (like 1000.0)
-	whisper_silence = "1.75",
-	-- whisper tempo (1.0 is normal speed)
-	whisper_tempo = "1.75",
-	-- The language of the input audio, in ISO-639-1 format.
-	whisper_language = "en",
-	-- command to use for recording can be nil (unset) for automatic selection
-	-- string ("sox", "arecord", "ffmpeg") or table with command and arguments:
-	-- sox is the most universal, but can have start/end cropping issues caused by latency
-	-- arecord is linux only, but has no cropping issues and is faster
-	-- ffmpeg in the default configuration is macos only, but can be used on any platform
-	-- (see https://trac.ffmpeg.org/wiki/Capture/Desktop for more info)
-	-- below is the default configuration for all three commands:
-	-- whisper_rec_cmd = {"sox", "-c", "1", "--buffer", "32", "-d", "rec.wav", "trim", "0", "60:00"},
-	-- whisper_rec_cmd = {"arecord", "-c", "1", "-f", "S16_LE", "-r", "48000", "-d", "3600", "rec.wav"},
-	-- whisper_rec_cmd = {"ffmpeg", "-y", "-f", "avfoundation", "-i", ":0", "-t", "3600", "rec.wav"},
-	whisper_rec_cmd = nil,
-
-	-- image generation settings
-	-- image prompt prefix for asking user for input (supports {{agent}} template variable)
-	image_prompt_prefix_template = "🖌️ {{agent}} ~ ",
-	-- image prompt prefix for asking location to save the image
-	image_prompt_save = "🖌️💾 ~ ",
-	-- default folder for saving images
-	image_dir = (os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp") .. "/gp_images",
-	-- default image agents (model + settings)
-	-- to remove some default agent completely set it just with the name like:
-	-- image_agents = {  { name = "DALL-E-3-1024x1792-vivid" }, ... },
-	image_agents = {
-		{
-			name = "DALL-E-3-1024x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural",
-			model = "dall-e-3",
-			quality = "standard",
-			style = "natural",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-vivid-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "vivid",
-			size = "1024x1792",
-		},
-		{
-			name = "DALL-E-3-1024x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1024",
-		},
-		{
-			name = "DALL-E-3-1792x1024-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1792x1024",
-		},
-		{
-			name = "DALL-E-3-1024x1792-natural-hd",
-			model = "dall-e-3",
-			quality = "hd",
-			style = "natural",
-			size = "1024x1792",
-		},
-	},
-
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
 		InspectPlugin = function(plugin, params)
@@ -351,41 +248,6 @@ local config = {
 				agent.system_prompt
 			)
 		end,
-
-		-- your own functions can go here, see README for more examples like
-		-- :GpExplain, :GpUnitTests.., :GpTranslator etc.
-
-		-- -- example of making :%GpChatNew a dedicated command which
-		-- -- opens new chat with the entire current buffer as a context
-		-- BufferChatNew = function(gp, _)
-		-- 	-- call GpChatNew command in range mode on whole buffer
-		-- 	vim.api.nvim_command("%" .. gp.config.cmd_prefix .. "ChatNew")
-		-- end,
-
-		-- -- example of adding command which opens new chat dedicated for translation
-		-- Translator = function(gp, params)
-		-- 	local agent = gp.get_command_agent()
-		-- 	local chat_system_prompt = "You are a Translator, please translate between English and Chinese."
-		-- 	gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
-		-- end,
-
-		-- -- example of adding command which writes unit tests for the selected code
-		-- UnitTests = function(gp, params)
-		-- 	local template = "I have the following code from {{filename}}:\n\n"
-		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
-		-- 		.. "Please respond by writing table driven unit tests for the code above."
-		-- 	local agent = gp.get_command_agent()
-		-- 	gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
-		-- end,
-
-		-- -- example of adding command which explains the selected code
-		-- Explain = function(gp, params)
-		-- 	local template = "I have the following code from {{filename}}:\n\n"
-		-- 		.. "```{{filetype}}\n{{selection}}\n```\n\n"
-		-- 		.. "Please respond by explaining the code above."
-		-- 	local agent = gp.get_chat_agent()
-		-- 	gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
-		-- end,
 	},
 }
 

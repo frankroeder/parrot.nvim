@@ -17,7 +17,6 @@ local deprecated = {
 	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
 	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
 		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
-	whisper_max_time = "`whisper_max_time`\nPlease use fully customizable `whisper_rec_cmd`",
 }
 
 --------------------------------------------------------------------------------
@@ -31,8 +30,10 @@ local M = {
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
-	agents = {}, -- table of agents
-	image_agents = {}, -- table of image agents
+	agents = {
+		chat = {},
+		command = {},
+	}, -- table of agents
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -675,15 +676,20 @@ M.setup = function(opts)
 	M.config = vim.deepcopy(config)
 
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents", "image_agents" }
+	local mergeTables = { "hooks", "agents" }
+  local mergeAgentTables = { "chat", "command"}
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
-			elseif tbl == "agents" or tbl == "image_agents" then
-				M[tbl][v.name] = v
+			elseif tbl == "agents" then
+				for _, _tbl in ipairs(mergeAgentTables) do
+					for _, _v in pairs(M.config[tbl][_tbl]) do
+						M[tbl][_tbl][_v.name] = _v
+					end
+				end
 			end
 		end
 		M.config[tbl] = nil
@@ -692,8 +698,13 @@ M.setup = function(opts)
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
-			elseif tbl == "agents" or tbl == "image_agents" then
-				M[tbl][v.name] = v
+			elseif tbl == "agents" then
+				for _, _tbl in ipairs(mergeAgentTables) do
+					for _, _v in pairs(M.config[tbl][_tbl]) do
+						M[tbl][_tbl][_v.name] = _v
+					end
+				end
+
 			end
 		end
 		opts[tbl] = nil
@@ -742,37 +753,28 @@ M.setup = function(opts)
 	end
 
 	-- remove invalid agents
-	for name, agent in pairs(M.agents) do
+	for name, agent in pairs(M.agents.chat) do
 		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
-			M.agents[name] = nil
+			M.agents.chat[name] = nil
 		end
 	end
-
-	for name, agent in pairs(M.image_agents) do
-		if type(agent) ~= "table" or not agent.model then
-			M.image_agents[name] = nil
+	for name, agent in pairs(M.agents.command) do
+		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+			M.agents.command[name] = nil
 		end
 	end
 
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
-	for name, agent in pairs(M.agents) do
-		if agent.command then
-			table.insert(M._command_agents, name)
-		end
-		if agent.chat then
-			table.insert(M._chat_agents, name)
-		end
+	for name, agent in pairs(M.agents.command) do
+		table.insert(M._command_agents, name)
+	end
+	for name, agent in pairs(M.agents.chat) do
+		table.insert(M._chat_agents, name)
 	end
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
-
-	M._image_agents = {}
-	for name, _ in pairs(M.image_agents) do
-		table.insert(M._image_agents, name)
-	end
-	table.sort(M._image_agents)
 
 	M.refresh_state()
 
@@ -813,10 +815,6 @@ M.setup = function(opts)
 						return M._command_agents
 					end
 
-					if cmd == "ImageAgent" then
-						return M._image_agents
-					end
-
 					return {}
 				end,
 			})
@@ -841,9 +839,7 @@ M.setup = function(opts)
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
 					M.warning(
-						"response from the config.api_key command "
-							.. vim.inspect(M.config.api_key)
-							.. " is empty"
+						"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
 					)
 					return
 				end
@@ -890,18 +886,13 @@ M.refresh_state = function()
 	local state = M.file_to_table(state_file) or {}
 
 	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
-	if M._state.chat_agent == nil or not M.agents[M._state.chat_agent] then
+	if M._state.chat_agent == nil or not M.agents.chat[M._state.chat_agent] then
 		M._state.chat_agent = M._chat_agents[1]
 	end
 
 	M._state.command_agent = M._state.command_agent or state.command_agent or nil
-	if not M._state.command_agent == nil or not M.agents[M._state.command_agent] then
+	if not M._state.command_agent == nil or not M.agents.command[M._state.command_agent] then
 		M._state.command_agent = M._command_agents[1]
-	end
-
-	M._state.image_agent = M._state.image_agent or state.image_agent or nil
-	if not M._state.image_agent == nil or not M.image_agents[M._state.image_agent] then
-		M._state.image_agent = M._image_agents[1]
 	end
 
 	M.table_to_file(M._state, state_file)
@@ -979,13 +970,13 @@ M.prepare_commands = function()
 			cmd(params)
 		end
 
-		M.cmd["Whisper" .. command] = function(params)
-			M.Whisper(function(text)
-				vim.schedule(function()
-					cmd(params, text)
-				end)
-			end)
-		end
+		-- M.cmd["Whisper" .. command] = function(params)
+		-- 	M.Whisper(function(text)
+		-- 		vim.schedule(function()
+		-- 			cmd(params, text)
+		-- 		end)
+		-- 	end)
+		-- end
 	end
 end
 
@@ -1168,12 +1159,11 @@ M.query = function(buf, payload, handler, on_exit)
 		"-s",
 		endpoint,
 		"-H",
-		"Content-Type: application/json",
-		-- api-key is for azure, authorization is for openai
+		"accept: application/json",
 		"-H",
-		"Authorization: Bearer " .. M.config.api_key,
+		"authorization: Bearer " .. M.config.api_key,
 		"-H",
-		"api-key: " .. M.config.api_key,
+		"content-type: application/json",
 		"-d",
 		vim.json.encode(payload),
 		--[[ "--doesnt_exist" ]]
@@ -2367,7 +2357,7 @@ M.cmd.Agent = function(params)
 		return
 	end
 
-	if not M.agents[agent_name] then
+	if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
 		M.warning("Unknown agent: " .. agent_name)
 		return
 	end
@@ -2375,12 +2365,12 @@ M.cmd.Agent = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.is_chat(buf, file_name)
-	if is_chat and M.agents[agent_name].chat then
+	if is_chat and M.agents.chat[agent_name] then
 		M._state.chat_agent = agent_name
 		M.info("Chat agent: " .. M._state.chat_agent)
 	elseif is_chat then
 		M.warning(agent_name .. " is not a Chat agent")
-	elseif M.agents[agent_name].command then
+	elseif M.agents.command[agent_name] then
 		M._state.command_agent = agent_name
 		M.info("Command agent: " .. M._state.command_agent)
 	else
@@ -2425,9 +2415,15 @@ M.get_command_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
 	local name = M._state.command_agent
-	local model = M.agents[name].model
-	local system_prompt = M.agents[name].system_prompt
-	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+	-- print(vim.inspect(M.agents))
+	local model = M.agents.command[name].model
+	local system_prompt = M.agents.command[name].system_prompt
+	return {
+		cmd_prefix = cmd_prefix,
+		name = name,
+		model = model,
+		system_prompt = system_prompt,
+	}
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt }
@@ -2435,9 +2431,14 @@ M.get_chat_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
 	local name = M._state.chat_agent
-	local model = M.agents[name].model
-	local system_prompt = M.agents[name].system_prompt
-	return { cmd_prefix = cmd_prefix, name = name, model = model, system_prompt = system_prompt }
+	local model = M.agents.chat[name].model
+	local system_prompt = M.agents.chat[name].system_prompt
+	return {
+		cmd_prefix = cmd_prefix,
+		name = name,
+		model = model,
+		system_prompt = system_prompt,
+	}
 end
 
 M.cmd.Context = function(params)
@@ -2779,428 +2780,6 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			end
 			callback(input)
 		end)
-	end)
-end
-
----@param callback function # callback function(text)
-M.Whisper = function(callback)
-	-- make sure sox is installed
-	if vim.fn.executable("sox") == 0 then
-		M.error("sox is not installed")
-		return
-	end
-
-	local rec_file = M.config.whisper_dir .. "/rec.wav"
-	local rec_options = {
-		sox = {
-			cmd = "sox",
-			opts = {
-				"-c",
-				"1",
-				"--buffer",
-				"32",
-				"-d",
-				"rec.wav",
-				"trim",
-				"0",
-				"3600",
-			},
-			exit_code = 0,
-		},
-		arecord = {
-			cmd = "arecord",
-			opts = {
-				"-c",
-				"1",
-				"-f",
-				"S16_LE",
-				"-r",
-				"48000",
-				"-d",
-				3600,
-				"rec.wav",
-			},
-			exit_code = 1,
-		},
-		ffmpeg = {
-			cmd = "ffmpeg",
-			opts = {
-				"-y",
-				"-f",
-				"avfoundation",
-				"-i",
-				":0",
-				"-t",
-				"3600",
-				"rec.wav",
-			},
-			exit_code = 255,
-		},
-	}
-
-	if not M.valid_api_key() then
-		return
-	end
-
-	local gid = M._H.create_augroup("GpWhisper", { clear = true })
-
-	-- create popup
-	local buf, _, close_popup, _ = M._H.create_popup(
-		nil,
-		M._Name .. " Whisper",
-		function(w, h)
-			return 60, 12, (h - 12) * 0.4, (w - 60) * 0.5
-		end,
-		{ gid = gid, on_leave = false, escape = false, persist = false },
-		{ border = M.config.style_popup_border or "single" }
-	)
-
-	-- animated instructions in the popup
-	local counter = 0
-	local timer = vim.loop.new_timer()
-	timer:start(
-		0,
-		200,
-		vim.schedule_wrap(function()
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-					"    ",
-					"    Speak 👄 loudly 📣 into the microphone 🎤: ",
-					"    " .. string.rep("👂", counter),
-					"    ",
-					"    Pressing <Enter> starts the transcription.",
-					"    ",
-					"    Cancel the recording with <esc>/<C-c> or :GpStop.",
-					"    ",
-					"    The last recording is in /tmp/gp_whisper/.",
-				})
-			end
-			counter = counter + 1
-			if counter % 22 == 0 then
-				counter = 0
-			end
-		end)
-	)
-
-	local close = _H.once(function()
-		if timer then
-			timer:stop()
-			timer:close()
-		end
-		close_popup()
-		vim.api.nvim_del_augroup_by_id(gid)
-		M.cmd.Stop()
-	end)
-
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<esc>", function()
-		M.cmd.Stop()
-	end)
-
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<C-c>", function()
-		M.cmd.Stop()
-	end)
-
-	local continue = false
-	_H.set_keymap({ buf }, { "n", "i", "v" }, "<cr>", function()
-		continue = true
-		vim.defer_fn(function()
-			M.cmd.Stop()
-		end, 300)
-	end)
-
-	-- cleanup on buffer exit
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, gid)
-
-	local curl_params = M.config.curl_params or {}
-	local curl = "curl" .. " " .. table.concat(curl_params, " ")
-
-	-- transcribe the recording
-	local transcribe = function()
-		local cmd = "cd "
-			.. M.config.whisper_dir
-			.. " && "
-			.. "export LC_NUMERIC='C' && "
-			-- normalize volume to -3dB
-			.. "sox --norm=-3 rec.wav norm.wav && "
-			-- get RMS level dB * silence threshold
-			.. "t=$(sox 'norm.wav' -n channels 1 stats 2>&1 | grep 'RMS lev dB' "
-			.. " | sed -e 's/.* //' | awk '{print $1*"
-			.. M.config.whisper_silence
-			.. "}') && "
-			-- remove silence, speed up, pad and convert to mp3
-			.. "sox -q norm.wav -C 196.5 final.mp3 silence -l 1 0.05 $t'dB' -1 1.0 $t'dB'"
-			.. " pad 0.1 0.1 tempo "
-			.. M.config.whisper_tempo
-			.. " && "
-			-- call openai
-			.. curl
-			.. " --max-time 20 https://api.openai.com/v1/audio/transcriptions -s "
-			.. '-H "Authorization: Bearer '
-			.. M.config.api_key
-			.. '" -H "Content-Type: multipart/form-data" '
-			.. '-F model="whisper-1" -F language="'
-			.. M.config.whisper_language
-			.. '" -F file="@final.mp3" '
-			.. '-F response_format="json"'
-
-		M._H.process(nil, "bash", { "-c", cmd }, function(code, signal, stdout, _)
-			if code ~= 0 then
-				M.error(string.format("Whisper query exited: %d, %d", code, signal))
-				return
-			end
-
-			if not stdout or stdout == "" or #stdout < 11 then
-				M.error("Whisper query, no stdout: " .. vim.inspect(stdout))
-				return
-			end
-			local text = vim.json.decode(stdout).text
-			if not text then
-				M.error("Whisper query, no text: " .. vim.inspect(stdout))
-				return
-			end
-
-			text = table.concat(vim.split(text, "\n"), " ")
-			text = text:gsub("%s+$", "")
-
-			if callback and stdout then
-				callback(text)
-			end
-		end)
-	end
-
-	local cmd = {}
-
-	local rec_cmd = M.config.whisper_rec_cmd
-	-- if rec_cmd not set explicitly, try to autodetect
-	if not rec_cmd then
-		rec_cmd = "sox"
-		if vim.fn.executable("ffmpeg") == 1 then
-			local devices = vim.fn.system("ffmpeg -devices -v quiet | grep -i avfoundation | wc -l")
-			devices = string.gsub(devices, "^%s*(.-)%s*$", "%1")
-			if devices == "1" then
-				rec_cmd = "ffmpeg"
-			end
-		end
-		if vim.fn.executable("arecord") == 1 then
-			rec_cmd = "arecord"
-		end
-	end
-
-	if type(rec_cmd) == "table" and rec_cmd[1] and rec_options[rec_cmd[1]] then
-		rec_cmd = vim.deepcopy(rec_cmd)
-		cmd.cmd = table.remove(rec_cmd, 1)
-		cmd.exit_code = rec_options[cmd.cmd].exit_code
-		cmd.opts = rec_cmd
-	elseif type(rec_cmd) == "string" and rec_options[rec_cmd] then
-		cmd = rec_options[rec_cmd]
-	else
-		M.error(string.format("Whisper got invalid recording command: %s", rec_cmd))
-		close()
-		return
-	end
-	for i, v in ipairs(cmd.opts) do
-		if v == "rec.wav" then
-			cmd.opts[i] = rec_file
-		end
-	end
-
-	M._H.process(nil, cmd.cmd, cmd.opts, function(code, signal, stdout, stderr)
-		close()
-
-		if code and code ~= cmd.exit_code then
-			M.error(
-				cmd.cmd
-					.. " exited with code and signal:\ncode: "
-					.. code
-					.. ", signal: "
-					.. signal
-					.. "\nstdout: "
-					.. vim.inspect(stdout)
-					.. "\nstderr: "
-					.. vim.inspect(stderr)
-			)
-			return
-		end
-
-		if not continue then
-			return
-		end
-
-		vim.schedule(function()
-			transcribe()
-		end)
-	end)
-end
-
-M.cmd.Whisper = function(params)
-	local buf = vim.api.nvim_get_current_buf()
-	local start_line = vim.api.nvim_win_get_cursor(0)[1]
-	local end_line = start_line
-
-	if params.range == 2 then
-		start_line = params.line1
-		end_line = params.line2
-	end
-
-	M.Whisper(function(text)
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return
-		end
-
-		if text then
-			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line, false, { text })
-		end
-	end)
-end
-
-M.cmd.ImageAgent = function(params)
-	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-	if agent_name == "" then
-		M.info("Image agent: " .. (M._state.image_agent or "none"))
-		return
-	end
-
-	if not M.image_agents[agent_name] then
-		M.warning("Unknown image agent: " .. agent_name)
-		return
-	end
-
-	M._state.image_agent = agent_name
-	M.info("Image agent: " .. M._state.image_agent)
-
-	M.refresh_state()
-end
-
----@return table # { cmd_prefix, name, model, quality, style, size }
-M.get_image_agent = function()
-	local template = M.config.image_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.image_agent })
-	local name = M._state.image_agent
-	local model = M.image_agents[name].model
-	local quality = M.image_agents[name].quality
-	local style = M.image_agents[name].style
-	local size = M.image_agents[name].size
-	return { cmd_prefix = cmd_prefix, name = name, model = model, quality = quality, style = style, size = size }
-end
-
-M.cmd.Image = function(params)
-	local prompt = params.args
-	local agent = M.get_image_agent()
-	if prompt == "" then
-		vim.ui.input({ prompt = agent.cmd_prefix }, function(input)
-			prompt = input
-			if not prompt then
-				return
-			end
-			M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-		end)
-	else
-		M.generate_image(prompt, agent.model, agent.quality, agent.style, agent.size)
-	end
-end
-
-function M.generate_image(prompt, model, quality, style, size)
-	if not M.valid_api_key() then
-		return
-	end
-
-	local cmd = "curl"
-	local payload = {
-		model = model,
-		prompt = prompt,
-		n = 1,
-		size = size,
-		style = style,
-		quality = quality,
-	}
-	local args = {
-		"-s",
-		"-H",
-		"Content-Type: application/json",
-		"-H",
-		"Authorization: Bearer " .. M.config.api_key,
-		"-d",
-		vim.json.encode(payload),
-		"https://api.openai.com/v1/images/generations",
-	}
-
-	local qid = M._H.uuid()
-	M._queries[qid] = {
-		timestamp = os.time(),
-		payload = payload,
-		raw_response = "",
-		error = "",
-		url = "",
-		prompt = "",
-		save_path = "",
-		save_raw_response = "",
-		save_error = "",
-	}
-	local query = M._queries[qid]
-
-	M.spinner.start_spinner("Generating image...")
-
-	_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-		M.spinner.stop_spinner()
-		query.raw_response = stdout_data
-		query.error = stderr_data
-		if code ~= 0 then
-			M.error(
-				"Image generation exited: code: "
-					.. code
-					.. " signal: "
-					.. signal
-					.. " stdout: "
-					.. stdout_data
-					.. " stderr: "
-					.. stderr_data
-			)
-			return
-		end
-		local result = vim.json.decode(stdout_data)
-		query.parsed_response = vim.inspect(result)
-		if result and result.data and result.data[1] and result.data[1].url then
-			local image_url = result.data[1].url
-			query.url = image_url
-			-- query.prompt = result.data[1].prompt
-			vim.ui.input(
-				{ prompt = M.config.image_prompt_save, completion = "file", default = M.config.image_dir },
-				function(save_path)
-					if not save_path or save_path == "" then
-						M.info("Image URL: " .. image_url)
-						return
-					end
-					query.save_path = save_path
-					M.spinner.start_spinner("Saving image...")
-					_H.process(
-						nil,
-						"curl",
-						{ "-s", "-o", save_path, image_url },
-						function(save_code, save_signal, save_stdout_data, save_stderr_data)
-							M.spinner.stop_spinner()
-							query.save_raw_response = save_stdout_data
-							query.save_error = save_stderr_data
-							if save_code == 0 then
-								M.info("Image saved to: " .. save_path)
-							else
-								M.error(
-									"Failed to save image: path: "
-										.. save_path
-										.. " code: "
-										.. save_code
-										.. " signal: "
-										.. save_signal
-										.. " stderr: "
-										.. save_stderr_data
-								)
-							end
-						end
-					)
-				end
-			)
-		else
-			M.error("Image generation failed: " .. vim.inspect(stdout_data))
-		end
 	end)
 end
 
