@@ -1,7 +1,5 @@
--- Gp (GPT prompt) lua plugin for Neovim
--- https://github.com/Robitx/gp.nvim/
---
---
+-- The perplexity.ai API for Neovim
+-- https://github.com/frankroeder/pplx.nvim/
 
 --------------------------------------------------------------------------------
 -- Default config
@@ -27,13 +25,13 @@ local config = {
 	api_key = "",
 	api_endpoint = "https://api.perplexity.ai/chat/completions",
 	-- prefix for all commands
-	cmd_prefix = "GPT",
+	cmd_prefix = "PPLX",
 	-- optional curl parameters (for proxy, etc.)
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
 	-- directory for persisting state dynamically changed by user (like model or persona)
-	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
+	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/persisted",
 
 	agents = {
 		-- chat agents
@@ -134,7 +132,7 @@ local config = {
 	},
 
 	-- directory for storing chat files
-	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/chats",
+	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/chats",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
 	-- chat assistant prompt prefix (static string or a table {static, template})
@@ -157,14 +155,14 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
-	-- default search term when using :GpChatFinder
+	-- default search term when using :PplxChatFinder
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
 	-- use prompt buftype for chats (:h prompt-buffer)
 	chat_prompt_buf_type = false,
 
-	-- how to display GpChatToggle or GpContext: popup / split / vsplit / tabnew
+	-- how to display PplxChatToggle or PplxContext: popup / split / vsplit / tabnew
 	toggle_target = "vsplit",
 
 	-- styling for chatfinder
@@ -188,7 +186,7 @@ local config = {
 	style_popup_margin_top = 2,
 	style_popup_max_width = 160,
 
-	-- command config and templates bellow are used by commands like GpRewrite, GpEnew, etc.
+	-- command config and templates bellow are used by commands like PplxRewrite, PplxEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
 	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
@@ -223,19 +221,19 @@ local config = {
 			vim.api.nvim_win_set_buf(0, bufnr)
 		end,
 
-		-- GpImplement rewrites the provided selection/range based on comments in it
-		Implement = function(gp, params)
+		-- PplxImplement rewrites the provided selection/range based on comments in it
+		Implement = function(pplx, params)
 			local template = "Consider the following content from {{filename}}:\n\n"
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
 				.. "Please rewrite this according to the contained instructions."
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
-			local agent = gp.get_command_agent()
-			gp.info("Implementing selection with agent: " .. agent.name)
+			local agent = pplx.get_command_agent()
+			pplx.info("Implementing selection with agent: " .. agent.name)
 
-			gp.Prompt(
+			pplx.Prompt(
 				params,
-				gp.Target.rewrite,
+				pplx.Target.rewrite,
 				nil, -- command will run directly without any prompting for user input
 				agent.model,
 				template,

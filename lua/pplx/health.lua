@@ -1,31 +1,31 @@
 local M = {}
 
 function M.check()
-	vim.health.start("gp.nvim checks")
+	vim.health.start("pplx.nvim checks")
 
-	local ok, gp = pcall(require, "gp")
+	local ok, pplx = pcall(require, "pplx")
 	if not ok then
-		vim.health.error("require('gp') failed")
+		vim.health.error("require('pplx') failed")
 	else
-		vim.health.ok("require('gp') succeeded")
+		vim.health.ok("require('pplx') succeeded")
 
-		if gp._setup_called then
-			vim.health.ok("require('gp').setup() has been called")
+		if pplx._setup_called then
+			vim.health.ok("require('pplx').setup() has been called")
 		else
-			vim.health.error("require('gp').setup() has not been called")
+			vim.health.error("require('pplx').setup() has not been called")
 		end
 
 		---@diagnostic disable-next-line: undefined-field
-		local api_key = gp.config.api_key
+		local api_key = pplx.config.api_key
 
 		if type(api_key) == "table" then
 			vim.health.error(
-				"require('gp').setup({api_key: ???}) is still an unresolved command: " .. vim.inspect(api_key)
+				"require('pplx').setup({api_key: ???}) is still an unresolved command: " .. vim.inspect(api_key)
 			)
 		elseif api_key and string.match(api_key, "%S") then
 			vim.health.ok("config.api_key is set")
 		else
-			vim.health.error("require('gp').setup({api_key: ???}) is not set: " .. vim.inspect(api_key))
+			vim.health.error("require('pplx').setup({api_key: ???}) is not set: " .. vim.inspect(api_key))
 		end
 	end
 
@@ -47,9 +47,9 @@ function M.check()
 		vim.health.error("ln is not installed")
 	end
 
-	if #gp._deprecated > 0 then
+	if #pplx._deprecated > 0 then
 		local msg = "deprecated config option(s) in setup():"
-		for _, v in ipairs(gp._deprecated) do
+		for _, v in ipairs(pplx._deprecated) do
 			msg = msg .. "\n\n- " .. v.msg
 		end
 		vim.health.warn(msg)

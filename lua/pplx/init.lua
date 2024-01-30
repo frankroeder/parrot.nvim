@@ -1,14 +1,14 @@
--- Gp (GPT prompt) lua plugin for Neovim
--- https://github.com/Robitx/gp.nvim/
+-- The perplexity.ai API for Neovim
+-- https://github.com/frankroeder/pplx.nvim/
 
 --------------------------------------------------------------------------------
 -- Default config
 --------------------------------------------------------------------------------
 
-local config = require("gp.config")
-local utils = require("gp.utils")
+local config = require("pplx.config")
+local utils = require("pplx.utils")
 
-local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
+local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:PplxAgent XY`"
 local deprecated = {
 	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
 	command_model = "`command_model`\n" .. switch_to_agent,
@@ -27,7 +27,7 @@ local deprecated = {
 local _H = {}
 local M = {
 	_H = _H, -- helper functions
-	_Name = "Gp", -- plugin name
+	_Name = "pplx", -- plugin name
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
@@ -38,7 +38,7 @@ local M = {
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
-	spinner = require("gp.spinner"), -- spinner module
+	spinner = require("pplx.spinner"), -- spinner module
 }
 
 --------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -288,7 +288,7 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 		vim.api.nvim_win_set_config(win, o)
 	end
 
-	local pgid = opts.gid or utils.create_augroup("GpPopup", { clear = true })
+	local pgid = opts.gid or utils.create_augroup("PplxPopup", { clear = true })
 
 	-- cleanup on exit
 	local close = utils.once(function()
@@ -456,8 +456,8 @@ _H.find_git_root = function()
 	return ""
 end
 
--- tries to find an .gp.md file in the root of current git repo
----@return string # returns instructions from the .gp.md file
+-- tries to find an .pplx.md file in the root of current git repo
+---@return string # returns instructions from the .pplx.md file
 M.repo_instructions = function()
 	local git_root = _H.find_git_root()
 
@@ -465,7 +465,7 @@ M.repo_instructions = function()
 		return ""
 	end
 
-	local instruct_file = git_root .. "/.gp.md"
+	local instruct_file = git_root .. "/.pplx.md"
 
 	if vim.fn.filereadable(instruct_file) == 0 then
 		return ""
@@ -575,7 +575,7 @@ M.setup = function(opts)
 
 	if #M._deprecated > 0 then
 		local msg = "Hey there, I have good news and bad news for you.\n"
-			.. "\nThe good news is that you've updated gp.nvim and got some new features."
+			.. "\nThe good news is that you've updated pplx.nvim and got some new features."
 			.. "\nThe bad news is that some of the config options you are using are deprecated:"
 		table.sort(M._deprecated, function(a, b)
 			return a.msg < b.msg
@@ -586,8 +586,8 @@ M.setup = function(opts)
 		msg = msg
 			.. "\n\nThis is shown only at startup and deprecated options are ignored"
 			.. "\nso everything should work without problems and you can deal with this later."
-			.. "\n\nYou can check deprecated options any time with `:checkhealth gp`"
-			.. "\nSorry for the inconvenience and thank you for using gp.nvim."
+			.. "\n\nYou can check deprecated options any time with `:checkhealth pplx`"
+			.. "\nSorry for the inconvenience and thank you for using pplx.nvim."
 		M.info(msg)
 	end
 
@@ -674,7 +674,7 @@ M.setup = function(opts)
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
-		M.error("curl is not installed, run :checkhealth gp")
+		M.error("curl is not installed, run :checkhealth pplx")
 	end
 
 	if type(M.config.api_key) == "table" then
@@ -726,7 +726,7 @@ M.valid_api_key = function()
 		return true
 	end
 
-	M.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth gp")
+	M.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
 	return false
 end
 
@@ -1040,10 +1040,10 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local finished_lines = 0
 	local skip_first_undojoin = not first_undojoin
 
-	local hl_handler_group = "GpHandlerStandout"
+	local hl_handler_group = "PplxHandlerStandout"
 	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
 
-	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. utils.uuid())
+	local ns_id = vim.api.nvim_create_namespace("PplxHandler_" .. utils.uuid())
 
 	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
 		strict = false,
@@ -1304,7 +1304,7 @@ M.prep_chat = function(buf, file_name)
 end
 
 M.prep_context = function(buf, file_name)
-	if not utils.ends_with(file_name, ".gp.md") then
+	if not utils.ends_with(file_name, ".pplx.md") then
 		return
 	end
 
@@ -1316,7 +1316,7 @@ M.prep_context = function(buf, file_name)
 end
 
 M.buf_handler = function()
-	local gid = utils.create_augroup("GpBufHandler", { clear = true })
+	local gid = utils.create_augroup("PplxBufHandler", { clear = true })
 
 	utils.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
@@ -1662,7 +1662,7 @@ M.chat_respond = function(params)
 	end
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -1867,7 +1867,7 @@ M.chat_respond = function(params)
 				local line = vim.api.nvim_buf_line_count(buf)
 				utils.cursor_to_line(line, buf, win)
 			end
-			vim.cmd("doautocmd User GpDone")
+			vim.cmd("doautocmd User PplxDone")
 		end)
 	)
 end
@@ -1911,7 +1911,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gid = utils.create_augroup("GpChatFinder", { clear = true })
+	local gid = utils.create_augroup("PplxChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -1958,9 +1958,9 @@ M.cmd.ChatFinder = function()
 	-- set initial content of command buffer
 	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
 
-	local hl_search_group = "GpExplorerSearch"
+	local hl_search_group = "PplxExplorerSearch"
 	vim.cmd("highlight default link " .. hl_search_group .. " Search ")
-	local hl_cursorline_group = "GpExplorerCursorLine"
+	local hl_cursorline_group = "PplxExplorerCursorLine"
 	vim.cmd("highlight default " .. hl_cursorline_group .. " gui=standout cterm=standout")
 
 	local picker_pos_id = 0
@@ -2303,7 +2303,7 @@ M.cmd.Context = function(params)
 	local cbuf = vim.api.nvim_get_current_buf()
 
 	local file_name = ""
-	local buf = _H.get_buffer(".gp.md")
+	local buf = _H.get_buffer(".pplx.md")
 	if buf then
 		file_name = vim.api.nvim_buf_get_name(buf)
 	else
@@ -2312,7 +2312,7 @@ M.cmd.Context = function(params)
 			M.warning("Not in a git repository")
 			return
 		end
-		file_name = git_root .. "/.gp.md"
+		file_name = git_root .. "/.pplx.md"
 	end
 
 	if vim.fn.filereadable(file_name) ~= 1 then
@@ -2346,7 +2346,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		M.warning("Another Gp process is already running for this buffer.")
+		M.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -2579,7 +2579,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 			buf = vim.api.nvim_create_buf(true, true)
 			vim.api.nvim_set_current_buf(buf)
 
-			local group = utils.create_augroup("GpScratchSave" .. utils.uuid(), { clear = true })
+			local group = utils.create_augroup("PplxScratchSave" .. utils.uuid(), { clear = true })
 			vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 				buffer = buf,
 				group = group,
@@ -2605,7 +2605,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
-				vim.cmd("doautocmd User GpDone")
+				vim.cmd("doautocmd User PplxDone")
 			end)
 		)
 	end
