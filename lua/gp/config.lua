@@ -17,22 +17,11 @@ local system_chat_prompt = "You are a versatile AI assistant with capabilities\n
 	.. "- Apply the Socratic method to enhance understanding.\n"
 	.. "- Include all necessary code in your responses."
 	.. "- Stay calm and confident with each task.\n"
--- local system_chat_prompt = "You are a general AI assistant.\n\n"
--- 				.. "The user provided the additional info about how they would like you to respond:\n\n"
--- 				.. "- If you're unsure don't guess and say you don't know instead.\n"
--- 				.. "- Ask question if you need clarification to provide better answer.\n"
--- 				.. "- Think deeply and carefully from first principles step by step.\n"
--- 				.. "- Zoom out first to see the big picture and then zoom in to details.\n"
--- 				.. "- Use Socratic method to improve your thinking and coding skills.\n"
--- 				.. "- Don't elide any code from your output if the answer requires coding.\n"
--- 				.. "- Take a deep breath; You've got this!\n"
+
 local system_code_prompt = "You are an AI specializing in software development"
 	.. "tasks, including code editing, completion, and debugging. Your"
 	.. "responses should strictly pertain to the code provided. Please"
 	.. "ensure that your reply is solely focused on the code snippet in question.\n\n"
--- "You are an AI working as a code editor.\n\n"
--- 				.. "Please AVOID COMMENTARY OUTSIDE OF THE SNIPPET RESPONSE.\n"
--- 				.. "START AND END YOUR ANSWER WITH:\n\n```"
 
 local config = {
 	api_key = "",
@@ -46,11 +35,6 @@ local config = {
 	-- directory for persisting state dynamically changed by user (like model or persona)
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/gp/persisted",
 
-	-- default command agents (model + persona)
-	-- name, model and system_prompt are mandatory fields
-	-- to use agent for chat set chat = true, for command set command = true
-	-- to remove some default agent completely set it just with the name like:
-	-- agents = {  { name = "ChatGPT4" }, ... },
 	agents = {
 		-- chat agents
 		chat = {
@@ -75,7 +59,7 @@ local config = {
 				system_prompt = system_chat_prompt,
 			},
 			{
-				name = "Llama-70b",
+				name = "Llama2-70b",
 				model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 			},
@@ -85,13 +69,18 @@ local config = {
 				system_prompt = system_chat_prompt,
 			},
 			{
+				name = "CodeLlama-70b",
+				model = { model = "codellama-70b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+			},
+			{
 				name = "Mistral-7b",
 				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 			},
 			{
 				name = "Mistral-8x7b",
-				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
+				model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 			},
 		},
@@ -117,7 +106,7 @@ local config = {
 				system_prompt = system_code_prompt,
 			},
 			{
-				name = "Llama-70b",
+				name = "Llama2-70b",
 				model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 			},
@@ -127,13 +116,18 @@ local config = {
 				system_prompt = system_code_prompt,
 			},
 			{
+				name = "CodeLlama-70b",
+				model = { model = "codellama-70b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+			},
+			{
 				name = "Mistral-7b",
 				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 			},
 			{
 				name = "Mistral-8x7b",
-				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+				model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 			},
 		},
@@ -231,7 +225,7 @@ local config = {
 
 		-- GpImplement rewrites the provided selection/range based on comments in it
 		Implement = function(gp, params)
-			local template = "Having following from {{filename}}:\n\n"
+			local template = "Consider the following content from {{filename}}:\n\n"
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
 				.. "Please rewrite this according to the contained instructions."
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."

@@ -6,6 +6,7 @@
 --------------------------------------------------------------------------------
 
 local config = require("gp.config")
+local utils = require("gp.utils")
 
 local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:GpAgent XY`"
 local deprecated = {
@@ -43,113 +44,17 @@ local M = {
 --------------------------------------------------------------------------------
 -- Generic helper functions
 --------------------------------------------------------------------------------
-
----@param fn function # function to wrap so it only gets called once
-_H.once = function(fn)
-	local once = false
-	return function(...)
-		if once then
-			return
-		end
-		once = true
-		fn(...)
-	end
-end
-
----@param keys string # string of keystrokes
----@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
-_H.feedkeys = function(keys, mode)
-	mode = mode or "n"
-	keys = vim.api.nvim_replace_termcodes(keys, true, false, true)
-	vim.api.nvim_feedkeys(keys, mode, true)
-end
-
----@param buffers table # table of buffers
----@param mode table | string # mode(s) to set keymap for
----@param key string # shortcut key
----@param callback function | string # callback or string to set keymap
----@param desc string | nil # optional description for keymap
-_H.set_keymap = function(buffers, mode, key, callback, desc)
-	for _, buf in ipairs(buffers) do
-		vim.keymap.set(mode, key, callback, {
-			noremap = true,
-			silent = true,
-			nowait = true,
-			buffer = buf,
-			desc = desc,
-		})
-	end
-end
-
----@param events string | table # events to listen to
----@param buffers table | nil # buffers to listen to (nil for all buffers)
----@param callback function # callback to call
----@param gid number # augroup id
-_H.autocmd = function(events, buffers, callback, gid)
-	if buffers then
-		for _, buf in ipairs(buffers) do
-			vim.api.nvim_create_autocmd(events, {
-				group = gid,
-				buffer = buf,
-				callback = vim.schedule_wrap(callback),
-			})
-		end
-	else
-		vim.api.nvim_create_autocmd(events, {
-			group = gid,
-			callback = vim.schedule_wrap(callback),
-		})
-	end
-end
-
----@param file_name string # name of the file for which to delete buffers
-_H.delete_buffer = function(file_name)
-	-- iterate over buffer list and close all buffers with the same name
-	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == file_name then
-			vim.api.nvim_buf_delete(b, { force = true })
-		end
-	end
-end
-
----@param file string | nil # name of the file to delete
-_H.delete_file = function(file)
-	if file == nil then
-		return
-	end
-	M._H.delete_buffer(file)
-	os.remove(file)
-end
-
 ---@param file_name string # name of the file for which to get buffer
 ---@return number | nil # buffer number
 _H.get_buffer = function(file_name)
 	for _, b in ipairs(vim.api.nvim_list_bufs()) do
 		if vim.api.nvim_buf_is_valid(b) then
-			if _H.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
+			if utils.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
 				return b
 			end
 		end
 	end
 	return nil
-end
-
----@return string # returns unique uuid
-_H.uuid = function()
-	local random = math.random
-	local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
-	local result = string.gsub(template, "[xy]", function(c)
-		local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
-		return string.format("%x", v)
-	end)
-	return result
-end
-
----@param name string # name of the augroup
----@param opts table | nil # options for the augroup
----@return number # returns augroup id
-_H.create_augroup = function(name, opts)
-	return vim.api.nvim_create_augroup(name .. "_" .. _H.uuid(), opts or { clear = true })
 end
 
 -- stop receiving gpt responses for all processes and clean the handles
@@ -234,7 +139,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 		return
 	end
 
-	local on_exit = _H.once(vim.schedule_wrap(function(code, signal)
+	local on_exit = utils.once(vim.schedule_wrap(function(code, signal)
 		stdout:read_stop()
 		stderr:read_stop()
 		stdout:close()
@@ -383,10 +288,10 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 		vim.api.nvim_win_set_config(win, o)
 	end
 
-	local pgid = opts.gid or M._H.create_augroup("GpPopup", { clear = true })
+	local pgid = opts.gid or utils.create_augroup("GpPopup", { clear = true })
 
 	-- cleanup on exit
-	local close = _H.once(function()
+	local close = utils.once(function()
 		vim.schedule(function()
 			-- delete only internal augroups
 			if not opts.gid then
@@ -405,15 +310,15 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 	end)
 
 	-- resize on vim resize
-	_H.autocmd("VimResized", { buf }, resize, pgid)
+	utils.autocmd("VimResized", { buf }, resize, pgid)
 
 	-- cleanup on buffer exit
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
+	utils.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
 
 	-- optional cleanup on buffer leave
 	if opts.on_leave then
 		-- close when entering non-popup buffer
-		_H.autocmd({ "BufEnter" }, nil, function(event)
+		utils.autocmd({ "BufEnter" }, nil, function(event)
 			local b = event.buf
 			if b ~= buf then
 				close()
@@ -427,34 +332,12 @@ _H.create_popup = function(buf, title, size_func, opts, style)
 
 	-- cleanup on escape exit
 	if opts.escape then
-		_H.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
-		_H.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
+		utils.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
+		utils.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
 	end
 
 	resize()
 	return buf, win, close, resize
-end
-
----@param buf number # buffer number
----@return number # returns the first line with content of specified buffer
-_H.last_content_line = function(buf)
-	buf = buf or vim.api.nvim_get_current_buf()
-	-- go from end and return number of last nonwhitespace line
-	local line = vim.api.nvim_buf_line_count(buf)
-	while line > 0 do
-		local content = vim.api.nvim_buf_get_lines(buf, line - 1, line, false)[1]
-		if content:match("%S") then
-			return line
-		end
-		line = line - 1
-	end
-	return 0
-end
-
----@param buf number # buffer number
----@return string # returns filetype of specified buffer
-_H.get_filetype = function(buf)
-	return vim.api.nvim_buf_get_option(buf, "filetype")
 end
 
 -- returns rendered template with specified key replaced by value
@@ -490,36 +373,6 @@ _H.template_render = function(template, key_value_pairs)
 	end
 
 	return template
-end
-
----@param line number # line number
----@param buf number # buffer number
----@param win number | nil # window number
-_H.cursor_to_line = function(line, buf, win)
-	-- don't manipulate cursor if user is elsewhere
-	if buf ~= vim.api.nvim_get_current_buf() then
-		return
-	end
-
-	-- check if win is valid
-	if not win or not vim.api.nvim_win_is_valid(win) then
-		return
-	end
-
-	-- move cursor to the line
-	vim.api.nvim_win_set_cursor(win, { line, 0 })
-end
-
----@param str string # string to check
----@param start string # string to check for
-_H.starts_with = function(str, start)
-	return str:sub(1, #start) == start
-end
-
----@param str string # string to check
----@param ending string # string to check for
-_H.ends_with = function(str, ending)
-	return ending == "" or str:sub(-#ending) == ending
 end
 
 --------------------------------------------------------------------------------
@@ -640,7 +493,7 @@ M.append_selection = function(params, origin_buf, target_buf)
 	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
 	local selection = table.concat(lines, "\n")
 	if selection ~= "" then
-		local filetype = M._H.get_filetype(origin_buf)
+		local filetype = utils.get_filetype(origin_buf)
 		local fname = vim.api.nvim_buf_get_name(origin_buf)
 		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
 		if rendered then
@@ -649,7 +502,7 @@ M.append_selection = function(params, origin_buf, target_buf)
 	end
 
 	-- delete whitespace lines at the end of the file
-	local last_content_line = M._H.last_content_line(target_buf)
+	local last_content_line = utils.last_content_line(target_buf)
 	vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
 
 	-- insert selection lines
@@ -744,9 +597,6 @@ M.setup = function(opts)
 			local dir = v:gsub("/$", "")
 			M.config[k] = dir
 			if vim.fn.isdirectory(dir) == 0 then
-				if k ~= "whisper_dir" and k ~= "image_dir" then
-					M.info("creating directory " .. dir)
-				end
 				vim.fn.mkdir(dir, "p")
 			end
 		end
@@ -947,7 +797,7 @@ M.prepare_commands = function()
 			agent = M.get_chat_agent()
 		end
 
-		local cmd = function(params, whisper)
+		local cmd = function(params)
 			-- template is chosen dynamically based on mode in which the command is called
 			local template = M.config.template_command
 			if params.range == 2 then
@@ -963,7 +813,7 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt, whisper)
+			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt)
 		end
 
 		M.cmd[command] = function(params)
@@ -1062,7 +912,7 @@ M.query = function(buf, payload, handler, on_exit)
 		return
 	end
 
-	local qid = M._H.uuid()
+	local qid = utils.uuid()
 	M._queries[qid] = {
 		timestamp = os.time(),
 		buf = buf,
@@ -1193,7 +1043,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local hl_handler_group = "GpHandlerStandout"
 	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
 
-	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. M._H.uuid())
+	local ns_id = vim.api.nvim_create_namespace("GpHandler_" .. utils.uuid())
 
 	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
 		strict = false,
@@ -1266,7 +1116,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 
 		-- move cursor to the end of the response
 		if cursor then
-			M._H.cursor_to_line(end_line, buf, win)
+			utils.cursor_to_line(end_line, buf, win)
 		end
 	end)
 end
@@ -1357,11 +1207,11 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	M._H.feedkeys("<esc>", "x")
+	utils.feedkeys("<esc>", "x")
 end
 
 M.is_chat = function(buf, file_name)
-	if not _H.starts_with(file_name, M.config.chat_dir) then
+	if not utils.starts_with(file_name, M.config.chat_dir) then
 		return false
 	end
 
@@ -1418,23 +1268,23 @@ M.prep_chat = function(buf, file_name)
 		local cmd = M.config.cmd_prefix .. rc.command .. "<cr>"
 		for _, mode in ipairs(rc.modes) do
 			if mode == "n" or mode == "i" then
-				_H.set_keymap({ buf }, mode, rc.shortcut, function()
+				utils.set_keymap({ buf }, mode, rc.shortcut, function()
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					M._H.feedkeys("<esc>", "x")
+					utils.feedkeys("<esc>", "x")
 				end, rc.comment)
 			else
-				_H.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+				utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
 			end
 		end
 	end
 
 	local ds = M.config.chat_shortcut_delete
-	_H.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+	utils.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
 
 	local ss = M.config.chat_shortcut_stop
-	_H.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
+	utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
 
 	-- conceal parameters in model header so it's not distracting
 	if M.config.chat_conceal_model_params then
@@ -1454,7 +1304,7 @@ M.prep_chat = function(buf, file_name)
 end
 
 M.prep_context = function(buf, file_name)
-	if not _H.ends_with(file_name, ".gp.md") then
+	if not utils.ends_with(file_name, ".gp.md") then
 		return
 	end
 
@@ -1466,9 +1316,9 @@ M.prep_context = function(buf, file_name)
 end
 
 M.buf_handler = function()
-	local gid = M._H.create_augroup("GpBufHandler", { clear = true })
+	local gid = utils.create_augroup("GpBufHandler", { clear = true })
 
-	_H.autocmd({ "BufEnter" }, nil, function(event)
+	utils.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
 
 		if not vim.api.nvim_buf_is_valid(buf) then
@@ -1560,11 +1410,11 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent file " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			M._H.feedkeys("ggG", "x")
+			utils.feedkeys("ggG", "x")
 		end
 
 		-- delete whitespace lines at the end of the file
-		local last_content_line = M._H.last_content_line(buf)
+		local last_content_line = utils.last_content_line(buf)
 		vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
@@ -1689,7 +1539,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	if params.range == 2 then
 		M.append_selection(params, cbuf, buf)
 	end
-	M._H.feedkeys("G", "x")
+	utils.feedkeys("G", "x")
 	return buf
 end
 
@@ -1775,7 +1625,7 @@ M.cmd.ChatPaste = function(params)
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	M.append_selection(params, cbuf, buf)
-	M._H.feedkeys("G", "x")
+	utils.feedkeys("G", "x")
 end
 
 M.cmd.ChatDelete = function()
@@ -1784,21 +1634,21 @@ M.cmd.ChatDelete = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 
 	-- check if file is in the chat dir
-	if not _H.starts_with(file_name, M.config.chat_dir) then
+	if not utils.starts_with(file_name, M.config.chat_dir) then
 		M.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
 	-- delete without confirmation
 	if not M.config.chat_confirm_delete then
-		M._H.delete_file(file_name)
+		utils.delete_file(file_name)
 		return
 	end
 
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			M._H.delete_file(file_name)
+			utils.delete_file(file_name)
 		end
 	end)
 end
@@ -1936,7 +1786,7 @@ M.chat_respond = function(params)
 	end
 
 	-- write assistant prompt
-	local last_content_line = M._H.last_content_line(buf)
+	local last_content_line = utils.last_content_line(buf)
 	vim.api.nvim_buf_set_lines(
 		buf,
 		last_content_line,
@@ -1949,7 +1799,7 @@ M.chat_respond = function(params)
 	M.query(
 		buf,
 		M.prepare_payload(messages, headers.model, agent.model),
-		M.create_handler(buf, win, M._H.last_content_line(buf), true, "", not M.config.chat_free_cursor),
+		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
 			if not qt then
@@ -1957,7 +1807,7 @@ M.chat_respond = function(params)
 			end
 
 			-- write user prompt
-			last_content_line = M._H.last_content_line(buf)
+			last_content_line = utils.last_content_line(buf)
 			M._H.undojoin(buf)
 			vim.api.nvim_buf_set_lines(
 				buf,
@@ -1968,7 +1818,7 @@ M.chat_respond = function(params)
 			)
 
 			-- delete whitespace lines at the end of the file
-			last_content_line = M._H.last_content_line(buf)
+			last_content_line = utils.last_content_line(buf)
 			M._H.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 			-- insert a new line at the end of the file
@@ -2015,7 +1865,7 @@ M.chat_respond = function(params)
 			end
 			if not M.config.chat_free_cursor then
 				local line = vim.api.nvim_buf_line_count(buf)
-				M._H.cursor_to_line(line, buf, win)
+				utils.cursor_to_line(line, buf, win)
 			end
 			vim.cmd("doautocmd User GpDone")
 		end)
@@ -2061,7 +1911,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gid = M._H.create_augroup("GpChatFinder", { clear = true })
+	local gid = utils.create_augroup("GpChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -2119,7 +1969,7 @@ M.cmd.ChatFinder = function()
 	local regex = ""
 
 	-- clean up augroup and popup buffers/windows
-	local close = _H.once(function()
+	local close = utils.once(function()
 		vim.api.nvim_del_augroup_by_id(gid)
 		picker_close()
 		preview_close()
@@ -2223,44 +2073,44 @@ M.cmd.ChatFinder = function()
 	vim.api.nvim_command("startinsert!")
 
 	-- resize on VimResized
-	_H.autocmd({ "VimResized" }, nil, resize, gid)
+	utils.autocmd({ "VimResized" }, nil, resize, gid)
 
 	-- moving cursor on picker window will update preview window
-	_H.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
+	utils.autocmd({ "CursorMoved", "CursorMovedI" }, { picker_buf }, function()
 		vim.api.nvim_command("stopinsert")
 		refresh()
 	end, gid)
 
 	-- InsertEnter on picker or preview window will go to command window
-	_H.autocmd({ "InsertEnter" }, { picker_buf, preview_buf }, function()
+	utils.autocmd({ "InsertEnter" }, { picker_buf, preview_buf }, function()
 		vim.api.nvim_set_current_win(command_win)
 		vim.api.nvim_command("startinsert!")
 	end, gid)
 
 	-- InsertLeave on command window will go to picker window
-	_H.autocmd({ "InsertLeave" }, { command_buf }, function()
+	utils.autocmd({ "InsertLeave" }, { command_buf }, function()
 		vim.api.nvim_set_current_win(picker_win)
 		vim.api.nvim_command("stopinsert")
 	end, gid)
 
 	-- when preview becomes active call some function
-	_H.autocmd({ "WinEnter" }, { preview_buf }, function()
+	utils.autocmd({ "WinEnter" }, { preview_buf }, function()
 		-- go to normal mode
 		vim.api.nvim_command("stopinsert")
 	end, gid)
 
 	-- when command buffer is written, execute it
-	_H.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
+	utils.autocmd({ "TextChanged", "TextChangedI", "TextChangedP", "TextChangedT" }, { command_buf }, function()
 		vim.api.nvim_win_set_cursor(picker_win, { 1, 0 })
 		refresh_picker()
 	end, gid)
 
 	-- close on buffer delete
-	_H.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { picker_buf, preview_buf, command_buf }, close, gid)
+	utils.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { picker_buf, preview_buf, command_buf }, close, gid)
 
 	-- close by escape key on any window
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, "n", "<esc>", close)
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n" }, "<C-c>", close)
 
 	---@param target number
 	---@param toggle boolean
@@ -2278,32 +2128,32 @@ M.cmd.ChatFinder = function()
 	end
 
 	-- enter on picker window will open file
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
 		open_chat(M.BufTarget.popup, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
 		open_chat(M.BufTarget.split, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
 		open_chat(M.BufTarget.vsplit, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
 		open_chat(M.BufTarget.tabnew, false)
 	end)
-	_H.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
+	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
 		local target = M.resolve_buf_target(M.config.toggle_target)
 		open_chat(target, true)
 	end)
 
 	-- -- enter on preview window will go to picker window
-	-- _H.set_keymap({ command_buf }, "i", "<cr>", function()
+	-- utils.set_keymap({ command_buf }, "i", "<cr>", function()
 	-- 	vim.api.nvim_set_current_win(picker_win)
 	-- 	vim.api.nvim_command("stopinsert")
 	-- end)
 
 	-- tab in command window will cycle through lines in picker window
-	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
+	utils.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local next_index = index + 1
 		if next_index > #picker_files then
@@ -2314,7 +2164,7 @@ M.cmd.ChatFinder = function()
 	end)
 
 	-- shift-tab in command window will cycle through lines in picker window
-	_H.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<s-tab>", function()
+	utils.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<s-tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local next_index = index - 1
 		if next_index < 1 then
@@ -2325,13 +2175,13 @@ M.cmd.ChatFinder = function()
 	end)
 
 	-- dd on picker or preview window will delete file
-	_H.set_keymap({ picker_buf, preview_buf }, "n", "dd", function()
+	utils.set_keymap({ picker_buf, preview_buf }, "n", "dd", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
 		local file = picker_files[index]
 
 		-- delete without confirmation
 		if not M.config.chat_confirm_delete then
-			M._H.delete_file(file)
+			utils.delete_file(file)
 			refresh_picker()
 			return
 		end
@@ -2339,7 +2189,7 @@ M.cmd.ChatFinder = function()
 		-- ask for confirmation
 		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
 			if input and input:lower() == "y" then
-				M._H.delete_file(file)
+				utils.delete_file(file)
 				refresh_picker()
 			end
 		end)
@@ -2480,10 +2330,10 @@ M.cmd.Context = function(params)
 		M.append_selection(params, cbuf, buf)
 	end
 
-	M._H.feedkeys("G", "x")
+	utils.feedkeys("G", "x")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, whisper)
+M.Prompt = function(params, target, prompt, model, template, system_template)
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -2642,7 +2492,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 
 		-- prepare messages
 		local messages = {}
-		local filetype = M._H.get_filetype(buf)
+		local filetype = utils.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
 		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
@@ -2658,7 +2508,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		M._H.feedkeys("<esc>", "x")
+		utils.feedkeys("<esc>", "x")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then
@@ -2729,7 +2579,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, wh
 			buf = vim.api.nvim_create_buf(true, true)
 			vim.api.nvim_set_current_buf(buf)
 
-			local group = M._H.create_augroup("GpScratchSave" .. _H.uuid(), { clear = true })
+			local group = utils.create_augroup("GpScratchSave" .. utils.uuid(), { clear = true })
 			vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 				buffer = buf,
 				group = group,
