@@ -6,6 +6,10 @@ The ultimate LLM plugin to support your text editing through the perplexity.ai [
 I started this repository because a perplexity subscription provides $5 of API credits every month for free.
 Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https://github.com/Robitx/gp.nvim) for my needs - a new Neovim plugin is born 🔥.
 
+<div align="left">
+    <img src="https://github.com/frankroeder/pplx.nvim/assets/19746932/617ff685-ee41-48fe-ac9c-4645cfe587be" width="100%">
+</div>
+
 ## Getting Started
 ### Setup
 #### lazy.nvim
