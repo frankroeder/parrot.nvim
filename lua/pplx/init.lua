@@ -795,23 +795,19 @@ M.query = function(buf, payload, handler, on_exit)
 		---@param lines_chunk string
 		local function process_lines(lines_chunk)
 			local qt = M.get_query(qid)
-      print("PROCESS LINE", vim.inspect(qt))
 			if not qt then
 				return
 			end
 
 			local lines = vim.split(lines_chunk, "\n")
-      print("PROCESS LINES", vim.inspect(lines))
 			for _, line in ipairs(lines) do
 				if line ~= "" and line ~= nil then
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-				print("CONTENT", vim.inspect(line))
 				if line:match("chat%.completion%.chunk") then
 					line = vim.json.decode(line)
 					local content = line.choices[1].delta.content
-					print("CONTENT", vim.inspect(content))
 					if content ~= nil then
 						qt.response = qt.response .. content
 						handler(qid, content)
@@ -823,7 +819,6 @@ M.query = function(buf, payload, handler, on_exit)
 		-- closure for vim.loop.read_start(stdout, fn)
 		return function(err, chunk)
 			local qt = M.get_query(qid)
-      print("RESPONSE", vim.inspect(qt))
 			if not qt then
 				return
 			end
