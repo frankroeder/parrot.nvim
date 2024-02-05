@@ -1067,7 +1067,7 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	utils.feedkeys("<esc>", "x")
+	utils.feedkeys("<esc>", "xn")
 end
 
 M.is_chat = function(buf, file_name)
@@ -1132,7 +1132,7 @@ M.prep_chat = function(buf, file_name)
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					utils.feedkeys("<esc>", "x")
+					utils.feedkeys("<esc>", "xn")
 				end, rc.comment)
 			else
 				utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
@@ -1270,7 +1270,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent file " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			utils.feedkeys("ggG", "x")
+			utils.feedkeys("ggG", "xn")
 		end
 
 		-- delete whitespace lines at the end of the file
@@ -1399,7 +1399,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	if params.range == 2 then
 		M.append_selection(params, cbuf, buf)
 	end
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 	return buf
 end
 
@@ -1485,7 +1485,7 @@ M.cmd.ChatPaste = function(params)
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	M.append_selection(params, cbuf, buf)
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()
@@ -2189,7 +2189,7 @@ M.cmd.Context = function(params)
 		M.append_selection(params, cbuf, buf)
 	end
 
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 end
 
 M.Prompt = function(params, target, prompt, model, template, system_template)
@@ -2367,7 +2367,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		utils.feedkeys("<esc>", "x")
+		utils.feedkeys("<esc>", "xn")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then

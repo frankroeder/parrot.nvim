@@ -86,7 +86,7 @@ local config = {
 			{
 				name = "Perplexity-7b",
 				model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
-				system_prompt = system_chat_prompt,
+				system_prompt = system_code_prompt,
 			},
 			{
 				name = "Perplexity-70b",
