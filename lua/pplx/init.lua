@@ -679,14 +679,6 @@ M.prepare_commands = function()
 		M.cmd[command] = function(params)
 			cmd(params)
 		end
-
-		-- M.cmd["Whisper" .. command] = function(params)
-		-- 	M.Whisper(function(text)
-		-- 		vim.schedule(function()
-		-- 			cmd(params, text)
-		-- 		end)
-		-- 	end)
-		-- end
 	end
 end
 
