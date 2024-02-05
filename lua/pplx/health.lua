@@ -15,9 +15,7 @@ function M.check()
 			vim.health.error("require('pplx').setup() has not been called")
 		end
 
-		---@diagnostic disable-next-line: undefined-field
 		local api_key = pplx.config.api_key
-
 		if type(api_key) == "table" then
 			vim.health.error(
 				"require('pplx').setup({api_key: ???}) is still an unresolved command: " .. vim.inspect(api_key)
@@ -45,16 +43,6 @@ function M.check()
 		vim.health.ok("ln is installed")
 	else
 		vim.health.error("ln is not installed")
-	end
-
-	if #pplx._deprecated > 0 then
-		local msg = "deprecated config option(s) in setup():"
-		for _, v in ipairs(pplx._deprecated) do
-			msg = msg .. "\n\n- " .. v.msg
-		end
-		vim.health.warn(msg)
-	else
-		vim.health.ok("no deprecated config options")
 	end
 end
 

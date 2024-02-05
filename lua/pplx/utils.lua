@@ -117,7 +117,6 @@ M.last_content_line = function(buf)
 	return 0
 end
 
-
 -- returns rendered template with specified key replaced by value
 M.template_replace = function(template, key, value)
 	if template == nil then
@@ -181,6 +180,80 @@ end
 ---@param ending string # string to check for
 M.ends_with = function(str, ending)
 	return ending == "" or str:sub(-#ending) == ending
+end
+
+-- helper function to find the root directory of the current git repository
+---@return string # returns the path of the git root dir or an empty string if not found
+M.find_git_root = function()
+	local cwd = vim.fn.expand("%:p:h")
+	while cwd ~= "/" do
+		local files = vim.fn.readdir(cwd)
+		if vim.tbl_contains(files, ".git") then
+			return cwd
+		end
+		cwd = vim.fn.fnamemodify(cwd, ":h")
+	end
+	return ""
+end
+
+-- tries to find an .pplx.md file in the root of current git repo
+---@return string # returns instructions from the .pplx.md file
+M.find_repo_instructions = function()
+	local git_root = M.find_git_root()
+
+	if git_root == "" then
+		return ""
+	end
+
+	local instruct_file = git_root .. "/.pplx.md"
+
+	if vim.fn.filereadable(instruct_file) == 0 then
+		return ""
+	end
+
+	local lines = vim.fn.readfile(instruct_file)
+	return table.concat(lines, "\n")
+end
+
+---@param tbl table # the table to be stored
+---@param file_path string # the file path where the table will be stored as json
+M.table_to_file = function(tbl, file_path)
+	local json = vim.json.encode(tbl)
+
+	local file = io.open(file_path, "w")
+	if not file then
+		M.warning("Failed to open file for writing: " .. file_path)
+		return
+	end
+	file:write(json)
+	file:close()
+end
+
+---@param file_name string # name of the file for which to get buffer
+---@return number | nil # buffer number
+M.get_buffer = function(file_name)
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(b) then
+			if M.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
+				return b
+			end
+		end
+	end
+	return nil
+end
+
+---@param buf number # buffer number
+M.undojoin = function(buf)
+	if not buf or not vim.api.nvim_buf_is_loaded(buf) then
+		return
+	end
+	local status, result = pcall(vim.cmd.undojoin)
+	if not status then
+		if result:match("E790") then
+			return
+		end
+		M.error("Error running undojoin: " .. vim.inspect(result))
+	end
 end
 
 return M

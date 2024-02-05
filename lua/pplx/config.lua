@@ -25,7 +25,7 @@ local config = {
 	api_key = "",
 	api_endpoint = "https://api.perplexity.ai/chat/completions",
 	-- prefix for all commands
-	cmd_prefix = "PPLX",
+	cmd_prefix = "Pplx",
 	-- optional curl parameters (for proxy, etc.)
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
@@ -198,13 +198,16 @@ local config = {
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
 	template_rewrite = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the selection above.",
+		.. "\n\nRespond exclusively with the snippet that should replace the selection above."
+		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
 	template_append = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above.",
+		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above."
+		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
 	template_prepend = "I have the following from {{filename}}:"
 		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above.",
+		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above."
+		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
 	template_command = "{{command}}",
 
 	-- example hook functions (see Extend functionality section in the README)
@@ -220,7 +223,6 @@ local config = {
 			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 			vim.api.nvim_win_set_buf(0, bufnr)
 		end,
-
 		-- PplxImplement rewrites the provided selection/range based on comments in it
 		Implement = function(pplx, params)
 			local template = "Consider the following content from {{filename}}:\n\n"

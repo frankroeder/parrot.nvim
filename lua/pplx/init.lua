@@ -1,28 +1,8 @@
 -- The perplexity.ai API for Neovim
 -- https://github.com/frankroeder/pplx.nvim/
 
---------------------------------------------------------------------------------
--- Default config
---------------------------------------------------------------------------------
-
 local config = require("pplx.config")
 local utils = require("pplx.utils")
-
-local switch_to_agent = "Please use `agents` table and switch agents in runtime via `:PplxAgent XY`"
-local deprecated = {
-	chat_toggle_target = "`chat_toggle_target`\nPlease rename it to `toggle_target` which is also used by other commands",
-	command_model = "`command_model`\n" .. switch_to_agent,
-	command_system_prompt = "`command_system_prompt`\n" .. switch_to_agent,
-	chat_custom_instructions = "`chat_custom_instructions`\n" .. switch_to_agent,
-	chat_model = "`chat_model`\n" .. switch_to_agent,
-	chat_system_prompt = "`chat_system_prompt`\n" .. switch_to_agent,
-	command_prompt_prefix = "`command_prompt_prefix`\nPlease use `command_prompt_prefix_template`"
-		.. " with support for \n`{{agent}}` variable so you know which agent is currently active",
-}
-
---------------------------------------------------------------------------------
--- Module structure
---------------------------------------------------------------------------------
 
 local _H = {}
 local M = {
@@ -41,21 +21,12 @@ local M = {
 	spinner = require("pplx.spinner"), -- spinner module
 }
 
+local logger = require("pplx.logger")
+logger._Name = M._Name
+
 --------------------------------------------------------------------------------
 -- Generic helper functions
 --------------------------------------------------------------------------------
----@param file_name string # name of the file for which to get buffer
----@return number | nil # buffer number
-_H.get_buffer = function(file_name)
-	for _, b in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(b) then
-			if utils.ends_with(vim.api.nvim_buf_get_name(b), file_name) then
-				return b
-			end
-		end
-	end
-	return nil
-end
 
 -- stop receiving gpt responses for all processes and clean the handles
 ---@param signal number | nil # signal to send to the process
@@ -107,19 +78,6 @@ M.remove_handle = function(pid)
 	end
 end
 
----@param buf number # buffer number
-_H.undojoin = function(buf)
-	if not buf or not vim.api.nvim_buf_is_loaded(buf) then
-		return
-	end
-	local status, result = pcall(vim.cmd.undojoin)
-	if not status then
-		if result:match("E790") then
-			return
-		end
-		M.error("Error running undojoin: " .. vim.inspect(result))
-	end
-end
 
 ---@param buf number | nil # buffer number
 ---@param cmd string # command to execute
@@ -135,7 +93,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		M.warning("Another pplx process is already running for this buffer.")
+		logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -164,7 +122,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
-			M.error("Error reading stdout: " .. vim.inspect(err))
+			logger.error("Error reading stdout: " .. vim.inspect(err))
 		end
 		if data then
 			stdout_data = stdout_data .. data
@@ -176,7 +134,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stderr, function(err, data)
 		if err then
-			M.error("Error reading stderr: " .. vim.inspect(err))
+			logger.error("Error reading stderr: " .. vim.inspect(err))
 		end
 		if data then
 			stderr_data = stderr_data .. data
@@ -379,62 +337,20 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
----@param msg string # message to log
----@param kind string # hl group to use for logging
----@param history boolean # whether to add the message to history
-M._log = function(msg, kind, history)
-	vim.schedule(function()
-		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", kind },
-		}, history, {})
-	end)
-end
-
--- nicer error messages using nvim_echo
----@param msg string # error message
-M.error = function(msg)
-	M._log(msg, "ErrorMsg", true)
-end
-
--- nicer warning messages using nvim_echo
----@param msg string # warning message
-M.warning = function(msg)
-	M._log(msg, "WarningMsg", true)
-end
-
--- nicer plain messages using nvim_echo
----@param msg string # plain message
-M.info = function(msg)
-	M._log(msg, "Normal", true)
-end
-
----@param tbl table # the table to be stored
----@param file_path string # the file path where the table will be stored as json
-M.table_to_file = function(tbl, file_path)
-	local json = vim.json.encode(tbl)
-
-	local file = io.open(file_path, "w")
-	if not file then
-		M.warning("Failed to open file for writing: " .. file_path)
-		return
-	end
-	file:write(json)
-	file:close()
-end
 
 ---@param file_path string # the file path from where to read the json into a table
 ---@return table | nil # the table read from the file, or nil if an error occurred
 M.file_to_table = function(file_path)
 	local file, err = io.open(file_path, "r")
 	if not file then
-		M.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
+		logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
 		return nil
 	end
 	local content = file:read("*a")
 	file:close()
 
 	if content == nil or content == "" then
-		M.warning("Failed to read any content from file: " .. file_path)
+		logger.warning("Failed to read any content from file: " .. file_path)
 		return nil
 	end
 
@@ -442,38 +358,6 @@ M.file_to_table = function(file_path)
 	return tbl
 end
 
--- helper function to find the root directory of the current git repository
----@return string # returns the path of the git root dir or an empty string if not found
-_H.find_git_root = function()
-	local cwd = vim.fn.expand("%:p:h")
-	while cwd ~= "/" do
-		local files = vim.fn.readdir(cwd)
-		if vim.tbl_contains(files, ".git") then
-			return cwd
-		end
-		cwd = vim.fn.fnamemodify(cwd, ":h")
-	end
-	return ""
-end
-
--- tries to find an .pplx.md file in the root of current git repo
----@return string # returns instructions from the .pplx.md file
-M.repo_instructions = function()
-	local git_root = _H.find_git_root()
-
-	if git_root == "" then
-		return ""
-	end
-
-	local instruct_file = git_root .. "/.pplx.md"
-
-	if vim.fn.filereadable(instruct_file) == 0 then
-		return ""
-	end
-
-	local lines = vim.fn.readfile(instruct_file)
-	return table.concat(lines, "\n")
-end
 
 M.template_render = function(template, command, selection, filetype, filename)
 	local key_value_pairs = {
@@ -521,7 +405,7 @@ M.setup = function(opts)
 	-- make sure opts is a table
 	opts = opts or {}
 	if type(opts) ~= "table" then
-		M.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
+		logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
 		opts = {}
 	end
 
@@ -563,32 +447,8 @@ M.setup = function(opts)
 		opts[tbl] = nil
 	end
 
-	-- merge user opts to M.config
-	M._deprecated = {}
 	for k, v in pairs(opts) do
-		if deprecated[k] then
-			table.insert(M._deprecated, { name = k, msg = deprecated[k], value = v })
-		else
-			M.config[k] = v
-		end
-	end
-
-	if #M._deprecated > 0 then
-		local msg = "Hey there, I have good news and bad news for you.\n"
-			.. "\nThe good news is that you've updated pplx.nvim and got some new features."
-			.. "\nThe bad news is that some of the config options you are using are deprecated:"
-		table.sort(M._deprecated, function(a, b)
-			return a.msg < b.msg
-		end)
-		for _, v in ipairs(M._deprecated) do
-			msg = msg .. "\n\n- " .. v.msg
-		end
-		msg = msg
-			.. "\n\nThis is shown only at startup and deprecated options are ignored"
-			.. "\nso everything should work without problems and you can deal with this later."
-			.. "\n\nYou can check deprecated options any time with `:checkhealth pplx`"
-			.. "\nSorry for the inconvenience and thank you for using pplx.nvim."
-		M.info(msg)
+		M.config[k] = v
 	end
 
 	-- make sure _dirs exists
@@ -674,7 +534,7 @@ M.setup = function(opts)
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
-		M.error("curl is not installed, run :checkhealth pplx")
+		logger.error("curl is not installed, run :checkhealth pplx")
 	end
 
 	if type(M.config.api_key) == "table" then
@@ -688,14 +548,14 @@ M.setup = function(opts)
 			if code == 0 then
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
-					M.warning(
+					logger.warning(
 						"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
 					)
 					return
 				end
 				M.config.api_key = content
 			else
-				M.warning(
+				logger.warning(
 					"config.api_key command "
 						.. vim.inspect(M.config.api_key)
 						.. " to retrieve api_key failed:\ncode: "
@@ -718,7 +578,7 @@ M.valid_api_key = function()
 	local api_key = M.config.api_key
 
 	if type(api_key) == "table" then
-		M.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
+		logger.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
 		return false
 	end
 
@@ -726,7 +586,7 @@ M.valid_api_key = function()
 		return true
 	end
 
-	M.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
+	logger.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
 	return false
 end
 
@@ -745,7 +605,7 @@ M.refresh_state = function()
 		M._state.command_agent = M._command_agents[1]
 	end
 
-	M.table_to_file(M._state, state_file)
+	utils.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
 end
@@ -835,7 +695,7 @@ M.call_hook = function(name, params)
 	if M.hooks[name] ~= nil then
 		return M.hooks[name](M, params)
 	end
-	M.error("The hook '" .. name .. "' does not exist.")
+	logger.error("The hook '" .. name .. "' does not exist.")
 end
 
 ---@param messages table
@@ -888,7 +748,7 @@ end
 ---@return table | nil # query data
 function M.get_query(qid)
 	if not M._queries[qid] then
-		M.error("Query with ID " .. tostring(qid) .. " not found.")
+		logger.error("Query with ID " .. tostring(qid) .. " not found.")
 		return nil
 	end
 	return M._queries[qid]
@@ -902,7 +762,7 @@ end
 M.query = function(buf, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		M.error(
+		logger.error(
 			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
 		)
 		return
@@ -964,7 +824,7 @@ M.query = function(buf, payload, handler, on_exit)
 			end
 
 			if err then
-				M.error("OpenAI query stdout error: " .. vim.inspect(err))
+				logger.error("OpenAI query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -984,7 +844,7 @@ M.query = function(buf, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					M.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
+					logger.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -1064,7 +924,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 		if skip_first_undojoin then
 			skip_first_undojoin = false
 		else
-			M._H.undojoin(buf)
+			utils.undojoin(buf)
 		end
 
 		if not qt.ns_id then
@@ -1083,7 +943,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 
 		-- append new response
 		response = response .. chunk
-		M._H.undojoin(buf)
+		utils.undojoin(buf)
 
 		-- prepend prefix to each line
 		local lines = vim.split(response, "\n")
@@ -1161,7 +1021,7 @@ M._toggle_close = function(kind)
 		and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
 	then
 		if #vim.api.nvim_list_wins() == 1 then
-			M.warning("Can't close the last window.")
+			logger.warning("Can't close the last window.")
 		else
 			M._toggle[kind].close()
 			M._toggle[kind] = nil
@@ -1189,7 +1049,7 @@ M._toggle_resolve = function(kind)
 	elseif kind == "context" then
 		return M._toggle_kind.context
 	end
-	M.warning("Unknown toggle kind: " .. kind)
+	logger.warning("Unknown toggle kind: " .. kind)
 	return M._toggle_kind.unknown
 end
 
@@ -1381,7 +1241,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 	local close, buf, win
 
 	if target == M.BufTarget.popup then
-		local old_buf = M._H.get_buffer(file_name)
+		local old_buf = utils.get_buffer(file_name)
 
 		buf, win, close, _ = M._H.create_popup(
 			old_buf,
@@ -1587,7 +1447,7 @@ end
 M.cmd.ChatPaste = function(params)
 	-- if there is no selection, do nothing
 	if params.range ~= 2 then
-		M.warning("Please select some text to paste into the chat.")
+		logger.warning("Please select some text to paste into the chat.")
 		return
 	end
 
@@ -1610,7 +1470,7 @@ M.cmd.ChatPaste = function(params)
 	local target = M.resolve_buf_target(params)
 
 	last = vim.fn.resolve(last)
-	local buf = M._H.get_buffer(last)
+	local buf = utils.get_buffer(last)
 	local win_found = false
 	if buf then
 		for _, w in ipairs(vim.api.nvim_list_wins()) do
@@ -1635,7 +1495,7 @@ M.cmd.ChatDelete = function()
 
 	-- check if file is in the chat dir
 	if not utils.starts_with(file_name, M.config.chat_dir) then
-		M.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
+		logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
@@ -1662,7 +1522,7 @@ M.chat_respond = function(params)
 	end
 
 	if not M.can_handle(buf) then
-		M.warning("Another pplx process is already running for this buffer.")
+		logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -1675,7 +1535,7 @@ M.chat_respond = function(params)
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	if not M.is_chat(buf, file_name) then
-		M.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
+		logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
 		return
 	end
 
@@ -1700,7 +1560,7 @@ M.chat_respond = function(params)
 	end
 
 	if header_end == nil then
-		M.error("Error while parsing headers: --- not found. Check your chat template.")
+		logger.error("Error while parsing headers: --- not found. Check your chat template.")
 		return
 	end
 
@@ -1808,7 +1668,7 @@ M.chat_respond = function(params)
 
 			-- write user prompt
 			last_content_line = utils.last_content_line(buf)
-			M._H.undojoin(buf)
+			utils.undojoin(buf)
 			vim.api.nvim_buf_set_lines(
 				buf,
 				last_content_line,
@@ -1819,10 +1679,10 @@ M.chat_respond = function(params)
 
 			-- delete whitespace lines at the end of the file
 			last_content_line = utils.last_content_line(buf)
-			M._H.undojoin(buf)
+			utils.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
 			-- insert a new line at the end of the file
-			M._H.undojoin(buf)
+			utils.undojoin(buf)
 			vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
 			-- if topic is ?, then generate it
@@ -1858,7 +1718,7 @@ M.chat_respond = function(params)
 						end
 
 						-- replace topic in current buffer
-						M._H.undojoin(buf)
+						utils.undojoin(buf)
 						vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
 					end)
 				)
@@ -1881,7 +1741,7 @@ M.cmd.ChatRespond = function(params)
 	-- ensure args is a single positive number
 	local n_requests = tonumber(params.args)
 	if n_requests == nil or math.floor(n_requests) ~= n_requests or n_requests <= 0 then
-		M.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
+		logger.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
 		return
 	end
 
@@ -1903,7 +1763,7 @@ end
 M._chat_finder_opened = false
 M.cmd.ChatFinder = function()
 	if M._chat_finder_opened then
-		M.warning("Chat finder is already open")
+		logger.warning("Chat finder is already open")
 		return
 	end
 	M._chat_finder_opened = true
@@ -2203,12 +2063,12 @@ end
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		M.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
 		return
 	end
 
 	if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
-		M.warning("Unknown agent: " .. agent_name)
+		logger.warning("Unknown agent: " .. agent_name)
 		return
 	end
 
@@ -2217,14 +2077,14 @@ M.cmd.Agent = function(params)
 	local is_chat = M.is_chat(buf, file_name)
 	if is_chat and M.agents.chat[agent_name] then
 		M._state.chat_agent = agent_name
-		M.info("Chat agent: " .. M._state.chat_agent)
+		logger.info("Chat agent: " .. M._state.chat_agent)
 	elseif is_chat then
-		M.warning(agent_name .. " is not a Chat agent")
+		logger.warning(agent_name .. " is not a Chat agent")
 	elseif M.agents.command[agent_name] then
 		M._state.command_agent = agent_name
-		M.info("Command agent: " .. M._state.command_agent)
+		logger.info("Command agent: " .. M._state.command_agent)
 	else
-		M.warning(agent_name .. " is not a Command agent")
+		logger.warning(agent_name .. " is not a Command agent")
 	end
 
 	M.refresh_state()
@@ -2249,10 +2109,10 @@ M.cmd.NextAgent = function()
 			local next_agent = agent_list[i % #agent_list + 1]
 			if is_chat then
 				M._state.chat_agent = next_agent
-				M.info("Chat agent: " .. next_agent)
+				logger.info("Chat agent: " .. next_agent)
 			else
 				M._state.command_agent = next_agent
-				M.info("Command agent: " .. next_agent)
+				logger.info("Command agent: " .. next_agent)
 			end
 			M.refresh_state()
 			return
@@ -2265,7 +2125,6 @@ M.get_command_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
 	local name = M._state.command_agent
-	-- print(vim.inspect(M.agents))
 	local model = M.agents.command[name].model
 	local system_prompt = M.agents.command[name].system_prompt
 	return {
@@ -2303,13 +2162,13 @@ M.cmd.Context = function(params)
 	local cbuf = vim.api.nvim_get_current_buf()
 
 	local file_name = ""
-	local buf = _H.get_buffer(".pplx.md")
+	local buf = utils.get_buffer(".pplx.md")
 	if buf then
 		file_name = vim.api.nvim_buf_get_name(buf)
 	else
-		local git_root = _H.find_git_root()
+		local git_root = utils.find_git_root()
 		if git_root == "" then
-			M.warning("Not in a git repository")
+			logger.warning("Not in a git repository")
 			return
 		end
 		file_name = git_root .. "/.pplx.md"
@@ -2346,7 +2205,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		M.warning("Another pplx process is already running for this buffer.")
+		logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -2391,7 +2250,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
-			M.warning("Please select some text to rewrite")
+			logger.warning("Please select some text to rewrite")
 			return
 		end
 	end
@@ -2440,10 +2299,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 				end
 
 				if not flm then
-					M._H.undojoin(buf)
+					utils.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				else
-					M._H.undojoin(buf)
+					utils.undojoin(buf)
 					vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
 				end
 				ll = ll - 1
@@ -2452,10 +2311,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 			-- if fl and ll starts with triple backticks, remove these lines
 			if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
 				-- remove first line with undojoin
-				M._H.undojoin(buf)
+				utils.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
 				-- remove last line
-				M._H.undojoin(buf)
+				utils.undojoin(buf)
 				vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
 				ll = ll - 2
 			end
@@ -2499,7 +2358,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
-		local repo_instructions = M.repo_instructions()
+		local repo_instructions = utils.find_repo_instructions()
 		if repo_instructions ~= "" then
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
