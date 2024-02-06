@@ -15,22 +15,30 @@ function M.check()
 			vim.health.error("require('pplx').setup() has not been called")
 		end
 
-		local api_key = pplx.config.api_key
-		if type(api_key) == "table" then
-			vim.health.error(
-				"require('pplx').setup({api_key: ???}) is still an unresolved command: " .. vim.inspect(api_key)
-			)
-		elseif api_key and string.match(api_key, "%S") then
-			vim.health.ok("config.api_key is set")
-		else
-			vim.health.error("require('pplx').setup({api_key: ???}) is not set: " .. vim.inspect(api_key))
-		end
+		for key, provider in ipairs(pplx.providers) do
+			local api_key = provider.api_key
+			if api_key then
+				vim.health.ok(key, "api_key is set")
+			else
+				vim.health.error(
+					"require('pplx').setup({provider {.."
+						.. key
+						.. "..: {api_key: ???}}) is not set: "
+						.. vim.inspect(api_key)
+				)
+			end
 
-		local api_endpoint = pplx.config.api_endpoint
-		if api_endpoint and string.match(api_endpoint, "%S") then
-			vim.health.ok("config.api_endpoint is set")
-		else
-			vim.health.error("require('pplx').setup({api_endpoint: ???}) is not set: " .. vim.inspect(api_endpoint))
+			local endpoint = provider.endpoint
+			if endpoint and string.match(endpoint, "%S") then
+				vim.health.ok("config.api_endpoint is set")
+			else
+				vim.health.error(
+					"require('pplx').setup({provider {.."
+						.. key
+						.. "..: {endpoint: ???}}) is not set: "
+						.. vim.inspect(api_key)
+				)
+			end
 		end
 	end
 

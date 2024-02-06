@@ -22,8 +22,16 @@ local system_code_prompt = "You are an AI specializing in software development"
 	.. "ensure that your reply is solely focused on the code snippet in question.\n\n"
 
 local config = {
-	api_key = "",
-  api_endpoint = "https://api.openai.com/v1/chat/completions",
+  providers = {
+    pplx = {
+	    api_key = "",
+      endpoint = "https://api.perplexity.ai/chat/completions",
+    },
+    openai = {
+	    api_key = "",
+      endpoint = "https://api.openai.com/v1/chat/completions",
+    }
+  },
 	-- prefix for all commands
 	cmd_prefix = "Pplx",
 	-- optional curl parameters (for proxy, etc.)
@@ -34,30 +42,146 @@ local config = {
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/persisted",
 
 	agents = {
-		-- chat agents
 		chat = {
+			-- openai
 			{
 				name = "ChatGPT4",
 				model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
+        provider = "openai"
 			},
 			{
 				name = "CodeGPT3.5",
 				model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
+        provider = "openai"
+			},
+			-- pplx
+			{
+				name = "Perplexity-7b",
+				model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-70b",
+				model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-7b-Online",
+				model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt, -- ignored by online models
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-70b-Online",
+				model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt, -- ignored by online models
+        provider = "pplx"
+			},
+			{
+				name = "Llama2-70b",
+				model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "CodeLlama-34b",
+				model = { model = "codellama-34b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "CodeLlama-70b",
+				model = { model = "codellama-70b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Mistral-7b",
+				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Mistral-8x7b",
+				model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
+				system_prompt = system_chat_prompt,
+        provider = "pplx"
 			},
 		},
 		command = {
+			-- openai
 			{
 				name = "CodeGPT4",
 				model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
 				system_prompt = system_code_prompt,
+        provider = "openai"
 			},
 			{
 				name = "CodeGPT3.5",
 				model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
 				system_prompt = system_code_prompt,
+        provider = "openai"
 			},
+			-- pplx
+			{
+				name = "Perplexity-7b",
+				model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-70b",
+				model = { model = "pplx-70b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-7b-Online",
+				model = { model = "pplx-7b-online", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt, -- ignored by online models
+        provider = "pplx"
+			},
+			{
+				name = "Perplexity-70b-Online",
+				model = { model = "pplx-70b-online", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt, -- ignored by online models
+        provider = "pplx"
+			},
+			{
+				name = "Llama2-70b",
+				model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "CodeLlama-34b",
+				model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "CodeLlama-70b",
+				model = { model = "codellama-70b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Mistral-7b",
+				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+			{
+				name = "Mistral-8x7b",
+				model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
+				system_prompt = system_code_prompt,
+        provider = "pplx"
+			},
+
 		},
 	},
 
@@ -145,8 +269,12 @@ local config = {
 		InspectPlugin = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
-			local key = copy.config.api_key
-			copy.config.api_key = key:sub(1, 3) .. string.rep("*", #key - 6) .. key:sub(-3)
+      for provider, _ in pairs(copy.providers) do
+				local s = copy.providers[provider].api_key
+				if s and type(s) == "string" then
+					copy.providers[provider].api_key = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
+				end
+			end
 			local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(copy))
 			local params_info = string.format("Command params:\n%s", vim.inspect(params))
 			local lines = vim.split(plugin_info .. "\n" .. params_info, "\n")
@@ -161,7 +289,7 @@ local config = {
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
 			local agent = pplx.get_command_agent()
-			pplx.info("Implementing selection with agent: " .. agent.name)
+			pplx.logger.info("Implementing selection with agent: " .. agent.name)
 
 			pplx.Prompt(
 				params,

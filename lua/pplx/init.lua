@@ -11,6 +11,7 @@ local M = {
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
+	providers = {},
 	agents = {
 		chat = {},
 		command = {},
@@ -409,13 +410,13 @@ M.setup = function(opts)
 	M.config = vim.deepcopy(config)
 
 	-- merge nested tables
-	local mergeTables = { "hooks", "agents" }
+	local mergeTables = { "hooks", "agents", "providers" }
 	local mergeAgentTables = { "chat", "command" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
-			if tbl == "hooks" then
+			if tbl == "hooks" or tbl == "providers" then
 				M[tbl][k] = v
 			elseif tbl == "agents" then
 				for _, _tbl in ipairs(mergeAgentTables) do
@@ -431,6 +432,14 @@ M.setup = function(opts)
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
 				M[tbl][k] = v
+			elseif tbl == "providers" then
+				M[tbl][k] = M[tbl][k] or {}
+				for pk, pv in pairs(v) do
+					M[tbl][k][pk] = pv
+				end
+				if next(v) == nil then
+					M[tbl][k] = nil
+				end
 			elseif tbl == "agents" then
 				for _, _tbl in ipairs(mergeAgentTables) do
 					for _, _v in pairs(M.config[tbl][_tbl]) do
@@ -469,13 +478,20 @@ M.setup = function(opts)
 		end
 	end
 
+	-- remove invalid providers
+	for name, provider in pairs(M.providers) do
+		if type(provider) ~= "table" or not provider.endpoint then
+			M.providers[name] = nil
+		end
+	end
+
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
-	for name, agent in pairs(M.agents.command) do
+	for name, _ in pairs(M.agents.command) do
 		table.insert(M._command_agents, name)
 	end
-	for name, agent in pairs(M.agents.chat) do
+	for name, _ in pairs(M.agents.chat) do
 		table.insert(M._chat_agents, name)
 	end
 	table.sort(M._chat_agents)
@@ -532,45 +548,45 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth pplx")
 	end
 
-	if type(M.config.api_key) == "table" then
-		---@diagnostic disable-next-line: param-type-mismatch
-		local copy = vim.deepcopy(M.config.api_key)
-		---@diagnostic disable-next-line: param-type-mismatch
-		local cmd = table.remove(copy, 1)
-		local args = copy
-		---@diagnostic disable-next-line: param-type-mismatch
-		_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-			if code == 0 then
-				local content = stdout_data:match("^%s*(.-)%s*$")
-				if not string.match(content, "%S") then
-					M.logger.warning(
-						"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
-					)
-					return
-				end
-				M.config.api_key = content
-			else
-				M.logger.warning(
-					"config.api_key command "
-						.. vim.inspect(M.config.api_key)
-						.. " to retrieve api_key failed:\ncode: "
-						.. code
-						.. ", signal: "
-						.. signal
-						.. "\nstdout: "
-						.. stdout_data
-						.. "\nstderr: "
-						.. stderr_data
-				)
-			end
-		end)
-	else
-		M.valid_api_key()
-	end
+	-- if type(M.config.api_key) == "table" then
+	-- 	---@diagnostic disable-next-line: param-type-mismatch
+	-- 	local copy = vim.deepcopy(M.config.api_key)
+	-- 	---@diagnostic disable-next-line: param-type-mismatch
+	-- 	local cmd = table.remove(copy, 1)
+	-- 	local args = copy
+	-- 	---@diagnostic disable-next-line: param-type-mismatch
+	-- 	_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
+	-- 		if code == 0 then
+	-- 			local content = stdout_data:match("^%s*(.-)%s*$")
+	-- 			if not string.match(content, "%S") then
+	-- 				M.logger.warning(
+	-- 					"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
+	-- 				)
+	-- 				return
+	-- 			end
+	-- 			M.config.api_key = content
+	-- 		else
+	-- 			M.logger.warning(
+	-- 				"config.api_key command "
+	-- 					.. vim.inspect(M.config.api_key)
+	-- 					.. " to retrieve api_key failed:\ncode: "
+	-- 					.. code
+	-- 					.. ", signal: "
+	-- 					.. signal
+	-- 					.. "\nstdout: "
+	-- 					.. stdout_data
+	-- 					.. "\nstderr: "
+	-- 					.. stderr_data
+	-- 			)
+	-- 		end
+	-- 	end)
+	-- else
+	-- M.valid_api_key()
+	-- end
 end
 
-M.valid_api_key = function()
-	local api_key = M.config.api_key
+M.valid_api_key = function(current_provider)
+	local api_key = M.providers[current_provider].api_key
 
 	if type(api_key) == "table" then
 		M.logger.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
@@ -581,7 +597,13 @@ M.valid_api_key = function()
 		return true
 	end
 
-	M.logger.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
+	M.logger.error(
+		"config.providers["
+			.. current_provider
+			.. "].api_key is not set: "
+			.. vim.inspect(api_key)
+			.. " run :checkhealth pplx"
+	)
 	return false
 end
 
@@ -668,7 +690,7 @@ M.prepare_commands = function()
 					template = M.config.template_prepend
 				end
 			end
-			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt)
+			M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt, agent.provider)
 		end
 
 		M.cmd[command] = function(params)
@@ -746,7 +768,7 @@ end
 ---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
-M.query = function(buf, payload, handler, on_exit)
+M.query = function(buf, provider, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
 		M.logger.error(
@@ -755,7 +777,7 @@ M.query = function(buf, payload, handler, on_exit)
 		return
 	end
 
-	if not M.valid_api_key() then
+	if not M.valid_api_key(provider) then
 		return
 	end
 
@@ -763,6 +785,7 @@ M.query = function(buf, payload, handler, on_exit)
 	M._queries[qid] = {
 		timestamp = os.time(),
 		buf = buf,
+		provider = provider,
 		payload = payload,
 		handler = handler,
 		on_exit = on_exit,
@@ -792,7 +815,7 @@ M.query = function(buf, payload, handler, on_exit)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-				if line:match("chat%.completion%.chunk") then
+        if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
 					line = vim.json.decode(line)
 					local content = line.choices[1].delta.content
 					if content ~= nil then
@@ -811,7 +834,7 @@ M.query = function(buf, payload, handler, on_exit)
 			end
 
 			if err then
-				M.logger.error("API query stdout error: " .. vim.inspect(err))
+				M.logger.error(qt.provider .. " API query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -831,7 +854,7 @@ M.query = function(buf, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					M.logger.error("API query response is empty: \n" .. vim.inspect(qt.raw_response))
+					M.logger.error(qt.provider .. " API query response is empty in close: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -848,8 +871,8 @@ M.query = function(buf, payload, handler, on_exit)
 	end
 
 	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.config.api_endpoint, "{{model}}", payload.model)
-
+	local endpoint = M._H.template_replace(M.providers[provider].endpoint, "{{model}}", payload.model)
+	local api_key = M.providers[provider].api_key
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
 	local args = {
 		"--no-buffer",
@@ -858,7 +881,7 @@ M.query = function(buf, payload, handler, on_exit)
 		"-H",
 		"accept: application/json",
 		"-H",
-		"authorization: Bearer " .. M.config.api_key,
+		"authorization: Bearer " .. api_key,
 		"-H",
 		"content-type: application/json",
 		"-d",
@@ -1504,9 +1527,9 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	if not M.valid_api_key() then
-		return
-	end
+	-- if not M.valid_api_key() then
+	-- 	return
+	-- end
 
 	if not M.can_handle(buf) then
 		M.logger.warning("Another pplx process is already running for this buffer.")
@@ -1645,6 +1668,7 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		buf,
+		agent.provider,
 		M.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
@@ -1687,6 +1711,7 @@ M.chat_respond = function(params)
 				-- call the model
 				M.query(
 					nil,
+					"openai",
 					M.prepare_payload(messages, nil, M.config.chat_topic_gen_model),
 					topic_handler,
 					vim.schedule_wrap(function()
@@ -1710,6 +1735,7 @@ M.chat_respond = function(params)
 					end)
 				)
 			end
+
 			if not M.config.chat_free_cursor then
 				local line = vim.api.nvim_buf_line_count(buf)
 				utils.cursor_to_line(line, buf, win)
@@ -2114,11 +2140,13 @@ M.get_command_agent = function()
 	local name = M._state.command_agent
 	local model = M.agents.command[name].model
 	local system_prompt = M.agents.command[name].system_prompt
+	local provider = M.agents.command[name].provider
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
 		model = model,
 		system_prompt = system_prompt,
+    provider = provider,
 	}
 end
 
@@ -2129,11 +2157,13 @@ M.get_chat_agent = function()
 	local name = M._state.chat_agent
 	local model = M.agents.chat[name].model
 	local system_prompt = M.agents.chat[name].system_prompt
+	local provider = M.agents.chat[name].provider
 	return {
 		cmd_prefix = cmd_prefix,
 		name = name,
 		model = model,
 		system_prompt = system_prompt,
+    provider = provider,
 	}
 end
 
@@ -2179,7 +2209,7 @@ M.cmd.Context = function(params)
 	utils.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template)
+M.Prompt = function(params, target, prompt, model, template, system_template, provider)
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -2447,6 +2477,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		local agent = M.get_command_agent()
 		M.query(
 			buf,
+			provider,
 			M.prepare_payload(messages, model, agent.model),
 			handler,
 			vim.schedule_wrap(function(qid)
