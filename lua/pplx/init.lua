@@ -748,7 +748,7 @@ end
 
 -- gpt query
 ---@param buf number | nil # buffer number
----@param payload table # payload for openai api
+---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 M.query = function(buf, payload, handler, on_exit)
@@ -816,7 +816,7 @@ M.query = function(buf, payload, handler, on_exit)
 			end
 
 			if err then
-				logger.error("OpenAI query stdout error: " .. vim.inspect(err))
+				logger.error("API query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -836,7 +836,7 @@ M.query = function(buf, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					logger.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
+					logger.error("API query response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
