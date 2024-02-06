@@ -25,6 +25,13 @@ function M.check()
 		else
 			vim.health.error("require('pplx').setup({api_key: ???}) is not set: " .. vim.inspect(api_key))
 		end
+
+		local api_endpoint = pplx.config.api_endpoint
+		if api_endpoint and string.match(api_endpoint, "%S") then
+			vim.health.ok("config.api_endpoint is set")
+		else
+			vim.health.error("require('pplx').setup({api_endpoint: ???}) is not set: " .. vim.inspect(api_endpoint))
+		end
 	end
 
 	if vim.fn.executable("curl") == 1 then

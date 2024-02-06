@@ -23,7 +23,7 @@ local system_code_prompt = "You are an AI specializing in software development"
 
 local config = {
 	api_key = "",
-  openai_api_endpoint = "https://api.openai.com/v1/chat/completions",
+  api_endpoint = "https://api.openai.com/v1/chat/completions",
 	-- prefix for all commands
 	cmd_prefix = "Pplx",
 	-- optional curl parameters (for proxy, etc.)
