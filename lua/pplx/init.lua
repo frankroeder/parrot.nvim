@@ -19,10 +19,9 @@ local M = {
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
 	spinner = require("pplx.spinner"), -- spinner module
+	logger = require("pplx.logger"),
 }
-
-local logger = require("pplx.logger")
-logger._Name = M._Name
+M.logger._Name = M._Name
 
 --------------------------------------------------------------------------------
 -- Generic helper functions
@@ -78,7 +77,6 @@ M.remove_handle = function(pid)
 	end
 end
 
-
 ---@param buf number | nil # buffer number
 ---@param cmd string # command to execute
 ---@param args table # arguments for command
@@ -93,7 +91,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -122,7 +120,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stdout, function(err, data)
 		if err then
-			logger.error("Error reading stdout: " .. vim.inspect(err))
+			M.logger.error("Error reading stdout: " .. vim.inspect(err))
 		end
 		if data then
 			stdout_data = stdout_data .. data
@@ -134,7 +132,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 
 	vim.loop.read_start(stderr, function(err, data)
 		if err then
-			logger.error("Error reading stderr: " .. vim.inspect(err))
+			M.logger.error("Error reading stderr: " .. vim.inspect(err))
 		end
 		if data then
 			stderr_data = stderr_data .. data
@@ -337,27 +335,25 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
-
 ---@param file_path string # the file path from where to read the json into a table
 ---@return table | nil # the table read from the file, or nil if an error occurred
 M.file_to_table = function(file_path)
 	local file, err = io.open(file_path, "r")
 	if not file then
-		logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
+		M.logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
 		return nil
 	end
 	local content = file:read("*a")
 	file:close()
 
 	if content == nil or content == "" then
-		logger.warning("Failed to read any content from file: " .. file_path)
+		M.logger.warning("Failed to read any content from file: " .. file_path)
 		return nil
 	end
 
 	local tbl = vim.json.decode(content)
 	return tbl
 end
-
 
 M.template_render = function(template, command, selection, filetype, filename)
 	local key_value_pairs = {
@@ -405,7 +401,7 @@ M.setup = function(opts)
 	-- make sure opts is a table
 	opts = opts or {}
 	if type(opts) ~= "table" then
-		logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
+		M.logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
 		opts = {}
 	end
 
@@ -414,7 +410,7 @@ M.setup = function(opts)
 
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents" }
-  local mergeAgentTables = { "chat", "command"}
+	local mergeAgentTables = { "chat", "command" }
 	for _, tbl in ipairs(mergeTables) do
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
@@ -441,7 +437,6 @@ M.setup = function(opts)
 						M[tbl][_tbl][_v.name] = _v
 					end
 				end
-
 			end
 		end
 		opts[tbl] = nil
@@ -534,7 +529,7 @@ M.setup = function(opts)
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
-		logger.error("curl is not installed, run :checkhealth pplx")
+		M.logger.error("curl is not installed, run :checkhealth pplx")
 	end
 
 	if type(M.config.api_key) == "table" then
@@ -548,14 +543,14 @@ M.setup = function(opts)
 			if code == 0 then
 				local content = stdout_data:match("^%s*(.-)%s*$")
 				if not string.match(content, "%S") then
-					logger.warning(
+					M.logger.warning(
 						"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
 					)
 					return
 				end
 				M.config.api_key = content
 			else
-				logger.warning(
+				M.logger.warning(
 					"config.api_key command "
 						.. vim.inspect(M.config.api_key)
 						.. " to retrieve api_key failed:\ncode: "
@@ -578,7 +573,7 @@ M.valid_api_key = function()
 	local api_key = M.config.api_key
 
 	if type(api_key) == "table" then
-		logger.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
+		M.logger.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
 		return false
 	end
 
@@ -586,7 +581,7 @@ M.valid_api_key = function()
 		return true
 	end
 
-	logger.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
+	M.logger.error("config.api_key is not set: " .. vim.inspect(api_key) .. " run :checkhealth pplx")
 	return false
 end
 
@@ -679,14 +674,6 @@ M.prepare_commands = function()
 		M.cmd[command] = function(params)
 			cmd(params)
 		end
-
-		-- M.cmd["Whisper" .. command] = function(params)
-		-- 	M.Whisper(function(text)
-		-- 		vim.schedule(function()
-		-- 			cmd(params, text)
-		-- 		end)
-		-- 	end)
-		-- end
 	end
 end
 
@@ -695,7 +682,7 @@ M.call_hook = function(name, params)
 	if M.hooks[name] ~= nil then
 		return M.hooks[name](M, params)
 	end
-	logger.error("The hook '" .. name .. "' does not exist.")
+	M.logger.error("The hook '" .. name .. "' does not exist.")
 end
 
 ---@param messages table
@@ -748,7 +735,7 @@ end
 ---@return table | nil # query data
 function M.get_query(qid)
 	if not M._queries[qid] then
-		logger.error("Query with ID " .. tostring(qid) .. " not found.")
+		M.logger.error("Query with ID " .. tostring(qid) .. " not found.")
 		return nil
 	end
 	return M._queries[qid]
@@ -756,13 +743,13 @@ end
 
 -- gpt query
 ---@param buf number | nil # buffer number
----@param payload table # payload for openai api
+---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 M.query = function(buf, payload, handler, on_exit)
 	-- make sure handler is a function
 	if type(handler) ~= "function" then
-		logger.error(
+		M.logger.error(
 			string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
 		)
 		return
@@ -824,7 +811,7 @@ M.query = function(buf, payload, handler, on_exit)
 			end
 
 			if err then
-				logger.error("OpenAI query stdout error: " .. vim.inspect(err))
+				M.logger.error("API query stdout error: " .. vim.inspect(err))
 			elseif chunk then
 				-- add the incoming chunk to the buffer
 				buffer = buffer .. chunk
@@ -844,7 +831,7 @@ M.query = function(buf, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					logger.error("OpenAI query response is empty: \n" .. vim.inspect(qt.raw_response))
+					M.logger.error("API query response is empty: \n" .. vim.inspect(qt.raw_response))
 				end
 
 				-- optional on_exit handler
@@ -1021,7 +1008,7 @@ M._toggle_close = function(kind)
 		and vim.api.nvim_win_get_buf(M._toggle[kind].win) == M._toggle[kind].buf
 	then
 		if #vim.api.nvim_list_wins() == 1 then
-			logger.warning("Can't close the last window.")
+			M.logger.warning("Can't close the last window.")
 		else
 			M._toggle[kind].close()
 			M._toggle[kind] = nil
@@ -1049,7 +1036,7 @@ M._toggle_resolve = function(kind)
 	elseif kind == "context" then
 		return M._toggle_kind.context
 	end
-	logger.warning("Unknown toggle kind: " .. kind)
+	M.logger.warning("Unknown toggle kind: " .. kind)
 	return M._toggle_kind.unknown
 end
 
@@ -1067,7 +1054,7 @@ M.prep_md = function(buf)
 
 	-- ensure normal mode
 	vim.api.nvim_command("stopinsert")
-	utils.feedkeys("<esc>", "x")
+	utils.feedkeys("<esc>", "xn")
 end
 
 M.is_chat = function(buf, file_name)
@@ -1132,7 +1119,7 @@ M.prep_chat = function(buf, file_name)
 					vim.api.nvim_command(M.config.cmd_prefix .. rc.command)
 					-- go to normal mode
 					vim.api.nvim_command("stopinsert")
-					utils.feedkeys("<esc>", "x")
+					utils.feedkeys("<esc>", "xn")
 				end, rc.comment)
 			else
 				utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
@@ -1270,7 +1257,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 			vim.api.nvim_command("silent file " .. file_name)
 		else
 			-- move cursor to the beginning of the file and scroll to the end
-			utils.feedkeys("ggG", "x")
+			utils.feedkeys("ggG", "xn")
 		end
 
 		-- delete whitespace lines at the end of the file
@@ -1399,7 +1386,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	if params.range == 2 then
 		M.append_selection(params, cbuf, buf)
 	end
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 	return buf
 end
 
@@ -1447,7 +1434,7 @@ end
 M.cmd.ChatPaste = function(params)
 	-- if there is no selection, do nothing
 	if params.range ~= 2 then
-		logger.warning("Please select some text to paste into the chat.")
+		M.logger.warning("Please select some text to paste into the chat.")
 		return
 	end
 
@@ -1485,7 +1472,7 @@ M.cmd.ChatPaste = function(params)
 	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
 
 	M.append_selection(params, cbuf, buf)
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()
@@ -1495,7 +1482,7 @@ M.cmd.ChatDelete = function()
 
 	-- check if file is in the chat dir
 	if not utils.starts_with(file_name, M.config.chat_dir) then
-		logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
+		M.logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
 		return
 	end
 
@@ -1522,7 +1509,7 @@ M.chat_respond = function(params)
 	end
 
 	if not M.can_handle(buf) then
-		logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -1535,7 +1522,7 @@ M.chat_respond = function(params)
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	if not M.is_chat(buf, file_name) then
-		logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
+		M.logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
 		return
 	end
 
@@ -1560,7 +1547,7 @@ M.chat_respond = function(params)
 	end
 
 	if header_end == nil then
-		logger.error("Error while parsing headers: --- not found. Check your chat template.")
+		M.logger.error("Error while parsing headers: --- not found. Check your chat template.")
 		return
 	end
 
@@ -1741,7 +1728,7 @@ M.cmd.ChatRespond = function(params)
 	-- ensure args is a single positive number
 	local n_requests = tonumber(params.args)
 	if n_requests == nil or math.floor(n_requests) ~= n_requests or n_requests <= 0 then
-		logger.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
+		M.logger.warning("args for ChatRespond should be a single positive number, not: " .. params.args)
 		return
 	end
 
@@ -1763,7 +1750,7 @@ end
 M._chat_finder_opened = false
 M.cmd.ChatFinder = function()
 	if M._chat_finder_opened then
-		logger.warning("Chat finder is already open")
+		M.logger.warning("Chat finder is already open")
 		return
 	end
 	M._chat_finder_opened = true
@@ -2063,12 +2050,12 @@ end
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	if agent_name == "" then
-		logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		M.logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
 		return
 	end
 
 	if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
-		logger.warning("Unknown agent: " .. agent_name)
+		M.logger.warning("Unknown agent: " .. agent_name)
 		return
 	end
 
@@ -2077,14 +2064,14 @@ M.cmd.Agent = function(params)
 	local is_chat = M.is_chat(buf, file_name)
 	if is_chat and M.agents.chat[agent_name] then
 		M._state.chat_agent = agent_name
-		logger.info("Chat agent: " .. M._state.chat_agent)
+		M.logger.info("Chat agent: " .. M._state.chat_agent)
 	elseif is_chat then
-		logger.warning(agent_name .. " is not a Chat agent")
+		M.logger.warning(agent_name .. " is not a Chat agent")
 	elseif M.agents.command[agent_name] then
 		M._state.command_agent = agent_name
-		logger.info("Command agent: " .. M._state.command_agent)
+		M.logger.info("Command agent: " .. M._state.command_agent)
 	else
-		logger.warning(agent_name .. " is not a Command agent")
+		M.logger.warning(agent_name .. " is not a Command agent")
 	end
 
 	M.refresh_state()
@@ -2109,10 +2096,10 @@ M.cmd.NextAgent = function()
 			local next_agent = agent_list[i % #agent_list + 1]
 			if is_chat then
 				M._state.chat_agent = next_agent
-				logger.info("Chat agent: " .. next_agent)
+				M.logger.info("Chat agent: " .. next_agent)
 			else
 				M._state.command_agent = next_agent
-				logger.info("Command agent: " .. next_agent)
+				M.logger.info("Command agent: " .. next_agent)
 			end
 			M.refresh_state()
 			return
@@ -2168,7 +2155,7 @@ M.cmd.Context = function(params)
 	else
 		local git_root = utils.find_git_root()
 		if git_root == "" then
-			logger.warning("Not in a git repository")
+			M.logger.warning("Not in a git repository")
 			return
 		end
 		file_name = git_root .. "/.pplx.md"
@@ -2189,7 +2176,7 @@ M.cmd.Context = function(params)
 		M.append_selection(params, cbuf, buf)
 	end
 
-	utils.feedkeys("G", "x")
+	utils.feedkeys("G", "xn")
 end
 
 M.Prompt = function(params, target, prompt, model, template, system_template)
@@ -2205,7 +2192,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another pplx process is already running for this buffer.")
 		return
 	end
 
@@ -2250,7 +2237,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		selection = table.concat(lines, "\n")
 
 		if selection == "" then
-			logger.warning("Please select some text to rewrite")
+			M.logger.warning("Please select some text to rewrite")
 			return
 		end
 	end
@@ -2367,7 +2354,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
-		utils.feedkeys("<esc>", "x")
+		utils.feedkeys("<esc>", "xn")
 
 		local cursor = true
 		if not M.config.command_auto_select_response then
