@@ -16,10 +16,17 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
 ```lua
 {
     "frankroeder/pplx.nvim",
-    cond = os.getenv "PERPLEXITY_API_KEY" ~= nil, -- OPTONAL
+    cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil, -- OPTONAL
     config = function()
         require("pplx").setup {
-            api_key = os.getenv "PERPLEXITY_API_KEY",
+            providers = {
+                pplx = {
+                    api_key = os.getenv "PERPLEXITY_API_KEY",
+                },
+                openai = {
+                    api_key = os.getenv "OPENAI_API_KEY",
+                }
+            },
         }
     end
 }
