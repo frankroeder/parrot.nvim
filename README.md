@@ -42,6 +42,6 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
 ## Configuration
 
 ### For now, refer to my personal lazy.nvim setup.
-https://github.com/frankroeder/dotfiles/blob/3c00dc390e2499e5fe229a243455160fae3e3637/nvim/lua/plugins/pplx_nvim.lua
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/pplx_nvim.lua#L10-L182
 
 more to come ...

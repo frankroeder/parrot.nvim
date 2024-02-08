@@ -8,7 +8,7 @@ local ui = require("pplx.ui")
 local _H = {}
 local M = {
 	_H = _H, -- helper functions
-  _plugin_name = "pplx.nvim",
+	_plugin_name = "pplx.nvim",
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
@@ -193,7 +193,6 @@ _H.grep_directory = function(buf, directory, pattern, callback)
 	end)
 end
 
-
 -- returns rendered template with specified key replaced by value
 _H.template_replace = function(template, key, value)
 	if template == nil then
@@ -365,12 +364,12 @@ M.setup = function(opts)
 
 	-- remove invalid agents
 	for name, agent in pairs(M.agents.chat) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+		if type(agent) ~= "table" or not agent.model or not agent.system_prompt or not agent.provider then
 			M.agents.chat[name] = nil
 		end
 	end
 	for name, agent in pairs(M.agents.command) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt then
+		if type(agent) ~= "table" or not agent.model or not agent.system_prompt or not agent.provider then
 			M.agents.command[name] = nil
 		end
 	end
@@ -446,17 +445,17 @@ M.setup = function(opts)
 	end
 
 	for prov, val in pairs(M.providers) do
-    if type(val.api_key) == "table" then
-      local command = table.concat(val.api_key, " ")
-      local handle = io.popen(command)
-      if handle then
-          M.providers[prov].api_key = handle:read("*a"):gsub("%s+", "")
-      else
-          M.providers[prov].api_key = nil
-      end
-      handle:close()
-	    M.valid_api_key(prov)
-    end
+		if type(val.api_key) == "table" then
+			local command = table.concat(val.api_key, " ")
+			local handle = io.popen(command)
+			if handle then
+				M.providers[prov].api_key = handle:read("*a"):gsub("%s+", "")
+			else
+				M.providers[prov].api_key = nil
+			end
+			handle:close()
+			M.valid_api_key(prov)
+		end
 	end
 end
 
@@ -690,7 +689,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
-        if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
+				if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
 					line = vim.json.decode(line)
 					local content = line.choices[1].delta.content
 					if content ~= nil then
@@ -729,7 +728,9 @@ M.query = function(buf, provider, payload, handler, on_exit)
 				end
 
 				if qt.response == "" then
-					M.logger.error(qt.provider .. " API query response is empty in close: \n" .. vim.inspect(qt.raw_response))
+					M.logger.error(
+						qt.provider .. " API query response is empty in close: \n" .. vim.inspect(qt.raw_response)
+					)
 				end
 
 				-- optional on_exit handler
@@ -1402,7 +1403,6 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-
 	local agent = M.get_chat_agent()
 	local agent_name = agent.name
 
@@ -2022,7 +2022,7 @@ M.get_command_agent = function()
 		name = name,
 		model = model,
 		system_prompt = system_prompt,
-    provider = provider,
+		provider = provider,
 	}
 end
 
@@ -2039,7 +2039,7 @@ M.get_chat_agent = function()
 		name = name,
 		model = model,
 		system_prompt = system_prompt,
-    provider = provider,
+		provider = provider,
 	}
 end
 
