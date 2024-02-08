@@ -46,13 +46,13 @@ local config = {
 			-- openai
 			{
 				name = "ChatGPT4",
-				model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+				model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
         provider = "openai"
 			},
 			{
 				name = "CodeGPT3.5",
-				model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+				model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
         provider = "openai"
 			},
@@ -116,13 +116,13 @@ local config = {
 			-- openai
 			{
 				name = "CodeGPT4",
-				model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+				model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
 				system_prompt = system_code_prompt,
         provider = "openai"
 			},
 			{
 				name = "CodeGPT3.5",
-				model = { model = "gpt-3.5-turbo-1106", temperature = 1.1, top_p = 1 },
+				model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
 				system_prompt = system_code_prompt,
         provider = "openai"
 			},
@@ -184,7 +184,6 @@ local config = {
 
 		},
 	},
-
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/chats",
 	-- chat user prompt prefix

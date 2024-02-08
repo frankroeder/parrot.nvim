@@ -3,11 +3,12 @@
 
 local config = require("pplx.config")
 local utils = require("pplx.utils")
+local ui = require("pplx.ui")
 
 local _H = {}
 local M = {
 	_H = _H, -- helper functions
-	_Name = "pplx", -- plugin name
+  _plugin_name = "pplx.nvim",
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
@@ -22,7 +23,7 @@ local M = {
 	spinner = require("pplx.spinner"), -- spinner module
 	logger = require("pplx.logger"),
 }
-M.logger._Name = M._Name
+M.logger._plugin_name = M._plugin_name
 
 --------------------------------------------------------------------------------
 -- Generic helper functions
@@ -192,110 +193,6 @@ _H.grep_directory = function(buf, directory, pattern, callback)
 	end)
 end
 
----@param buf number | nil # buffer number
----@param title string # title of the popup
----@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col
----@param opts table # options - gid=nul, on_leave=false, keep_buf=false
----@param style table # style - border="single"
----returns table with buffer, window, close function, resize function
-_H.create_popup = function(buf, title, size_func, opts, style)
-	opts = opts or {}
-	style = style or {}
-	local border = style.border or "single"
-
-	-- create buffer
-	buf = buf or vim.api.nvim_create_buf(not not opts.persist, not opts.persist)
-
-	-- setting to the middle of the editor
-	local options = {
-		relative = "editor",
-		-- dummy values gets resized later
-		width = 10,
-		height = 10,
-		row = 10,
-		col = 10,
-		style = "minimal",
-		border = border,
-		title = title,
-		title_pos = "center",
-	}
-
-	-- open the window and return the buffer
-	local win = vim.api.nvim_open_win(buf, true, options)
-
-	local resize = function()
-		-- get editor dimensions
-		local ew = vim.api.nvim_get_option("columns")
-		local eh = vim.api.nvim_get_option("lines")
-
-		local w, h, r, c = size_func(ew, eh)
-
-		-- setting to the middle of the editor
-		local o = {
-			relative = "editor",
-			-- half of the editor width
-			width = math.floor(w),
-			-- half of the editor height
-			height = math.floor(h),
-			-- center of the editor
-			row = math.floor(r),
-			-- center of the editor
-			col = math.floor(c),
-		}
-		vim.api.nvim_win_set_config(win, o)
-	end
-
-	local pgid = opts.gid or utils.create_augroup("PplxPopup", { clear = true })
-
-	-- cleanup on exit
-	local close = utils.once(function()
-		vim.schedule(function()
-			-- delete only internal augroups
-			if not opts.gid then
-				vim.api.nvim_del_augroup_by_id(pgid)
-			end
-			if win and vim.api.nvim_win_is_valid(win) then
-				vim.api.nvim_win_close(win, true)
-			end
-			if opts.keep_buf then
-				return
-			end
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_delete(buf, { force = true })
-			end
-		end)
-	end)
-
-	-- resize on vim resize
-	utils.autocmd("VimResized", { buf }, resize, pgid)
-
-	-- cleanup on buffer exit
-	utils.autocmd({ "BufWipeout", "BufHidden", "BufDelete" }, { buf }, close, pgid)
-
-	-- optional cleanup on buffer leave
-	if opts.on_leave then
-		-- close when entering non-popup buffer
-		utils.autocmd({ "BufEnter" }, nil, function(event)
-			local b = event.buf
-			if b ~= buf then
-				close()
-				-- make sure to set current buffer after close
-				vim.schedule(vim.schedule_wrap(function()
-					vim.api.nvim_set_current_buf(b)
-				end))
-			end
-		end, pgid)
-	end
-
-	-- cleanup on escape exit
-	if opts.escape then
-		utils.set_keymap({ buf }, "n", "<esc>", close, title .. " close on escape")
-		utils.set_keymap({ buf }, { "n", "v", "i" }, "<C-c>", close, title .. " close on escape")
-	end
-
-	resize()
-	return buf, win, close, resize
-end
 
 -- returns rendered template with specified key replaced by value
 _H.template_replace = function(template, key, value)
@@ -548,41 +445,19 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth pplx")
 	end
 
-	-- if type(M.config.api_key) == "table" then
-	-- 	---@diagnostic disable-next-line: param-type-mismatch
-	-- 	local copy = vim.deepcopy(M.config.api_key)
-	-- 	---@diagnostic disable-next-line: param-type-mismatch
-	-- 	local cmd = table.remove(copy, 1)
-	-- 	local args = copy
-	-- 	---@diagnostic disable-next-line: param-type-mismatch
-	-- 	_H.process(nil, cmd, args, function(code, signal, stdout_data, stderr_data)
-	-- 		if code == 0 then
-	-- 			local content = stdout_data:match("^%s*(.-)%s*$")
-	-- 			if not string.match(content, "%S") then
-	-- 				M.logger.warning(
-	-- 					"response from the config.api_key command " .. vim.inspect(M.config.api_key) .. " is empty"
-	-- 				)
-	-- 				return
-	-- 			end
-	-- 			M.config.api_key = content
-	-- 		else
-	-- 			M.logger.warning(
-	-- 				"config.api_key command "
-	-- 					.. vim.inspect(M.config.api_key)
-	-- 					.. " to retrieve api_key failed:\ncode: "
-	-- 					.. code
-	-- 					.. ", signal: "
-	-- 					.. signal
-	-- 					.. "\nstdout: "
-	-- 					.. stdout_data
-	-- 					.. "\nstderr: "
-	-- 					.. stderr_data
-	-- 			)
-	-- 		end
-	-- 	end)
-	-- else
-	-- M.valid_api_key()
-	-- end
+	for prov, val in pairs(M.providers) do
+    if type(val.api_key) == "table" then
+      local command = table.concat(val.api_key, " ")
+      local handle = io.popen(command)
+      if handle then
+          M.providers[prov].api_key = handle:read("*a"):gsub("%s+", "")
+      else
+          M.providers[prov].api_key = nil
+      end
+      handle:close()
+	    M.valid_api_key(prov)
+    end
+	end
 end
 
 M.valid_api_key = function(current_provider)
@@ -1253,9 +1128,9 @@ M.open_buf = function(file_name, target, kind, toggle)
 	if target == M.BufTarget.popup then
 		local old_buf = utils.get_buffer(file_name)
 
-		buf, win, close, _ = M._H.create_popup(
+		buf, win, close, _ = ui.create_popup(
 			old_buf,
-			M._Name .. " Popup",
+			M._plugin_name .. " Popup",
 			function(w, h)
 				local top = M.config.style_popup_margin_top or 2
 				local bottom = M.config.style_popup_margin_bottom or 8
@@ -1527,9 +1402,13 @@ M.chat_respond = function(params)
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	-- if not M.valid_api_key() then
-	-- 	return
-	-- end
+
+	local agent = M.get_chat_agent()
+	local agent_name = agent.name
+
+	if not M.valid_api_key(agent.provider) then
+		return
+	end
 
 	if not M.can_handle(buf) then
 		M.logger.warning("Another pplx process is already running for this buffer.")
@@ -1586,9 +1465,6 @@ M.chat_respond = function(params)
 		start_index = math.max(start_index, params.line1)
 		end_index = math.min(end_index, params.line2)
 	end
-
-	local agent = M.get_chat_agent()
-	local agent_name = agent.name
 
 	-- if model contains { } then it is a json string otherwise it is a model name
 	if headers.model and headers.model:match("{.*}") then
@@ -1792,7 +1668,7 @@ M.cmd.ChatFinder = function()
 	local bottom = M.config.style_chat_finder_margin_bottom or 8
 	local left = M.config.style_chat_finder_margin_left or 1
 	local right = M.config.style_chat_finder_margin_right or 2
-	local picker_buf, picker_win, picker_close, picker_resize = M._H.create_popup(
+	local picker_buf, picker_win, picker_close, picker_resize = ui.create_popup(
 		nil,
 		"Picker: j/k <Esc>|exit <Enter>|open dd|del i|srch",
 		function(w, h)
@@ -1804,7 +1680,7 @@ M.cmd.ChatFinder = function()
 		{ border = M.config.style_chat_finder_border or "single" }
 	)
 
-	local preview_buf, preview_win, preview_close, preview_resize = M._H.create_popup(
+	local preview_buf, preview_win, preview_close, preview_resize = ui.create_popup(
 		nil,
 		"Preview (edits are ephemeral)",
 		function(w, h)
@@ -1818,7 +1694,7 @@ M.cmd.ChatFinder = function()
 
 	vim.api.nvim_buf_set_option(preview_buf, "filetype", "markdown")
 
-	local command_buf, command_win, command_close, command_resize = M._H.create_popup(
+	local command_buf, command_win, command_close, command_resize = ui.create_popup(
 		nil,
 		"Search: <Tab>/<Shift+Tab>|navigate <Esc>|picker <C-c>|exit "
 			.. "<Enter>/<C-f>/<C-x>/<C-v>/<C-t>/<C-g>|open/float/split/vsplit/tab/toggle",
@@ -2415,9 +2291,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
-			buf, win, popup_close, _ = M._H.create_popup(
+			buf, win, popup_close, _ = ui.create_popup(
 				nil,
-				M._Name .. " popup (close with <esc>/<C-c>)",
+				M._plugin_name .. " popup (close with <esc>/<C-c>)",
 				function(w, h)
 					local top = M.config.style_popup_margin_top or 2
 					local bottom = M.config.style_popup_margin_bottom or 8
@@ -2501,7 +2377,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		end
 
 		-- if prompt is provided, ask the user to enter the command
-		vim.ui.input({ prompt = prompt, default = whisper }, function(input)
+		vim.ui.input({ prompt = prompt }, function(input)
 			if not input or input == "" then
 				return
 			end

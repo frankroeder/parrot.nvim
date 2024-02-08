@@ -1,8 +1,8 @@
 # pplx.nvim 
 > ⚠️ This repository is work in progress and will undergo major changes in the near future. <br>
-> It is based on the brilliant work by https://github.com/Robitx
+> It is based on the brilliant work by https://github.com/Robitx.
 
-The ultimate LLM plugin to support your text editing through the perplexity.ai [API](https://blog.perplexity.ai/blog/introducing-pplx-api).
+The ultimate LLM plugin to support your text editing through the [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api) and [OpenAI API](https://platform.openai.com/).
 I started this repository because a perplexity subscription provides $5 of API credits every month for free.
 Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https://github.com/Robitx/gp.nvim) for my needs - a new Neovim plugin is born 🔥.
 
@@ -11,17 +11,24 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
 </div>
 
 ## Getting Started
-### Setup
-#### lazy.nvim
+
+### lazy.nvim
 ```lua
 {
     "frankroeder/pplx.nvim",
-    cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil, -- OPTONAL
+    -- OPTONAL
+    -- cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
     config = function()
         require("pplx").setup {
             providers = {
                 pplx = {
                     api_key = os.getenv "PERPLEXITY_API_KEY",
+                    -- OPTIONAL
+                    -- gpg command
+                    -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/pplx_api_key.txt.gpg"  },
+                    -- macOS security tool
+                    -- api_key = { "/usr/bin/security", "find-generic-password", "-s pplx-api-key", "-w" },
+
                 },
                 openai = {
                     api_key = os.getenv "OPENAI_API_KEY",
@@ -31,5 +38,10 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
     end
 }
 ```
+
+## Configuration
+
+### For now, refer to my personal lazy.nvim setup.
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/pplx_nvim.lua
 
 more to come ...

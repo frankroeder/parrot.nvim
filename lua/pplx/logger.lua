@@ -1,5 +1,5 @@
 local M = {
-	_Name = ""
+	_plugin_name = ""
 }
 
 ---@param msg string # message to log
@@ -8,7 +8,7 @@ local M = {
 M._log = function(msg, kind, history)
 	vim.schedule(function()
 		vim.api.nvim_echo({
-			{ M._Name .. ": " .. msg .. "\n", kind },
+			{ M._plugin_name .. ": " .. msg .. "\n", kind },
 		}, history, {})
 	end)
 end
