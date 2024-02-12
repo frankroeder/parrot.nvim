@@ -1,5 +1,5 @@
 local M = {
-	_plugin_name = ""
+	_plugin_name = "",
 }
 
 ---@param msg string # message to log

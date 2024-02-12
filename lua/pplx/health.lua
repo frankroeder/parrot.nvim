@@ -17,7 +17,7 @@ function M.check()
 
 		for key, provider in ipairs(pplx.providers) do
 			local api_key = provider.api_key
-			if api_key then
+			if api_key or provider == "ollama" then
 				vim.health.ok(key, "api_key is set")
 			else
 				vim.health.error(

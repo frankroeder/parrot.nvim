@@ -460,6 +460,9 @@ M.setup = function(opts)
 end
 
 M.valid_api_key = function(current_provider)
+	if current_provider == "ollama" then
+		return true
+	end
 	local api_key = M.providers[current_provider].api_key
 
 	if type(api_key) == "table" then
@@ -689,13 +692,23 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					qt.raw_response = qt.raw_response .. line .. "\n"
 				end
 				line = line:gsub("^data: ", "")
+				local content = ""
+
 				if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
 					line = vim.json.decode(line)
-					local content = line.choices[1].delta.content
-					if content ~= nil then
-						qt.response = qt.response .. content
-						handler(qid, content)
+					content = line.choices[1].delta.content
+				end
+
+				if provider == "ollama" and line:match("message") and line:match("content") then
+					line = vim.json.decode(line)
+					if line.message and line.message.content then
+						content = line.message.content
 					end
+				end
+
+				if content ~= nil then
+					qt.response = qt.response .. content
+					handler(qid, content)
 				end
 			end
 		end
@@ -750,20 +763,34 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	local endpoint = M._H.template_replace(M.providers[provider].endpoint, "{{model}}", payload.model)
 	local api_key = M.providers[provider].api_key
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {
-		"--no-buffer",
-		"-s",
-		endpoint,
-		"-H",
-		"accept: application/json",
-		"-H",
-		"authorization: Bearer " .. api_key,
-		"-H",
-		"content-type: application/json",
-		"-d",
-		vim.json.encode(payload),
-		--[[ "--doesnt_exist" ]]
-	}
+	local args = {}
+	if provider == "ollama" then
+		args = {
+			"--no-buffer",
+			"-s",
+			endpoint,
+			"-H",
+			"accept: application/json",
+			"-H",
+			"content-type: application/json",
+			"-d",
+			vim.json.encode(payload),
+		}
+	else
+		args = {
+			"--no-buffer",
+			"-s",
+			endpoint,
+			"-H",
+			"accept: application/json",
+			"-H",
+			"authorization: Bearer " .. api_key,
+			"-H",
+			"content-type: application/json",
+			"-d",
+			vim.json.encode(payload),
+		}
+	end
 
 	for _, arg in ipairs(args) do
 		table.insert(curl_params, arg)

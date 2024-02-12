@@ -18,8 +18,8 @@ local system_chat_prompt = "You are a versatile AI assistant with capabilities\n
 
 local system_code_prompt = "You are an AI specializing in software development"
 	.. "tasks, including code editing, completion, and debugging. Your"
-	.. "responses should strictly pertain to the code provided. Please"
-	.. "ensure that your reply is solely focused on the code snippet in question.\n\n"
+	.. "responses should strictly pertain to the code provided. Please ensure"
+	.. "that your reply is solely focused on the code snippet in question.\n\n"
 
 local config = {
 	providers = {
@@ -30,6 +30,9 @@ local config = {
 		openai = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
+		},
+		ollama = {
+			endpoint = "http://localhost:11434/api/chat",
 		},
 	},
 	-- prefix for all commands
@@ -43,6 +46,19 @@ local config = {
 
 	agents = {
 		chat = {
+			-- ollama
+			{
+				name = "ChatMistal-7B-ollama",
+				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+				system_prompt = system_chat_prompt,
+				provider = "ollama",
+			},
+			{
+				name = "ChatLlama-13B-ollama",
+				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+				system_prompt = system_chat_prompt,
+				provider = "ollama",
+			},
 			-- openai
 			{
 				name = "ChatGPT4",
@@ -58,61 +74,74 @@ local config = {
 			},
 			-- pplx
 			{
-				name = "Perplexity-7b",
+				name = "Perplexity-7B",
 				model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-70b",
+				name = "Perplexity-70B",
 				model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-7b-Online",
+				name = "Perplexity-7B-Online",
 				model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt, -- ignored by online models
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-70b-Online",
+				name = "Perplexity-70B-Online",
 				model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt, -- ignored by online models
 				provider = "pplx",
 			},
 			{
-				name = "Llama2-70b",
+				name = "Llama2-70B",
 				model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "CodeLlama-34b",
+				name = "CodeLlama-34B",
 				model = { model = "codellama-34b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "CodeLlama-70b",
+				name = "CodeLlama-70B",
 				model = { model = "codellama-70b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Mistral-7b",
+				name = "Mistral-7B",
 				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Mistral-8x7b",
+				name = "Mistral-8x7B",
 				model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
 				system_prompt = system_chat_prompt,
 				provider = "pplx",
 			},
 		},
 		command = {
+			-- ollama
+			{
+				name = "CodeMistal-7B-ollama",
+				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+				system_prompt = system_code_prompt,
+				provider = "ollama",
+			},
+			{
+				name = "CodeLlama-13B-ollama",
+				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+				system_prompt = system_code_prompt,
+				provider = "ollama",
+			},
 			-- openai
 			{
 				name = "CodeGPT4",
@@ -128,55 +157,55 @@ local config = {
 			},
 			-- pplx
 			{
-				name = "Perplexity-7b",
+				name = "Perplexity-7B",
 				model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-70b",
+				name = "Perplexity-70B",
 				model = { model = "pplx-70b-chat", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-7b-Online",
+				name = "Perplexity-7B-Online",
 				model = { model = "pplx-7b-online", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt, -- ignored by online models
 				provider = "pplx",
 			},
 			{
-				name = "Perplexity-70b-Online",
+				name = "Perplexity-70B-Online",
 				model = { model = "pplx-70b-online", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt, -- ignored by online models
 				provider = "pplx",
 			},
 			{
-				name = "Llama2-70b",
+				name = "Llama2-70B",
 				model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "CodeLlama-34b",
+				name = "CodeLlama-34B",
 				model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "CodeLlama-70b",
+				name = "CodeLlama-70B",
 				model = { model = "codellama-70b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Mistral-7b",
+				name = "Mistral-7B",
 				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
 			},
 			{
-				name = "Mistral-8x7b",
+				name = "Mistral-8x7B",
 				model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
 				system_prompt = system_code_prompt,
 				provider = "pplx",
