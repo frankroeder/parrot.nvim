@@ -1,6 +1,3 @@
--- The perplexity.ai API for Neovim
--- https://github.com/frankroeder/pplx.nvim/
-
 local config = require("pplx.config")
 local utils = require("pplx.utils")
 local ui = require("pplx.ui")
@@ -20,7 +17,6 @@ local M = {
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
-	spinner = require("pplx.spinner"), -- spinner module
 	logger = require("pplx.logger"),
 }
 M.logger._plugin_name = M._plugin_name
@@ -385,18 +381,33 @@ M.setup = function(opts)
 	M._chat_agents = {}
 	M._command_agents = {}
 	M._available_providers = {}
+	M._available_provider_agents = {}
+
 	for name, _ in pairs(M.agents.command) do
 		table.insert(M._command_agents, name)
 	end
+
 	for name, _ in pairs(M.agents.chat) do
 		table.insert(M._chat_agents, name)
 	end
+
 	for name, _ in pairs(M.providers) do
 		table.insert(M._available_providers, name)
+		M._available_provider_agents[name] = { chat = {}, command = {} }
 	end
+
+	for agt_name, agt in pairs(M.agents.chat) do
+		table.insert(M._available_provider_agents[agt.provider].chat, agt_name)
+	end
+
+	for agt_name, agt in pairs(M.agents.command) do
+		table.insert(M._available_provider_agents[agt.provider].command, agt_name)
+	end
+
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
 	table.sort(M._available_providers)
+	table.sort(M._available_provider_agents)
 
 	M.refresh_state()
 
@@ -431,22 +442,12 @@ M.setup = function(opts)
 					if cmd == "Agent" then
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
-						local available_agents = {}
-						local provider_agents = {}
-
 						if M.is_chat(buf, file_name) then
-							available_agents = M.agents.chat
+						  return M._available_provider_agents[M.get_provider()].chat
 						else
-							available_agents = M.agents.command
+						  return M._available_provider_agents[M.get_provider()].command
 						end
 
-						for name, agt in pairs(available_agents) do
-							if agt.provider == M.get_provider() then
-								table.insert(provider_agents, name)
-							end
-						end
-
-						return provider_agents
 					elseif cmd == "Provider" then
 						return M._available_providers
 					end
@@ -505,21 +506,41 @@ end
 
 M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
-
-	local state = M.file_to_table(state_file) or {}
-
-	M._state.chat_agent = M._state.chat_agent or state.chat_agent or nil
-	if M._state.chat_agent == nil or not M.agents.chat[M._state.chat_agent] then
-		M._state.chat_agent = M._chat_agents[1]
+	local state = {}
+	if vim.fn.filereadable(state_file) ~= 0 then
+		state = M.file_to_table(state_file) or {}
 	end
 
-	M._state.command_agent = M._state.command_agent or state.command_agent or nil
-	if not M._state.command_agent == nil or not M.agents.command[M._state.command_agent] then
-		M._state.command_agent = M._command_agents[1]
+	if not state then
+		for _, prov in pairs(M._available_providers) do
+			state[prov] = { chat_agent = nil, command_agent = nil }
+		end
+	end
+
+	for _, prov in pairs(M._available_providers) do
+		if not M._state[prov] then
+			M._state[prov] = { chat_agent = nil, command_agent = nil }
+		end
+
+		if M._state[prov].chat_agent == nil then
+			if state[prov].chat_agent == nil then
+				M._state[prov].chat_agent = M._available_provider_agents[prov].chat[1]
+			else
+				M._state[prov].chat_agent = state[prov].chat_agent
+			end
+		end
+
+		if M._state[prov].command_agent == nil then
+			if state[prov].command_agent == nil then
+				M._state[prov].command_agent = M._available_provider_agents[prov].command[1]
+			else
+				M._state[prov].command_agent = state[prov].command_agent
+			end
+		end
 	end
 
 	M._state.provider = M._state.provider or state.provider or nil
-	if not M._state.provider == nil or not M.providers[M._state.provider] then
+	if M._state.provider == nil then
 		M._state.provider = M._available_providers[1]
 	end
 
@@ -624,6 +645,7 @@ M.prepare_payload = function(messages, model, default_model)
 	end
 
 	-- if model is a table
+  -- TODO: Consider additional model parameters --
 	return {
 		model = model.model,
 		stream = true,
@@ -1288,6 +1310,16 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	time = time .. "." .. stamp
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
+  local chat_agent = M.get_chat_agent()
+
+  -- if system_prompt == nil then
+  --   system_prompt = chat_agent.system_prompt
+  -- end
+  --
+  -- if model == nil then
+  --   model = chat_agent.model
+  -- end
+
 	-- encode as json if model is a table
 	if model and type(model) == "table" then
 		model = "- model: " .. vim.json.encode(model) .. "\n"
@@ -1393,6 +1425,7 @@ M.cmd.ChatPaste = function(params)
 
 	local last = M.config.chat_dir .. "/last.md"
 
+
 	-- make new chat if last doesn't exist
 	if vim.fn.filereadable(last) ~= 1 then
 		-- skip rest since new chat will handle snippet on it's own
@@ -1456,6 +1489,7 @@ M.chat_respond = function(params)
 
 	local agent = M.get_chat_agent()
 	local agent_name = agent.name
+  local agent_provider = agent.provider
 
 	if not M.valid_api_key(agent.provider) then
 		return
@@ -1545,7 +1579,7 @@ M.chat_respond = function(params)
 		agent_suffix = M.config.chat_assistant_prefix[2] or ""
 	end
 	---@diagnostic disable-next-line: cast-local-type
-	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name })
+	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name .. " - " .. agent_provider })
 
 	for index = start_index, end_index do
 		local line = lines[index]
@@ -2026,8 +2060,11 @@ end
 
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+	local prov = M.get_provider()
 	if agent_name == "" then
-		M.logger.info(" Chat agent: " .. M._state.chat_agent .. "  |  Command agent: " .. M._state.command_agent)
+		M.logger.info(
+			" Chat agent: " .. M._state[prov].chat_agent .. "  |  Command agent: " .. M._state[prov].command_agent
+		)
 		return
 	end
 
@@ -2040,13 +2077,13 @@ M.cmd.Agent = function(params)
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.is_chat(buf, file_name)
 	if is_chat and M.agents.chat[agent_name] then
-		M._state.chat_agent = agent_name
-		M.logger.info("Chat agent: " .. M._state.chat_agent)
+		M._state[prov].chat_agent = agent_name
+		M.logger.info("Chat agent: " .. M._state[prov].chat_agent)
 	elseif is_chat then
 		M.logger.warning(agent_name .. " is not a Chat agent")
 	elseif M.agents.command[agent_name] then
-		M._state.command_agent = agent_name
-		M.logger.info("Command agent: " .. M._state.command_agent)
+		M._state[prov].command_agent = agent_name
+		M.logger.info("Command agent: " .. M._state[prov].command_agent)
 	else
 		M.logger.warning(agent_name .. " is not a Command agent")
 	end
@@ -2060,29 +2097,41 @@ M.cmd.NextAgent = function()
 	local is_chat = M.is_chat(buf, file_name)
 	local current_agent, agent_list
 	local provider_agents = {}
+	local prov = M.get_provider()
 
 	if is_chat then
-		current_agent = M._state.chat_agent
+		current_agent = M._state[prov].chat_agent
 		agent_list = M.agents.chat
 	else
+		current_agent = M._state[prov].command_agent
 		agent_list = M.agents.command
-		current_agent = M._state.command_agent
 	end
 
 	for name, agt in pairs(agent_list) do
-		if agt.provider == M.get_provider() then
+		if agt.provider == prov then
 			table.insert(provider_agents, name)
 		end
 	end
+	-- print("PROV", prov)
+	-- print("PROV AGENTS", vim.inspect(provider_agents))
+
+	if not vim.tbl_contains(provider_agents, current_agent) then
+		-- print("NOT IN", vim.inspect(provider_agents), current_agent)
+		-- set next_agent to first agent of provider_agents array
+		current_agent = provider_agents[1]
+	end
 
 	for i, agent_name in ipairs(provider_agents) do
+		-- print("NextAgent", agent_name, current_agent)
 		if agent_name == current_agent then
-			local next_agent = provider_agents[i % #provider_agents + 1]
+			local idx = (i % #provider_agents + 1)
+			-- print("IDX", idx)
+			local next_agent = provider_agents[idx]
 			if is_chat then
-				M._state.chat_agent = next_agent
+				M._state[prov].chat_agent = next_agent
 				M.logger.info("Chat agent: " .. next_agent)
 			else
-				M._state.command_agent = next_agent
+				M._state[prov].command_agent = next_agent
 				M.logger.info("Command agent: " .. next_agent)
 			end
 			M.refresh_state()
@@ -2094,8 +2143,9 @@ end
 ---@return table # { cmd_prefix, name, model, system_prompt }
 M.get_command_agent = function()
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.command_agent })
-	local name = M._state.command_agent
+	local prov = M.get_provider()
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state[prov].command_agent })
+	local name = M._state[prov].command_agent
 	local model = M.agents.command[name].model
 	local system_prompt = M.agents.command[name].system_prompt
 	local provider = M.agents.command[name].provider
@@ -2111,8 +2161,9 @@ end
 ---@return table # { cmd_prefix, name, model, system_prompt }
 M.get_chat_agent = function()
 	local template = M.config.command_prompt_prefix_template
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state.chat_agent })
-	local name = M._state.chat_agent
+	local prov = M.get_provider()
+	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state[prov].chat_agent })
+	local name = M._state[prov].chat_agent
 	local model = M.agents.chat[name].model
 	local system_prompt = M.agents.chat[name].system_prompt
 	local provider = M.agents.chat[name].provider
@@ -2125,8 +2176,9 @@ M.get_chat_agent = function()
 	}
 end
 
+---@return string
 M.get_provider = function()
-	return M._state.provider
+	return M._state["provider"]
 end
 
 M.cmd.Context = function(params)

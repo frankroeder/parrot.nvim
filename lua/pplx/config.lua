@@ -39,7 +39,7 @@ local config = {
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
 			chat_topic_gen_prompt = "Summarize the chat above and only provide a short"
-				.. 'headline of 2 to 3 words without any opening phrase like "Sure,'
+				.. "headline of 2 to 3 words without any opening phrase like \"Sure,"
 				.. "here is the summary\", 'Sure! Here's a shortheadline summarizing the chat' or anything similar.",
 		},
 	},
