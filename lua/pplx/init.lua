@@ -384,14 +384,19 @@ M.setup = function(opts)
 	-- prepare agent completions
 	M._chat_agents = {}
 	M._command_agents = {}
+	M._available_providers = {}
 	for name, _ in pairs(M.agents.command) do
 		table.insert(M._command_agents, name)
 	end
 	for name, _ in pairs(M.agents.chat) do
 		table.insert(M._chat_agents, name)
 	end
+	for name, _ in pairs(M.providers) do
+		table.insert(M._available_providers, name)
+	end
 	table.sort(M._chat_agents)
 	table.sort(M._command_agents)
+	table.sort(M._available_providers)
 
 	M.refresh_state()
 
@@ -426,10 +431,24 @@ M.setup = function(opts)
 					if cmd == "Agent" then
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
+						local available_agents = {}
+						local provider_agents = {}
+
 						if M.is_chat(buf, file_name) then
-							return M._chat_agents
+							available_agents = M.agents.chat
+						else
+							available_agents = M.agents.command
 						end
-						return M._command_agents
+
+						for name, agt in pairs(available_agents) do
+							if agt.provider == M._state.provider then
+								table.insert(provider_agents, name)
+							end
+						end
+
+						return provider_agents
+          elseif cmd == "Provider" then
+              return M._available_providers
 					end
 
 					return {}
@@ -498,6 +517,11 @@ M.refresh_state = function()
 	if not M._state.command_agent == nil or not M.agents.command[M._state.command_agent] then
 		M._state.command_agent = M._command_agents[1]
 	end
+
+	M._state.provider =  M._state.provider or state.provider or nil
+	if not M._state.provider == nil or not M.providers[M._state.provider] then
+		M._state.provider = M._available_providers[1]
+  end
 
 	utils.table_to_file(M._state, state_file)
 
@@ -1975,6 +1999,28 @@ end
 --------------------
 -- Prompt logic
 --------------------
+M.cmd.Provider = function(params)
+	local provider = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+	if provider == "" then
+		M.logger.info(" Current provider: " .. M._state.provider)
+		return
+	end
+  M._state.provider = provider
+	M.refresh_state()
+end
+
+M.cmd.NextProvider = function()
+	local current_provider = M._state.provider
+	for i, provider_name in ipairs(M._available_providers) do
+		if provider_name == current_provider then
+			local next_provider = M._available_providers[i % #M._available_providers + 1]
+			M.logger.info("Selected provider: " .. next_provider)
+      M._state.provider = next_provider
+			M.refresh_state()
+      return
+		end
+	end
+end
 
 M.cmd.Agent = function(params)
 	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
@@ -2011,18 +2057,26 @@ M.cmd.NextAgent = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.is_chat(buf, file_name)
 	local current_agent, agent_list
+  local provider_agents = {}
 
 	if is_chat then
 		current_agent = M._state.chat_agent
-		agent_list = M._chat_agents
+		agent_list = M.agents.chat
 	else
+		agent_list = M.agents.command
 		current_agent = M._state.command_agent
-		agent_list = M._command_agents
 	end
 
-	for i, agent_name in ipairs(agent_list) do
+	for name, agt in pairs(agent_list) do
+		if agt.provider == M._state.provider then
+			table.insert(provider_agents, name)
+		end
+	end
+
+	for i, agent_name in ipairs(provider_agents) do
+    print(agent_name, current_agent)
 		if agent_name == current_agent then
-			local next_agent = agent_list[i % #agent_list + 1]
+			local next_agent = provider_agents[i % #provider_agents + 1]
 			if is_chat then
 				M._state.chat_agent = next_agent
 				M.logger.info("Chat agent: " .. next_agent)
