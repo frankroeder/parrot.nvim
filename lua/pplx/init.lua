@@ -2129,10 +2129,10 @@ M.cmd.NextAgent = function()
 			local next_agent = provider_agents[idx]
 			if is_chat then
 				M._state[prov].chat_agent = next_agent
-				M.logger.info("Chat agent: " .. next_agent)
+				M.logger.info("Chat agent (" .. prov .. "): " .. next_agent)
 			else
 				M._state[prov].command_agent = next_agent
-				M.logger.info("Command agent: " .. next_agent)
+				M.logger.info("Command agent (" .. prov .. "): "  .. next_agent)
 			end
 			M.refresh_state()
 			return
