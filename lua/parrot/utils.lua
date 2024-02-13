@@ -196,8 +196,8 @@ M.find_git_root = function()
 	return ""
 end
 
--- tries to find an .pplx.md file in the root of current git repo
----@return string # returns instructions from the .pplx.md file
+-- tries to find an .parrot.md file in the root of current git repo
+---@return string # returns instructions from the .parrot.md file
 M.find_repo_instructions = function()
 	local git_root = M.find_git_root()
 
@@ -205,7 +205,7 @@ M.find_repo_instructions = function()
 		return ""
 	end
 
-	local instruct_file = git_root .. "/.pplx.md"
+	local instruct_file = git_root .. "/.parrot.md"
 
 	if vim.fn.filereadable(instruct_file) == 0 then
 		return ""

@@ -1,11 +1,11 @@
-local config = require("pplx.config")
-local utils = require("pplx.utils")
-local ui = require("pplx.ui")
+local config = require("parrot.config")
+local utils = require("parrot.utils")
+local ui = require("parrot.ui")
 
 local _H = {}
 local M = {
 	_H = _H, -- helper functions
-	_plugin_name = "pplx.nvim",
+	_plugin_name = "parrot.nvim",
 	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
@@ -17,7 +17,7 @@ local M = {
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
-	logger = require("pplx.logger"),
+	logger = require("parrot.logger"),
 }
 M.logger._plugin_name = M._plugin_name
 
@@ -89,7 +89,7 @@ _H.process = function(buf, cmd, args, callback, out_reader, err_reader)
 	local stderr_data = ""
 
 	if not M.can_handle(buf) then
-		M.logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
 
@@ -443,11 +443,10 @@ M.setup = function(opts)
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
 						if M.is_chat(buf, file_name) then
-						  return M._available_provider_agents[M.get_provider()].chat
+							return M._available_provider_agents[M.get_provider()].chat
 						else
-						  return M._available_provider_agents[M.get_provider()].command
+							return M._available_provider_agents[M.get_provider()].command
 						end
-
 					elseif cmd == "Provider" then
 						return M._available_providers
 					end
@@ -461,7 +460,7 @@ M.setup = function(opts)
 	M.buf_handler()
 
 	if vim.fn.executable("curl") == 0 then
-		M.logger.error("curl is not installed, run :checkhealth pplx")
+		M.logger.error("curl is not installed, run :checkhealth parrot")
 	end
 
 	for prov, val in pairs(M.providers) do
@@ -499,7 +498,7 @@ M.valid_api_key = function(current_provider)
 			.. current_provider
 			.. "].api_key is not set: "
 			.. vim.inspect(api_key)
-			.. " run :checkhealth pplx"
+			.. " run :checkhealth parrot"
 	)
 	return false
 end
@@ -511,7 +510,7 @@ M.refresh_state = function()
 		state = M.file_to_table(state_file) or {}
 	end
 
-	if not state then
+	if next(state) == nil then
 		for _, prov in pairs(M._available_providers) do
 			state[prov] = { chat_agent = nil, command_agent = nil }
 		end
@@ -645,7 +644,7 @@ M.prepare_payload = function(messages, model, default_model)
 	end
 
 	-- if model is a table
-  -- TODO: Consider additional model parameters --
+	-- TODO: Consider additional model parameters --
 	return {
 		model = model.model,
 		stream = true,
@@ -859,10 +858,10 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 	local finished_lines = 0
 	local skip_first_undojoin = not first_undojoin
 
-	local hl_handler_group = "PplxHandlerStandout"
+	local hl_handler_group = "PrtHandlerStandout"
 	vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
 
-	local ns_id = vim.api.nvim_create_namespace("PplxHandler_" .. utils.uuid())
+	local ns_id = vim.api.nvim_create_namespace("PrtHandler_" .. utils.uuid())
 
 	local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
 		strict = false,
@@ -1123,7 +1122,7 @@ M.prep_chat = function(buf, file_name)
 end
 
 M.prep_context = function(buf, file_name)
-	if not utils.ends_with(file_name, ".pplx.md") then
+	if not utils.ends_with(file_name, ".parrot.md") then
 		return
 	end
 
@@ -1135,7 +1134,7 @@ M.prep_context = function(buf, file_name)
 end
 
 M.buf_handler = function()
-	local gid = utils.create_augroup("PplxBufHandler", { clear = true })
+	local gid = utils.create_augroup("PrtBufHandler", { clear = true })
 
 	utils.autocmd({ "BufEnter" }, nil, function(event)
 		local buf = event.buf
@@ -1310,15 +1309,15 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	time = time .. "." .. stamp
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
-  local chat_agent = M.get_chat_agent()
+	local chat_agent = M.get_chat_agent()
 
-  -- if system_prompt == nil then
-  --   system_prompt = chat_agent.system_prompt
-  -- end
-  --
-  -- if model == nil then
-  --   model = chat_agent.model
-  -- end
+	-- if system_prompt == nil then
+	--   system_prompt = chat_agent.system_prompt
+	-- end
+	--
+	-- if model == nil then
+	--   model = chat_agent.model
+	-- end
 
 	-- encode as json if model is a table
 	if model and type(model) == "table" then
@@ -1425,7 +1424,6 @@ M.cmd.ChatPaste = function(params)
 
 	local last = M.config.chat_dir .. "/last.md"
 
-
 	-- make new chat if last doesn't exist
 	if vim.fn.filereadable(last) ~= 1 then
 		-- skip rest since new chat will handle snippet on it's own
@@ -1489,14 +1487,14 @@ M.chat_respond = function(params)
 
 	local agent = M.get_chat_agent()
 	local agent_name = agent.name
-  local agent_provider = agent.provider
+	local agent_provider = agent.provider
 
 	if not M.valid_api_key(agent.provider) then
 		return
 	end
 
 	if not M.can_handle(buf) then
-		M.logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
 
@@ -1703,7 +1701,7 @@ M.chat_respond = function(params)
 				local line = vim.api.nvim_buf_line_count(buf)
 				utils.cursor_to_line(line, buf, win)
 			end
-			vim.cmd("doautocmd User PplxDone")
+			vim.cmd("doautocmd User PrtDone")
 		end)
 	)
 end
@@ -1747,7 +1745,7 @@ M.cmd.ChatFinder = function()
 	local dir = M.config.chat_dir
 
 	-- prepare unique group name and register augroup
-	local gid = utils.create_augroup("PplxChatFinder", { clear = true })
+	local gid = utils.create_augroup("PrtChatFinder", { clear = true })
 
 	-- prepare three popup buffers and windows
 	local ratio = M.config.style_chat_finder_preview_ratio or 0.5
@@ -1794,9 +1792,9 @@ M.cmd.ChatFinder = function()
 	-- set initial content of command buffer
 	vim.api.nvim_buf_set_lines(command_buf, 0, -1, false, { M.config.chat_finder_pattern })
 
-	local hl_search_group = "PplxExplorerSearch"
+	local hl_search_group = "PrtExplorerSearch"
 	vim.cmd("highlight default link " .. hl_search_group .. " Search ")
-	local hl_cursorline_group = "PplxExplorerCursorLine"
+	local hl_cursorline_group = "PrtExplorerCursorLine"
 	vim.cmd("highlight default " .. hl_cursorline_group .. " gui=standout cterm=standout")
 
 	local picker_pos_id = 0
@@ -2132,7 +2130,7 @@ M.cmd.NextAgent = function()
 				M.logger.info("Chat agent (" .. prov .. "): " .. next_agent)
 			else
 				M._state[prov].command_agent = next_agent
-				M.logger.info("Command agent (" .. prov .. "): "  .. next_agent)
+				M.logger.info("Command agent (" .. prov .. "): " .. next_agent)
 			end
 			M.refresh_state()
 			return
@@ -2193,7 +2191,7 @@ M.cmd.Context = function(params)
 	local cbuf = vim.api.nvim_get_current_buf()
 
 	local file_name = ""
-	local buf = utils.get_buffer(".pplx.md")
+	local buf = utils.get_buffer(".parrot.md")
 	if buf then
 		file_name = vim.api.nvim_buf_get_name(buf)
 	else
@@ -2202,7 +2200,7 @@ M.cmd.Context = function(params)
 			M.logger.warning("Not in a git repository")
 			return
 		end
-		file_name = git_root .. "/.pplx.md"
+		file_name = git_root .. "/.parrot.md"
 	end
 
 	if vim.fn.filereadable(file_name) ~= 1 then
@@ -2236,7 +2234,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 	local win = vim.api.nvim_get_current_win()
 
 	if not M.can_handle(buf) then
-		M.logger.warning("Another pplx process is already running for this buffer.")
+		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
 
@@ -2469,7 +2467,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			buf = vim.api.nvim_create_buf(true, true)
 			vim.api.nvim_set_current_buf(buf)
 
-			local group = utils.create_augroup("PplxScratchSave" .. utils.uuid(), { clear = true })
+			local group = utils.create_augroup("PrtScratchSave" .. utils.uuid(), { clear = true })
 			vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 				buffer = buf,
 				group = group,
@@ -2496,7 +2494,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
-				vim.cmd("doautocmd User PplxDone")
+				vim.cmd("doautocmd User PrtDone")
 			end)
 		)
 	end

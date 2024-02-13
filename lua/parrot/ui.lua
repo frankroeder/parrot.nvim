@@ -1,4 +1,4 @@
-local utils = require("pplx.utils")
+local utils = require("parrot.utils")
 
 local M = {}
 

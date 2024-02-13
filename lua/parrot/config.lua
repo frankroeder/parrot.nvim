@@ -1,9 +1,3 @@
--- The perplexity.ai API for Neovim
--- https://github.com/frankroeder/pplx.nvim/
-
---------------------------------------------------------------------------------
--- Default config
---------------------------------------------------------------------------------
 local system_chat_prompt = "You are a versatile AI assistant with capabilities\n"
 	.. "extending to general knowledge and coding support. When engaging\n"
 	.. "with users, please adhere to the following guidelines to ensure\n"
@@ -44,13 +38,13 @@ local config = {
 		},
 	},
 	-- prefix for all commands
-	cmd_prefix = "Pplx",
+	cmd_prefix = "Prt",
 	-- optional curl parameters (for proxy, etc.)
 	-- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
 	curl_params = {},
 
 	-- directory for persisting state dynamically changed by user (like model or persona)
-	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/persisted",
+	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
 
 	agents = {
 		chat = {
@@ -221,7 +215,7 @@ local config = {
 		},
 	},
 	-- directory for storing chat files
-	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/pplx/chats",
+	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
 	-- chat user prompt prefix
 	chat_user_prefix = "🗨:",
 	-- chat assistant prompt prefix (static string or a table {static, template})
@@ -239,14 +233,14 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
-	-- default search term when using :PplxChatFinder
+	-- default search term when using :PrtChatFinder
 	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
 	-- use prompt buftype for chats (:h prompt-buffer)
 	chat_prompt_buf_type = false,
 
-	-- how to display PplxChatToggle or PplxContext: popup / split / vsplit / tabnew
+	-- how to display PrtChatToggle or PrtContext: popup / split / vsplit / tabnew
 	toggle_target = "vsplit",
 
 	-- styling for chatfinder
@@ -270,7 +264,7 @@ local config = {
 	style_popup_margin_top = 2,
 	style_popup_max_width = 160,
 
-	-- command config and templates bellow are used by commands like PplxRewrite, PplxEnew, etc.
+	-- command config and templates bellow are used by commands like PrtRewrite, PrtEnew, etc.
 	-- command prompt prefix for asking user for input (supports {{agent}} template variable)
 	command_prompt_prefix_template = "🤖 {{agent}} ~ ",
 	-- auto select command response (easier chaining of commands)
@@ -311,19 +305,19 @@ local config = {
 			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 			vim.api.nvim_win_set_buf(0, bufnr)
 		end,
-		-- PplxImplement rewrites the provided selection/range based on comments in it
-		Implement = function(pplx, params)
+		-- PrtImplement rewrites the provided selection/range based on comments in it
+		Implement = function(parrot, params)
 			local template = "Consider the following content from {{filename}}:\n\n"
 				.. "```{{filetype}}\n{{selection}}\n```\n\n"
 				.. "Please rewrite this according to the contained instructions."
 				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
 
-			local agent = pplx.get_command_agent()
-			pplx.logger.info("Implementing selection with agent: " .. agent.name)
+			local agent = parrot.get_command_agent()
+			parrot.logger.info("Implementing selection with agent: " .. agent.name)
 
-			pplx.Prompt(
+			parrot.Prompt(
 				params,
-				pplx.Target.rewrite,
+				parrot.Target.rewrite,
 				nil, -- command will run directly without any prompting for user input
 				agent.model,
 				template,

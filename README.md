@@ -1,13 +1,17 @@
-# pplx.nvim 
+# parrot.nvim 🦜
 > ⚠️ This repository is work in progress and will undergo major changes in the near future. <br>
 > It is based on the brilliant work by https://github.com/Robitx.
 
-The ultimate LLM plugin to support your text editing through the [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api) and [OpenAI API](https://platform.openai.com/).
+The ultimate [stochastic parrot](https://en.wikipedia.org/wiki/Stochastic_parrot) to support your text editing inside neovim.
++ [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)🦜
++ [OpenAI API](https://platform.openai.com/).
++ Local and offline serving via [ollama](https://github.com/ollama/ollama)
+
 I started this repository because a perplexity subscription provides $5 of API credits every month for free.
-Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https://github.com/Robitx/gp.nvim) for my needs - a new Neovim plugin is born 🔥.
+Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https://github.com/Robitx/gp.nvim) for my needs - a new neovim plugin is born 🔥.
 
 <div align="left">
-    <img src="https://github.com/frankroeder/pplx.nvim/assets/19746932/617ff685-ee41-48fe-ac9c-4645cfe587be" width="100%">
+    <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/617ff685-ee41-48fe-ac9c-4645cfe587be" width="100%">
 </div>
 
 ## Getting Started
@@ -15,11 +19,11 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
 ### lazy.nvim
 ```lua
 {
-    "frankroeder/pplx.nvim",
+    "frankroeder/parrot.nvim",
     -- OPTONAL
     -- cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
     config = function()
-        require("pplx").setup {
+        require("parrot").setup {
             providers = {
                 pplx = {
                     api_key = os.getenv "PERPLEXITY_API_KEY",
@@ -42,6 +46,6 @@ Instead of letting those spoil, I changed my favorite GPT plugin [gp.nvim](https
 ## Configuration
 
 ### For now, refer to my personal lazy.nvim setup.
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/pplx_nvim.lua#L10-L182
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua#L10-L182
 
 more to come ...

@@ -1,27 +1,27 @@
 local M = {}
 
 function M.check()
-	vim.health.start("pplx.nvim checks")
+	vim.health.start("parrot.nvim checks")
 
-	local ok, pplx = pcall(require, "pplx")
+	local ok, parrot = pcall(require, "parrot")
 	if not ok then
-		vim.health.error("require('pplx') failed")
+		vim.health.error("require('parrot') failed")
 	else
-		vim.health.ok("require('pplx') succeeded")
+		vim.health.ok("require('parrot') succeeded")
 
-		if pplx._setup_called then
-			vim.health.ok("require('pplx').setup() has been called")
+		if parrot._setup_called then
+			vim.health.ok("require('parrot').setup() has been called")
 		else
-			vim.health.error("require('pplx').setup() has not been called")
+			vim.health.error("require('parrot').setup() has not been called")
 		end
 
-		for key, provider in ipairs(pplx.providers) do
+		for key, provider in ipairs(parrot.providers) do
 			local api_key = provider.api_key
 			if api_key or provider == "ollama" then
 				vim.health.ok(key, "api_key is set")
 			else
 				vim.health.error(
-					"require('pplx').setup({provider {.."
+					"require('parrot').setup({provider {.."
 						.. key
 						.. "..: {api_key: ???}}) is not set: "
 						.. vim.inspect(api_key)
@@ -33,7 +33,7 @@ function M.check()
 				vim.health.ok("config.api_endpoint is set")
 			else
 				vim.health.error(
-					"require('pplx').setup({provider {.."
+					"require('parrot').setup({provider {.."
 						.. key
 						.. "..: {endpoint: ???}}) is not set: "
 						.. vim.inspect(api_key)
