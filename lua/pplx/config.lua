@@ -21,18 +21,26 @@ local system_code_prompt = "You are an AI specializing in software development"
 	.. "responses should strictly pertain to the code provided. Please ensure"
 	.. "that your reply is solely focused on the code snippet in question.\n\n"
 
+local chat_topic_gen_prompt = "Summarize the topic of our conversation above"
+	.. " in two or three words. Respond only with those words."
+
 local config = {
 	providers = {
 		pplx = {
 			api_key = "",
 			endpoint = "https://api.perplexity.ai/chat/completions",
+			chat_topic_gen_prompt = chat_topic_gen_prompt,
 		},
 		openai = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
+			chat_topic_gen_prompt = chat_topic_gen_prompt,
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
+			chat_topic_gen_prompt = "Summarize the chat above and only provide a short"
+				.. 'headline of 2 to 3 words without any opening phrase like "Sure,'
+				.. "here is the summary\", 'Sure! Here's a shortheadline summarizing the chat' or anything similar.",
 		},
 	},
 	-- prefix for all commands
@@ -48,13 +56,13 @@ local config = {
 		chat = {
 			-- ollama
 			{
-				name = "ChatMistal-7B-ollama",
+				name = "Mistal-7B",
 				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 				system_prompt = system_chat_prompt,
 				provider = "ollama",
 			},
 			{
-				name = "ChatLlama-13B-ollama",
+				name = "Llama-13B",
 				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 				system_prompt = system_chat_prompt,
 				provider = "ollama",
@@ -131,13 +139,13 @@ local config = {
 		command = {
 			-- ollama
 			{
-				name = "CodeMistal-7B-ollama",
+				name = "Mistal-7B",
 				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 				system_prompt = system_code_prompt,
 				provider = "ollama",
 			},
 			{
-				name = "CodeLlama-13B-ollama",
+				name = "Llama-13B",
 				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 				system_prompt = system_code_prompt,
 				provider = "ollama",
@@ -221,11 +229,6 @@ local config = {
 	-- just a static string is legacy and the [{{agent}}] element is added automatically
 	-- if you really want just a static string, make it a table with one element { "🤖:" }
 	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
-	-- chat topic generation prompt
-	chat_topic_gen_prompt = "Summarize the topic of our conversation above"
-		.. " in two or three words. Respond only with those words.",
-	-- chat topic model (string with model name or table with model name and parameters)
-	chat_topic_gen_model = "gpt-3.5-turbo-16k",
 	-- explicitly confirm deletion of a chat file
 	chat_confirm_delete = true,
 	-- conceal model parameters in chat

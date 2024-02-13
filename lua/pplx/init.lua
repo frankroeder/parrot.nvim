@@ -441,14 +441,14 @@ M.setup = function(opts)
 						end
 
 						for name, agt in pairs(available_agents) do
-							if agt.provider == M._state.provider then
+							if agt.provider == M.get_provider() then
 								table.insert(provider_agents, name)
 							end
 						end
 
 						return provider_agents
-          elseif cmd == "Provider" then
-              return M._available_providers
+					elseif cmd == "Provider" then
+						return M._available_providers
 					end
 
 					return {}
@@ -518,10 +518,10 @@ M.refresh_state = function()
 		M._state.command_agent = M._command_agents[1]
 	end
 
-	M._state.provider =  M._state.provider or state.provider or nil
+	M._state.provider = M._state.provider or state.provider or nil
 	if not M._state.provider == nil or not M.providers[M._state.provider] then
 		M._state.provider = M._available_providers[1]
-  end
+	end
 
 	utils.table_to_file(M._state, state_file)
 
@@ -1629,17 +1629,19 @@ M.chat_respond = function(params)
 				table.insert(messages, { role = "assistant", content = qt.response })
 
 				-- ask model to generate topic/title for the chat
-				table.insert(messages, { role = "user", content = M.config.chat_topic_gen_prompt })
+				table.insert(messages, { role = "user", content = M.providers[M.get_provider()].chat_topic_gen_prompt })
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
 				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
 
+				local current_agent_topic = M.get_chat_agent()
+
 				-- call the model
 				M.query(
 					nil,
-					"openai",
-					M.prepare_payload(messages, nil, M.config.chat_topic_gen_model),
+					current_agent_topic.provider,
+					M.prepare_payload(messages, current_agent_topic.model, nil),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2005,7 +2007,7 @@ M.cmd.Provider = function(params)
 		M.logger.info(" Current provider: " .. M._state.provider)
 		return
 	end
-  M._state.provider = provider
+	M._state.provider = provider
 	M.refresh_state()
 end
 
@@ -2015,9 +2017,9 @@ M.cmd.NextProvider = function()
 		if provider_name == current_provider then
 			local next_provider = M._available_providers[i % #M._available_providers + 1]
 			M.logger.info("Selected provider: " .. next_provider)
-      M._state.provider = next_provider
+			M._state.provider = next_provider
 			M.refresh_state()
-      return
+			return
 		end
 	end
 end
@@ -2057,7 +2059,7 @@ M.cmd.NextAgent = function()
 	local file_name = vim.api.nvim_buf_get_name(buf)
 	local is_chat = M.is_chat(buf, file_name)
 	local current_agent, agent_list
-  local provider_agents = {}
+	local provider_agents = {}
 
 	if is_chat then
 		current_agent = M._state.chat_agent
@@ -2068,13 +2070,12 @@ M.cmd.NextAgent = function()
 	end
 
 	for name, agt in pairs(agent_list) do
-		if agt.provider == M._state.provider then
+		if agt.provider == M.get_provider() then
 			table.insert(provider_agents, name)
 		end
 	end
 
 	for i, agent_name in ipairs(provider_agents) do
-    print(agent_name, current_agent)
 		if agent_name == current_agent then
 			local next_agent = provider_agents[i % #provider_agents + 1]
 			if is_chat then
@@ -2122,6 +2123,10 @@ M.get_chat_agent = function()
 		system_prompt = system_prompt,
 		provider = provider,
 	}
+end
+
+M.get_provider = function()
+	return M._state.provider
 end
 
 M.cmd.Context = function(params)
