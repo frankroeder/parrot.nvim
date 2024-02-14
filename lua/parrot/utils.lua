@@ -117,41 +117,6 @@ M.last_content_line = function(buf)
 	return 0
 end
 
--- returns rendered template with specified key replaced by value
-M.template_replace = function(template, key, value)
-	if template == nil then
-		return nil
-	end
-
-	if value == nil then
-		return template:gsub(key, "")
-	end
-
-	if type(value) == "table" then
-		value = table.concat(value, "\n")
-	end
-
-	value = value:gsub("%%", "%%%%")
-	template = template:gsub(key, value)
-	template = template:gsub("%%%%", "%%")
-	return template
-end
-
----@param template string | nil # template string
----@param key_value_pairs table # table with key value pairs
----@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
-M.template_render = function(template, key_value_pairs)
-	if template == nil then
-		return nil
-	end
-
-	for key, value in pairs(key_value_pairs) do
-		template = M.template_replace(template, key, value)
-	end
-
-	return template
-end
-
 ---@param line number # line number
 ---@param buf number # buffer number
 ---@param win number | nil # window number
@@ -254,6 +219,77 @@ M.undojoin = function(buf)
 		end
 		M.error("Error running undojoin: " .. vim.inspect(result))
 	end
+end
+
+-- returns rendered template with specified key replaced by value
+M.template_replace = function(template, key, value)
+	if template == nil then
+		return nil
+	end
+
+	if value == nil then
+		return template:gsub(key, "")
+	end
+
+	if type(value) == "table" then
+		value = table.concat(value, "\n")
+	end
+
+	value = value:gsub("%%", "%%%%")
+	template = template:gsub(key, value)
+	template = template:gsub("%%%%", "%%")
+	return template
+end
+
+---@param template string | nil # template string
+---@param key_value_pairs table # table with key value pairs
+---@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
+M.template_render_from_list = function(template, key_value_pairs)
+	if template == nil then
+		return nil
+	end
+
+	for key, value in pairs(key_value_pairs) do
+		template = M.template_replace(template, key, value)
+	end
+
+	return template
+end
+
+M.template_render = function(template, command, selection, filetype, filename)
+	local key_value_pairs = {
+		["{{command}}"] = command,
+		["{{selection}}"] = selection,
+		["{{filetype}}"] = filetype,
+		["{{filename}}"] = filename,
+	}
+	return M.template_render_from_list(template, key_value_pairs)
+end
+
+---@param messages table
+---@param model string | table | nil
+---@param default_model string | table
+M.prepare_payload = function(messages, model, default_model)
+	model = model or default_model
+
+	-- if model is a string
+	if type(model) == "string" then
+		return {
+			model = model,
+			stream = true,
+			messages = messages,
+		}
+	end
+
+	-- if model is a table
+	-- TODO: Consider additional model parameters --
+	return {
+		model = model.model,
+		stream = true,
+		messages = messages,
+		temperature = math.max(0, math.min(2, model.temperature or 1)),
+		top_p = math.max(0, math.min(1, model.top_p or 1)),
+	}
 end
 
 return M

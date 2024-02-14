@@ -15,7 +15,7 @@ local system_code_prompt = "You are an AI specializing in software development"
 	.. "responses should strictly pertain to the code provided. Please ensure"
 	.. "that your reply is solely focused on the code snippet in question.\n\n"
 
-local chat_topic_gen_prompt = "Summarize the topic of our conversation above"
+local topic_prompt = "Summarize the topic of our conversation above"
 	.. " in two or three words. Respond only with those words."
 
 local config = {
@@ -23,16 +23,16 @@ local config = {
 		pplx = {
 			api_key = "",
 			endpoint = "https://api.perplexity.ai/chat/completions",
-			chat_topic_gen_prompt = chat_topic_gen_prompt,
+			topic_prompt = topic_prompt,
 		},
 		openai = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
-			chat_topic_gen_prompt = chat_topic_gen_prompt,
+			topic_prompt = topic_prompt,
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
-			chat_topic_gen_prompt = "Summarize the chat above and only provide a short"
+			topic_prompt = "Summarize the chat above and only provide a short"
 				.. "headline of 2 to 3 words without any opening phrase like \"Sure,"
 				.. "here is the summary\", 'Sure! Here's a shortheadline summarizing the chat' or anything similar.",
 		},

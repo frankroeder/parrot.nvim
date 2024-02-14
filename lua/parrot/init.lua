@@ -189,41 +189,6 @@ _H.grep_directory = function(buf, directory, pattern, callback)
 	end)
 end
 
--- returns rendered template with specified key replaced by value
-_H.template_replace = function(template, key, value)
-	if template == nil then
-		return nil
-	end
-
-	if value == nil then
-		return template:gsub(key, "")
-	end
-
-	if type(value) == "table" then
-		value = table.concat(value, "\n")
-	end
-
-	value = value:gsub("%%", "%%%%")
-	template = template:gsub(key, value)
-	template = template:gsub("%%%%", "%%")
-	return template
-end
-
----@param template string | nil # template string
----@param key_value_pairs table # table with key value pairs
----@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
-_H.template_render = function(template, key_value_pairs)
-	if template == nil then
-		return nil
-	end
-
-	for key, value in pairs(key_value_pairs) do
-		template = _H.template_replace(template, key, value)
-	end
-
-	return template
-end
-
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
@@ -248,16 +213,6 @@ M.file_to_table = function(file_path)
 	return tbl
 end
 
-M.template_render = function(template, command, selection, filetype, filename)
-	local key_value_pairs = {
-		["{{command}}"] = command,
-		["{{selection}}"] = selection,
-		["{{filetype}}"] = filetype,
-		["{{filename}}"] = filename,
-	}
-	return _H.template_render(template, key_value_pairs)
-end
-
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
@@ -268,7 +223,7 @@ M.append_selection = function(params, origin_buf, target_buf)
 	if selection ~= "" then
 		local filetype = utils.get_filetype(origin_buf)
 		local fname = vim.api.nvim_buf_get_name(origin_buf)
-		local rendered = M.template_render(M.config.template_selection, "", selection, filetype, fname)
+		local rendered = utils.template_render(M.config.template_selection, "", selection, filetype, fname)
 		if rendered then
 			selection = rendered
 		end
@@ -628,32 +583,6 @@ M.call_hook = function(name, params)
 	M.logger.error("The hook '" .. name .. "' does not exist.")
 end
 
----@param messages table
----@param model string | table | nil
----@param default_model string | table
-M.prepare_payload = function(messages, model, default_model)
-	model = model or default_model
-
-	-- if model is a string
-	if type(model) == "string" then
-		return {
-			model = model,
-			stream = true,
-			messages = messages,
-		}
-	end
-
-	-- if model is a table
-	-- TODO: Consider additional model parameters --
-	return {
-		model = model.model,
-		stream = true,
-		messages = messages,
-		temperature = math.max(0, math.min(2, model.temperature or 1)),
-		top_p = math.max(0, math.min(1, model.top_p or 1)),
-	}
-end
-
 ---@param N number # number of queries to keep
 ---@param age number # age of queries to keep in seconds
 function M.cleanup_old_queries(N, age)
@@ -804,37 +733,23 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		end
 	end
 
-	-- try to replace model in endpoint (for azure)
-	local endpoint = M._H.template_replace(M.providers[provider].endpoint, "{{model}}", payload.model)
+	local endpoint = M.providers[provider].endpoint
 	local api_key = M.providers[provider].api_key
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
-	local args = {}
-	if provider == "ollama" then
-		args = {
-			"--no-buffer",
-			"-s",
-			endpoint,
-			"-H",
-			"accept: application/json",
-			"-H",
-			"content-type: application/json",
-			"-d",
-			vim.json.encode(payload),
-		}
-	else
-		args = {
-			"--no-buffer",
-			"-s",
-			endpoint,
-			"-H",
-			"accept: application/json",
-			"-H",
-			"authorization: Bearer " .. api_key,
-			"-H",
-			"content-type: application/json",
-			"-d",
-			vim.json.encode(payload),
-		}
+	local args = {
+		"--no-buffer",
+		"-s",
+		endpoint,
+		"-H",
+		"accept: application/json",
+		"-H",
+		"content-type: application/json",
+		"-d",
+		vim.json.encode(payload),
+	}
+	if provider ~= "ollama" then
+		table.insert(args, "-H")
+		table.insert(args, "authorization: Bearer " .. api_key)
 	end
 
 	for _, arg in ipairs(args) do
@@ -1309,8 +1224,8 @@ M.new_chat = function(params, model, system_prompt, toggle)
 	time = time .. "." .. stamp
 	local filename = M.config.chat_dir .. "/" .. time .. ".md"
 
-	local chat_agent = M.get_chat_agent()
-
+	-- local chat_agent = M.get_chat_agent()
+	--
 	-- if system_prompt == nil then
 	--   system_prompt = chat_agent.system_prompt
 	-- end
@@ -1577,7 +1492,8 @@ M.chat_respond = function(params)
 		agent_suffix = M.config.chat_assistant_prefix[2] or ""
 	end
 	---@diagnostic disable-next-line: cast-local-type
-	agent_suffix = M._H.template_render(agent_suffix, { ["{{agent}}"] = agent_name .. " - " .. agent_provider })
+	agent_suffix =
+		utils.template_render_from_list(agent_suffix, { ["{{agent}}"] = agent_name .. " - " .. agent_provider })
 
 	for index = start_index, end_index do
 		local line = lines[index]
@@ -1628,7 +1544,7 @@ M.chat_respond = function(params)
 	M.query(
 		buf,
 		agent.provider,
-		M.prepare_payload(messages, headers.model, agent.model),
+		utils.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
 			local qt = M.get_query(qid)
@@ -1661,7 +1577,7 @@ M.chat_respond = function(params)
 				table.insert(messages, { role = "assistant", content = qt.response })
 
 				-- ask model to generate topic/title for the chat
-				table.insert(messages, { role = "user", content = M.providers[M.get_provider()].chat_topic_gen_prompt })
+				table.insert(messages, { role = "user", content = M.providers[M.get_provider()].topic_prompt })
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
@@ -1673,7 +1589,7 @@ M.chat_respond = function(params)
 				M.query(
 					nil,
 					current_agent_topic.provider,
-					M.prepare_payload(messages, current_agent_topic.model, nil),
+					utils.prepare_payload(messages, current_agent_topic.model, nil),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -2110,20 +2026,14 @@ M.cmd.NextAgent = function()
 			table.insert(provider_agents, name)
 		end
 	end
-	-- print("PROV", prov)
-	-- print("PROV AGENTS", vim.inspect(provider_agents))
 
 	if not vim.tbl_contains(provider_agents, current_agent) then
-		-- print("NOT IN", vim.inspect(provider_agents), current_agent)
-		-- set next_agent to first agent of provider_agents array
 		current_agent = provider_agents[1]
 	end
 
 	for i, agent_name in ipairs(provider_agents) do
-		-- print("NextAgent", agent_name, current_agent)
 		if agent_name == current_agent then
 			local idx = (i % #provider_agents + 1)
-			-- print("IDX", idx)
 			local next_agent = provider_agents[idx]
 			if is_chat then
 				M._state[prov].chat_agent = next_agent
@@ -2138,11 +2048,11 @@ M.cmd.NextAgent = function()
 	end
 end
 
----@return table # { cmd_prefix, name, model, system_prompt }
+---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_command_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local prov = M.get_provider()
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state[prov].command_agent })
+	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov].command_agent })
 	local name = M._state[prov].command_agent
 	local model = M.agents.command[name].model
 	local system_prompt = M.agents.command[name].system_prompt
@@ -2156,11 +2066,11 @@ M.get_command_agent = function()
 	}
 end
 
----@return table # { cmd_prefix, name, model, system_prompt }
+---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_chat_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local prov = M.get_provider()
-	local cmd_prefix = M._H.template_render(template, { ["{{agent}}"] = M._state[prov].chat_agent })
+	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov].chat_agent })
 	local name = M._state[prov].chat_agent
 	local model = M.agents.chat[name].model
 	local system_prompt = M.agents.chat[name].system_prompt
@@ -2383,7 +2293,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		local filetype = utils.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
-		local sys_prompt = M.template_render(system_template, command, selection, filetype, filename)
+		local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
 		table.insert(messages, { role = "system", content = sys_prompt })
 
@@ -2392,7 +2302,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
 
-		local user_prompt = M.template_render(template, command, selection, filetype, filename)
+		local user_prompt = utils.template_render(template, command, selection, filetype, filename)
 		table.insert(messages, { role = "user", content = user_prompt })
 
 		-- cancel possible visual mode before calling the model
@@ -2490,7 +2400,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		M.query(
 			buf,
 			provider,
-			M.prepare_payload(messages, model, agent.model),
+			utils.prepare_payload(messages, model, agent.model),
 			handler,
 			vim.schedule_wrap(function(qid)
 				on_exit(qid)
