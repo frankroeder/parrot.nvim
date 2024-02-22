@@ -292,4 +292,24 @@ M.prepare_payload = function(messages, model, default_model)
 	}
 end
 
+M.is_chat = function(buf, file_name, chat_dir)
+	if not M.starts_with(file_name, chat_dir) then
+		return false
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	if #lines < 4 then
+		return false
+	end
+
+	if not lines[1]:match("^# ") then
+		return false
+	end
+
+	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
+		return false
+	end
+	return true
+end
+
 return M

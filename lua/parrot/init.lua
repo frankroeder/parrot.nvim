@@ -10,10 +10,10 @@ local M = {
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	providers = {},
-	agents = {
+	agents = { -- table of agents
 		chat = {},
 		command = {},
-	}, -- table of agents
+	},
 	cmd = {}, -- default command functions
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
@@ -375,7 +375,6 @@ M.setup = function(opts)
 
 	local completions = {
 		ChatNew = { "popup", "split", "vsplit", "tabnew" },
-		ChatPaste = { "popup", "split", "vsplit", "tabnew" },
 		ChatToggle = { "popup", "split", "vsplit", "tabnew" },
 		Context = { "popup", "split", "vsplit", "tabnew" },
 	}
@@ -397,15 +396,10 @@ M.setup = function(opts)
 					if cmd == "Agent" then
 						local buf = vim.api.nvim_get_current_buf()
 						local file_name = vim.api.nvim_buf_get_name(buf)
-						if M.is_chat(buf, file_name) then
-							return M._available_provider_agents[M.get_provider()].chat
-						else
-							return M._available_provider_agents[M.get_provider()].command
-						end
+						return M.get_provider_agents(utils.is_chat(buf, file_name, M.config.chat_dir))
 					elseif cmd == "Provider" then
 						return M._available_providers
 					end
-
 					return {}
 				end,
 			})
@@ -943,28 +937,8 @@ M.prep_md = function(buf)
 	utils.feedkeys("<esc>", "xn")
 end
 
-M.is_chat = function(buf, file_name)
-	if not utils.starts_with(file_name, M.config.chat_dir) then
-		return false
-	end
-
-	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-	if #lines < 4 then
-		return false
-	end
-
-	if not lines[1]:match("^# ") then
-		return false
-	end
-
-	if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
-		return false
-	end
-	return true
-end
-
 M.prep_chat = function(buf, file_name)
-	if not M.is_chat(buf, file_name) then
+	if not utils.is_chat(buf, file_name, M.config.chat_dir) then
 		return
 	end
 
@@ -1327,50 +1301,6 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
 	M.new_chat(params, model, system_prompt, true)
 end
 
-M.cmd.ChatPaste = function(params)
-	-- if there is no selection, do nothing
-	if params.range ~= 2 then
-		M.logger.warning("Please select some text to paste into the chat.")
-		return
-	end
-
-	-- get current buffer
-	local cbuf = vim.api.nvim_get_current_buf()
-
-	local last = M.config.chat_dir .. "/last.md"
-
-	-- make new chat if last doesn't exist
-	if vim.fn.filereadable(last) ~= 1 then
-		-- skip rest since new chat will handle snippet on it's own
-		M.cmd.ChatNew(params, nil, nil)
-		return
-	end
-
-	params.args = params.args or ""
-	if params.args == "" then
-		params.args = M.config.toggle_target
-	end
-	local target = M.resolve_buf_target(params)
-
-	last = vim.fn.resolve(last)
-	local buf = utils.get_buffer(last)
-	local win_found = false
-	if buf then
-		for _, w in ipairs(vim.api.nvim_list_wins()) do
-			if vim.api.nvim_win_get_buf(w) == buf then
-				vim.api.nvim_set_current_win(w)
-				vim.api.nvim_set_current_buf(buf)
-				win_found = true
-				break
-			end
-		end
-	end
-	buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
-
-	M.append_selection(params, cbuf, buf)
-	utils.feedkeys("G", "xn")
-end
-
 M.cmd.ChatDelete = function()
 	-- get buffer and file
 	local buf = vim.api.nvim_get_current_buf()
@@ -1421,7 +1351,7 @@ M.chat_respond = function(params)
 
 	-- check if file looks like a chat file
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	if not M.is_chat(buf, file_name) then
+	if not utils.is_chat(buf, file_name, M.config.chat_dir) then
 		M.logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
 		return
 	end
@@ -1583,13 +1513,14 @@ M.chat_respond = function(params)
 				local topic_buf = vim.api.nvim_create_buf(false, true)
 				local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
 
-				local current_agent_topic = M.get_chat_agent()
+				local topic_prov = M.get_provider()
 
 				-- call the model
 				M.query(
 					nil,
-					current_agent_topic.provider,
-					utils.prepare_payload(messages, current_agent_topic.model, nil),
+					topic_prov,
+					-- utils.prepare_payload(messages, current_agent_topic.model, nil),
+					utils.prepare_payload(messages, M.providers[topic_prov].topic_model, nil),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -1896,12 +1827,6 @@ M.cmd.ChatFinder = function()
 		open_chat(target, true)
 	end)
 
-	-- -- enter on preview window will go to picker window
-	-- utils.set_keymap({ command_buf }, "i", "<cr>", function()
-	-- 	vim.api.nvim_set_current_win(picker_win)
-	-- 	vim.api.nvim_command("stopinsert")
-	-- end)
-
 	-- tab in command window will cycle through lines in picker window
 	utils.set_keymap({ command_buf, picker_buf }, { "i", "n" }, "<tab>", function()
 		local index = vim.api.nvim_win_get_cursor(picker_win)[1]
@@ -1951,100 +1876,92 @@ end
 --------------------
 M.cmd.Provider = function(params)
 	local provider = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-	if provider == "" then
-		M.logger.info(" Current provider: " .. M._state.provider)
-		return
-	end
-	M._state.provider = provider
-	M.refresh_state()
-end
-
-M.cmd.NextProvider = function()
-	local current_provider = M._state.provider
-	for i, provider_name in ipairs(M._available_providers) do
-		if provider_name == current_provider then
-			local next_provider = M._available_providers[i % #M._available_providers + 1]
-			M.logger.info("Selected provider: " .. next_provider)
-			M._state.provider = next_provider
-			M.refresh_state()
+	local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+	if has_fzf then
+		fzf_lua.fzf_exec(M._available_providers, {
+			prompt = "Provider selection ❯",
+			fzf_opts = M.config.fzf_lua_opts,
+			complete = function(selection)
+				if #selection == 0 then
+					M.logger.info(" Current provider: " .. M._state.provider)
+					return
+				end
+				local selected_prov = selection[1]
+				M.logger.info("Selected provider: " .. selected_prov)
+				M._state.provider = selected_prov
+				M.refresh_state()
+			end,
+		})
+	else
+		if provider == "" then
+			M.logger.info(" Current provider: " .. M._state.provider)
 			return
 		end
+		M._state.provider = provider
+		M.refresh_state()
 	end
 end
 
 M.cmd.Agent = function(params)
-	local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 	local prov = M.get_provider()
-	if agent_name == "" then
-		M.logger.info(
-			" Chat agent: " .. M._state[prov].chat_agent .. "  |  Command agent: " .. M._state[prov].command_agent
-		)
-		return
-	end
-
-	if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
-		M.logger.warning("Unknown agent: " .. agent_name)
-		return
-	end
-
 	local buf = vim.api.nvim_get_current_buf()
 	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
-	if is_chat and M.agents.chat[agent_name] then
-		M._state[prov].chat_agent = agent_name
-		M.logger.info("Chat agent: " .. M._state[prov].chat_agent)
-	elseif is_chat then
-		M.logger.warning(agent_name .. " is not a Chat agent")
-	elseif M.agents.command[agent_name] then
-		M._state[prov].command_agent = agent_name
-		M.logger.info("Command agent: " .. M._state[prov].command_agent)
+	local is_chat = utils.is_chat(buf, file_name, M.config.chat_dir)
+
+	local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+	if has_fzf then
+		fzf_lua.fzf_exec(M.get_provider_agents(is_chat), {
+			prompt = "Agent selection ❯",
+			fzf_opts = M.config.fzf_lua_opts,
+			preview = require("fzf-lua").shell.raw_preview_action_cmd(function(items)
+				if is_chat then
+					return string.format("echo %q", vim.fn.shellescape(vim.json.encode(M.agents.chat[items[1]])))
+				else
+					return string.format("echo %q", vim.fn.shellescape(vim.json.encode(M.agents.chat[items[1]])))
+				end
+			end),
+			complete = function(selection)
+				if #selection == 0 then
+					M.logger.warning("No agent selected")
+					return
+				end
+				local new_agent = selection[1]
+				if is_chat then
+					M._state[prov].chat_agent = new_agent
+					M.logger.info("Chat agent (" .. prov .. "): " .. new_agent)
+				else
+					M._state[prov].command_agent = new_agent
+					M.logger.info("Command agent (" .. prov .. "): " .. new_agent)
+				end
+				M.refresh_state()
+			end,
+		})
 	else
-		M.logger.warning(agent_name .. " is not a Command agent")
-	end
-
-	M.refresh_state()
-end
-
-M.cmd.NextAgent = function()
-	local buf = vim.api.nvim_get_current_buf()
-	local file_name = vim.api.nvim_buf_get_name(buf)
-	local is_chat = M.is_chat(buf, file_name)
-	local current_agent, agent_list
-	local provider_agents = {}
-	local prov = M.get_provider()
-
-	if is_chat then
-		current_agent = M._state[prov].chat_agent
-		agent_list = M.agents.chat
-	else
-		current_agent = M._state[prov].command_agent
-		agent_list = M.agents.command
-	end
-
-	for name, agt in pairs(agent_list) do
-		if agt.provider == prov then
-			table.insert(provider_agents, name)
-		end
-	end
-
-	if not vim.tbl_contains(provider_agents, current_agent) then
-		current_agent = provider_agents[1]
-	end
-
-	for i, agent_name in ipairs(provider_agents) do
-		if agent_name == current_agent then
-			local idx = (i % #provider_agents + 1)
-			local next_agent = provider_agents[idx]
-			if is_chat then
-				M._state[prov].chat_agent = next_agent
-				M.logger.info("Chat agent (" .. prov .. "): " .. next_agent)
-			else
-				M._state[prov].command_agent = next_agent
-				M.logger.info("Command agent (" .. prov .. "): " .. next_agent)
-			end
-			M.refresh_state()
+		local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+		if agent_name == "" then
+			M.logger.info(
+				" Chat agent: " .. M._state[prov].chat_agent .. "  |  Command agent: " .. M._state[prov].command_agent
+			)
 			return
 		end
+
+		if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
+			M.logger.warning("Unknown agent: " .. agent_name)
+			return
+		end
+
+		if is_chat and M.agents.chat[agent_name] then
+			M._state[prov].chat_agent = agent_name
+			M.logger.info("Chat agent: " .. M._state[prov].chat_agent)
+		elseif is_chat then
+			M.logger.warning(agent_name .. " is not a Chat agent")
+		elseif M.agents.command[agent_name] then
+			M._state[prov].command_agent = agent_name
+			M.logger.info("Command agent: " .. M._state[prov].command_agent)
+		else
+			M.logger.warning(agent_name .. " is not a Command agent")
+		end
+		M.refresh_state()
 	end
 end
 
@@ -2087,6 +2004,15 @@ end
 ---@return string
 M.get_provider = function()
 	return M._state["provider"]
+end
+
+M.get_provider_agents = function(is_chat)
+	local prov = M.get_provider()
+	if is_chat then
+		return M._available_provider_agents[prov].command
+	else
+		return M._available_provider_agents[prov].chat
+	end
 end
 
 M.cmd.Context = function(params)

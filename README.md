@@ -44,7 +44,9 @@ Let the parrot fix your bugs.
 ```lua
 {
     "frankroeder/parrot.nvim",
-    -- OPTIONAL
+    -- OPTIONAL dependency
+    -- dependencies = { "fzf-lua" }
+    -- OPTIONAL condition
     -- cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
     config = function()
         require("parrot").setup {

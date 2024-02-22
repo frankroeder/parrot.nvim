@@ -1,22 +1,9 @@
-local system_chat_prompt = "You are a versatile AI assistant with capabilities\n"
-	.. "extending to general knowledge and coding support. When engaging\n"
-	.. "with users, please adhere to the following guidelines to ensure\n"
-	.. "the highest quality of interaction:\n\n"
-	.. "- Admit when unsure by saying 'I don't know.'\n"
-	.. "- Ask for clarification when needed.\n"
-	.. "- Use first principles thinking to analyze queries.\n"
-	.. "- Start with the big picture, then focus on details.\n"
-	.. "- Apply the Socratic method to enhance understanding.\n"
-	.. "- Include all necessary code in your responses."
-	.. "- Stay calm and confident with each task.\n"
+local agents = require("parrot.agents")
 
-local system_code_prompt = "You are an AI specializing in software development"
-	.. "tasks, including code editing, completion, and debugging. Your"
-	.. "responses should strictly pertain to the code provided. Please ensure"
-	.. "that your reply is solely focused on the code snippet in question.\n\n"
-
-local topic_prompt = "Summarize the topic of our conversation above"
-	.. " in two or three words. Respond only with those words."
+local topic_prompt = [[
+Summarize the topic of our conversation above
+in two or three words. Respond only with those words.
+]]
 
 local config = {
 	providers = {
@@ -24,17 +11,21 @@ local config = {
 			api_key = "",
 			endpoint = "https://api.perplexity.ai/chat/completions",
 			topic_prompt = topic_prompt,
+			topic_model = "mistral-7b-instruct",
 		},
 		openai = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			topic_prompt = topic_prompt,
+			topic_model = "gpt-3.5-turbo-0125",
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
-			topic_prompt = "Summarize the chat above and only provide a short"
-				.. "headline of 2 to 3 words without any opening phrase like \"Sure,"
-				.. "here is the summary\", 'Sure! Here's a shortheadline summarizing the chat' or anything similar.",
+      topic_prompt = [[
+      Summarize the chat above and only provide a short headline of 2 to 3
+      words without any opening phrase like "Sure, here is the summary",
+      "Sure! Here's a shortheadline summarizing the chat" or anything similar.]],
+			topic_model = "mistral:latest",
 		},
 	},
 	-- prefix for all commands
@@ -47,172 +38,8 @@ local config = {
 	state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
 
 	agents = {
-		chat = {
-			-- ollama
-			{
-				name = "Mistal-7B",
-				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-				system_prompt = system_chat_prompt,
-				provider = "ollama",
-			},
-			{
-				name = "Llama-13B",
-				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-				system_prompt = system_chat_prompt,
-				provider = "ollama",
-			},
-			-- openai
-			{
-				name = "ChatGPT4",
-				model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "openai",
-			},
-			{
-				name = "CodeGPT3.5",
-				model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "openai",
-			},
-			-- pplx
-			{
-				name = "Perplexity-7B",
-				model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-70B",
-				model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-7B-Online",
-				model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt, -- ignored by online models
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-70B-Online",
-				model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt, -- ignored by online models
-				provider = "pplx",
-			},
-			{
-				name = "Llama2-70B",
-				model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "CodeLlama-34B",
-				model = { model = "codellama-34b-instruct", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "CodeLlama-70B",
-				model = { model = "codellama-70b-instruct", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Mistral-7B",
-				model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Mistral-8x7B",
-				model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
-				system_prompt = system_chat_prompt,
-				provider = "pplx",
-			},
-		},
-		command = {
-			-- ollama
-			{
-				name = "Mistal-7B",
-				model = { model = "mistral:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-				system_prompt = system_code_prompt,
-				provider = "ollama",
-			},
-			{
-				name = "Llama-13B",
-				model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-				system_prompt = system_code_prompt,
-				provider = "ollama",
-			},
-			-- openai
-			{
-				name = "CodeGPT4",
-				model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "openai",
-			},
-			{
-				name = "CodeGPT3.5",
-				model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "openai",
-			},
-			-- pplx
-			{
-				name = "Perplexity-7B",
-				model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-70B",
-				model = { model = "pplx-70b-chat", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-7B-Online",
-				model = { model = "pplx-7b-online", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt, -- ignored by online models
-				provider = "pplx",
-			},
-			{
-				name = "Perplexity-70B-Online",
-				model = { model = "pplx-70b-online", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt, -- ignored by online models
-				provider = "pplx",
-			},
-			{
-				name = "Llama2-70B",
-				model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "CodeLlama-34B",
-				model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "CodeLlama-70B",
-				model = { model = "codellama-70b-instruct", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Mistral-7B",
-				model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-			{
-				name = "Mistral-8x7B",
-				model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
-				system_prompt = system_code_prompt,
-				provider = "pplx",
-			},
-		},
+		chat = agents.chat_agents,
+		command = agents.command_agents,
 	},
 	-- directory for storing chat files
 	chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
@@ -270,22 +97,53 @@ local config = {
 	-- auto select command response (easier chaining of commands)
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
-
+	-- additional options for the optional dependency fzf_lua
+	fzf_lua_opts = { ["--ansi"] = "", ["--sort"] = "", ["--preview-window"] = "nohidden,down,50%" },
 	-- templates
-	template_selection = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}",
-	template_rewrite = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should replace the selection above."
-		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
-	template_append = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be appended after the selection above."
-		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
-	template_prepend = "I have the following from {{filename}}:"
-		.. "\n\n```{{filetype}}\n{{selection}}\n```\n\n{{command}}"
-		.. "\n\nRespond exclusively with the snippet that should be prepended before the selection above."
-		.. "\nDO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!",
+	template_selection = [[
+	I have the following content from {{filename}}:
+
+	```{{filetype}}
+	{{selection}}
+	```
+
+	{{command}}
+	]],
+	template_rewrite = [[
+  I have the following content from {{filename}}:
+
+  ```{{filetype}}
+  {{selection}}
+  ```
+
+  {{command}}
+  Respond exclusively with the snippet that should replace the selection above.
+  DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
+  ]],
+	template_append = [[
+	I have the following content from {{filename}}:
+
+	```{{filetype}}
+	{{selection}}
+	```
+
+	{{command}}
+	Respond exclusively with the snippet that should be appended after the selection above.
+	DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
+	DO NOT REPEAT ANY CODE FROM ABOVE!!!
+	]],
+	template_prepend = [[
+	I have the following content from {{filename}}:
+
+	```{{filetype}}
+	{{selection}}
+	```
+
+	{{command}}
+	Respond exclusively with the snippet that should be prepended before the selection above.
+	DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
+	DO NOT REPEAT ANY CODE FROM ABOVE!!!
+	]],
 	template_command = "{{command}}",
 
 	-- example hook functions (see Extend functionality section in the README)
@@ -307,11 +165,16 @@ local config = {
 		end,
 		-- PrtImplement rewrites the provided selection/range based on comments in it
 		Implement = function(parrot, params)
-			local template = "Consider the following content from {{filename}}:\n\n"
-				.. "```{{filetype}}\n{{selection}}\n```\n\n"
-				.. "Please rewrite this according to the contained instructions."
-				.. "\n\nRespond exclusively with the snippet that should replace the selection above."
+			local template = [[
+			Consider the following content from {{filename}}:
 
+			```{{filetype}}
+			{{selection}}
+			```
+
+			Please rewrite this according to the contained instructions.
+			Respond exclusively with the snippet that should replace the selection above.
+			]]
 			local agent = parrot.get_command_agent()
 			parrot.logger.info("Implementing selection with agent: " .. agent.name)
 
