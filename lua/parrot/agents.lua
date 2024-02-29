@@ -55,7 +55,7 @@ local openai_chat_agents = {
 		provider = "openai",
 	},
 	{
-		name = "CodeGPT3.5",
+		name = "ChatGPT3.5",
 		model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
 		system_prompt = system_chat_prompt,
 		provider = "openai",

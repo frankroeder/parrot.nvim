@@ -1917,7 +1917,7 @@ M.cmd.Agent = function(params)
 				if is_chat then
 					return string.format("echo %q", vim.fn.shellescape(vim.json.encode(M.agents.chat[items[1]])))
 				else
-					return string.format("echo %q", vim.fn.shellescape(vim.json.encode(M.agents.chat[items[1]])))
+					return string.format("echo %q", vim.fn.shellescape(vim.json.encode(M.agents.command[items[1]])))
 				end
 			end),
 			complete = function(selection)
@@ -2009,9 +2009,9 @@ end
 M.get_provider_agents = function(is_chat)
 	local prov = M.get_provider()
 	if is_chat then
-		return M._available_provider_agents[prov].command
-	else
 		return M._available_provider_agents[prov].chat
+	else
+		return M._available_provider_agents[prov].command
 	end
 end
 
