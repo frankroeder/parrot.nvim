@@ -64,38 +64,14 @@ local openai_chat_agents = {
 
 local pplx_chat_agents = {
 	{
-		name = "Perplexity-7B",
-		model = { model = "pplx-7b-chat", temperature = 1.1, top_p = 1 },
+		name = "Sonar-Small-Chat",
+		model = { model = "sonar-small-chat", temperature = 1.1, top_p = 1 },
 		system_prompt = system_chat_prompt,
 		provider = "pplx",
 	},
 	{
-		name = "Perplexity-70B",
-		model = { model = "pplx-70b-chat", temperature = 1.1, top_p = 1 },
-		system_prompt = system_chat_prompt,
-		provider = "pplx",
-	},
-	{
-		name = "Perplexity-7B-Online",
-		model = { model = "pplx-7b-online", temperature = 1.1, top_p = 1 },
-		system_prompt = system_chat_prompt, -- ignored by online models
-		provider = "pplx",
-	},
-	{
-		name = "Perplexity-70B-Online",
-		model = { model = "pplx-70b-online", temperature = 1.1, top_p = 1 },
-		system_prompt = system_chat_prompt, -- ignored by online models
-		provider = "pplx",
-	},
-	{
-		name = "Llama2-70B",
-		model = { model = "llama-2-70b-chat", temperature = 1.1, top_p = 1 },
-		system_prompt = system_chat_prompt,
-		provider = "pplx",
-	},
-	{
-		name = "CodeLlama-34B",
-		model = { model = "codellama-34b-instruct", temperature = 1.1, top_p = 1 },
+		name = "Sonar-Medium-Chat",
+		model = { model = "sonar-medium-chat", temperature = 1.1, top_p = 1 },
 		system_prompt = system_chat_prompt,
 		provider = "pplx",
 	},
@@ -163,39 +139,15 @@ local openai_command_agents = {
 
 local pplx_command_agents = {
 	{
-		name = "Perplexity-7B",
-		model = { model = "pplx-7b-chat", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt,
+		name = "Sonar-Small-Online",
+		model = { model = "sonar-small-online", temperature = 0.8, top_p = 1 },
+		system_prompt = "", -- system prompt not recommend
 		provider = "pplx",
 	},
 	{
-		name = "Perplexity-70B",
-		model = { model = "pplx-70b-chat", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt,
-		provider = "pplx",
-	},
-	{
-		name = "Perplexity-7B-Online",
-		model = { model = "pplx-7b-online", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt, -- ignored by online models
-		provider = "pplx",
-	},
-	{
-		name = "Perplexity-70B-Online",
-		model = { model = "pplx-70b-online", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt, -- ignored by online models
-		provider = "pplx",
-	},
-	{
-		name = "Llama2-70B",
-		model = { model = "llama-2-70b-chat", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt,
-		provider = "pplx",
-	},
-	{
-		name = "CodeLlama-34B",
-		model = { model = "codellama-34b-instruct", temperature = 0.8, top_p = 1 },
-		system_prompt = system_code_prompt,
+		name = "Sonar-Medium-Online",
+		model = { model = "sonar-medium-online", temperature = 0.8, top_p = 1 },
+		system_prompt = "", -- system prompt not recommend
 		provider = "pplx",
 	},
 	{
