@@ -21,10 +21,11 @@ local config = {
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
-      topic_prompt = [[
-      Summarize the chat above and only provide a short headline of 2 to 3
-      words without any opening phrase like "Sure, here is the summary",
-      "Sure! Here's a shortheadline summarizing the chat" or anything similar.]],
+			topic_prompt = [[
+			Summarize the chat above and only provide a short headline of 2 to 3
+			words without any opening phrase like "Sure, here is the summary",
+			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
+			]],
 			topic_model = "mistral:latest",
 		},
 	},
@@ -187,6 +188,20 @@ local config = {
 				agent.system_prompt,
 				agent.provider
 			)
+		end,
+		-- PrtAsk simply ask a question that should be answered short and precisely.
+		Ask = function(parrot, params)
+			local template = [[
+			In light of your existing knowledge base, please generate a response that
+			is succinct and directly addresses the question posed. Prioritize accuracy
+			and relevance in your answer, drawing upon the most recent information
+			available to you. Aim to deliver your response in a concise manner,
+			focusing on the essence of the inquiry.
+			Question: {{command}}
+			]]
+			local agent = parrot.get_command_agent()
+			parrot.logger.info("Asking agent: " .. agent.name)
+			parrot.Prompt(params, parrot.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
 		end,
 	},
 }

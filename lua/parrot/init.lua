@@ -2224,7 +2224,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		table.insert(messages, { role = "system", content = sys_prompt })
 
 		local repo_instructions = utils.find_repo_instructions()
-		if repo_instructions ~= "" then
+		if repo_instructions ~= "" and sys_prompt ~= "" then
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
 
