@@ -28,6 +28,12 @@ local config = {
 			]],
 			topic_model = "mistral:latest",
 		},
+		anthropic = {
+			api_key = "",
+			endpoint = "https://api.anthropic.com/v1/messages",
+			topic_prompt = "You only respond with 2 to 3 words to summarize the past conversation.",
+			topic_model = { model = "claude-3-sonnet-20240229", max_tokens = 32, system = topic_prompt },
+		},
 	},
 	-- prefix for all commands
 	cmd_prefix = "Prt",

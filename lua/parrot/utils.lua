@@ -271,25 +271,35 @@ end
 ---@param default_model string | table
 M.prepare_payload = function(messages, model, default_model)
 	model = model or default_model
+	local model_req = {
+		messages = messages,
+		stream = true,
+	}
 
 	-- if model is a string
 	if type(model) == "string" then
-		return {
-			model = model,
-			stream = true,
-			messages = messages,
-		}
+		return table.insert(model_req, { model = model })
 	end
 
-	-- if model is a table
-	-- TODO: Consider additional model parameters --
-	return {
-		model = model.model,
-		stream = true,
-		messages = messages,
-		temperature = math.max(0, math.min(2, model.temperature or 1)),
-		top_p = math.max(0, math.min(1, model.top_p or 1)),
-	}
+	-- else insert the agent parameters
+	for k, v in pairs(model) do
+		if k == "temperature" then
+			model_req[k] = math.max(0, math.min(2, v or 1))
+		elseif k == "top_p" then
+			model_req[k] = math.max(0, math.min(1, v or 1))
+		else
+			if type(v) == "table" then
+				model_req[k] = v
+				for pk, pv in pairs(v) do
+					model_req[k][pk] = pv
+				end
+			else
+				model_req[k] = v
+			end
+		end
+	end
+
+	return model_req
 end
 
 M.is_chat = function(buf, file_name, chat_dir)

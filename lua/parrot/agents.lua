@@ -95,6 +95,21 @@ local pplx_chat_agents = {
 	},
 }
 
+local anthropic_chat_agents = {
+	{
+		name = "Claude-3-Opus-Chat",
+		model = { model = "claude-3-opus-20240229", max_tokens = 4096, system = system_chat_prompt },
+		system_prompt = "",
+		provider = "anthropic",
+	},
+	{
+		name = "Claude-3-Sonnet-Chat",
+		model = { model = "claude-3-sonnet-20240229", max_tokens = 4096, system = system_chat_prompt },
+		system_prompt = "",
+		provider = "anthropic",
+	},
+}
+
 local ollama_command_agents = {
 	{
 		name = "Mistal-7B",
@@ -170,6 +185,21 @@ local pplx_command_agents = {
 	},
 }
 
+local anthropic_command_agents = {
+	{
+		name = "Claude-3-Opus",
+		model = { model = "claude-3-opus-20240229", max_tokens = 4096, system = system_code_prompt },
+		system_prompt = "",
+		provider = "anthropic",
+	},
+	{
+		name = "Claude-3-Sonnet",
+		model = { model = "claude-3-sonnet-20240229", max_tokens = 4096, system = system_code_prompt },
+		system_prompt = "",
+		provider = "anthropic",
+	},
+}
+
 local M = {}
 
 M.chat_agents = {}
@@ -183,6 +213,9 @@ end
 for _, agent in ipairs(pplx_chat_agents) do
 	table.insert(M.chat_agents, agent)
 end
+for _, agent in ipairs(anthropic_chat_agents) do
+	table.insert(M.chat_agents, agent)
+end
 
 M.command_agents = {}
 for _, agent in ipairs(ollama_command_agents) do
@@ -194,4 +227,8 @@ end
 for _, agent in ipairs(pplx_command_agents) do
 	table.insert(M.command_agents, agent)
 end
+for _, agent in ipairs(anthropic_command_agents) do
+	table.insert(M.command_agents, agent)
+end
+
 return M

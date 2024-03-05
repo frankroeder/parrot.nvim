@@ -10,6 +10,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 > It is based on the brilliant work by https://github.com/Robitx.
 
 Currently, we support the following providers:
++ [Anthropic API](https://www.anthropic.com/api) for Claude-3 ❗
 + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
 + [OpenAI API](https://platform.openai.com/)
 + Local and offline serving via [ollama](https://github.com/ollama/ollama)
@@ -46,8 +47,6 @@ Let the parrot fix your bugs.
     "frankroeder/parrot.nvim",
     -- OPTIONAL dependency
     -- dependencies = { "fzf-lua" }
-    -- OPTIONAL condition
-    -- cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
     config = function()
         require("parrot").setup {
             providers = {
@@ -58,10 +57,12 @@ Let the parrot fix your bugs.
                     -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/pplx_api_key.txt.gpg"  },
                     -- macOS security tool
                     -- api_key = { "/usr/bin/security", "find-generic-password", "-s pplx-api-key", "-w" },
-
                 },
                 openai = {
                     api_key = os.getenv "OPENAI_API_KEY",
+                }
+                anthropic = {
+                    api_key = os.getenv "ANTHROPIC_API_KEY",
                 }
             },
         }
@@ -72,6 +73,10 @@ Let the parrot fix your bugs.
 ## Configuration
 
 ### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua#L10-L182
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+
+## Known Issues
+
+- In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
 
 more to come ...

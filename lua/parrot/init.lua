@@ -667,6 +667,13 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					content = line.choices[1].delta.content
 				end
 
+				if provider == "anthropic" and line:match("content_block_delta") and line:match("text_delta") then
+					line = vim.json.decode(line)
+					if line.delta and line.delta.type == "text_delta" and line.delta.text then
+						content = line.delta.text
+					end
+				end
+
 				if provider == "ollama" and line:match("message") and line:match("content") then
 					line = vim.json.decode(line)
 					if line.message and line.message.content then
@@ -741,9 +748,16 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		"-d",
 		vim.json.encode(payload),
 	}
-	if provider ~= "ollama" then
+	if provider ~= "ollama" and provider ~= "anthropic" then
 		table.insert(args, "-H")
 		table.insert(args, "authorization: Bearer " .. api_key)
+	end
+
+	if provider == "anthropic" then
+		table.insert(args, "-H")
+		table.insert(args, "x-api-key: " .. api_key)
+		table.insert(args, "-H")
+		table.insert(args, "anthropic-version: 2023-06-01")
 	end
 
 	for _, arg in ipairs(args) do
@@ -1455,6 +1469,11 @@ M.chat_respond = function(params)
 		messages[1] = { role = "system", content = content }
 	end
 
+	-- anthropic system message is inside request body, not in messages
+	if agent_provider == "anthropic" then
+		local messages = table.remove(messages, 1)
+	end
+
 	-- strip whitespace from ends of content
 	for _, message in ipairs(messages) do
 		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
@@ -1507,7 +1526,10 @@ M.chat_respond = function(params)
 				table.insert(messages, { role = "assistant", content = qt.response })
 
 				-- ask model to generate topic/title for the chat
-				table.insert(messages, { role = "user", content = M.providers[M.get_provider()].topic_prompt })
+				local topic_prompt = M.providers[M.get_provider()].topic_prompt
+				if topic_prompt ~= "" then
+					table.insert(messages, { role = "user", content = topic_prompt })
+				end
 
 				-- prepare invisible buffer for the model to write to
 				local topic_buf = vim.api.nvim_create_buf(false, true)
@@ -1519,7 +1541,6 @@ M.chat_respond = function(params)
 				M.query(
 					nil,
 					topic_prov,
-					-- utils.prepare_payload(messages, current_agent_topic.model, nil),
 					utils.prepare_payload(messages, M.providers[topic_prov].topic_model, nil),
 					topic_handler,
 					vim.schedule_wrap(function()
@@ -2221,7 +2242,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 
 		local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
-		table.insert(messages, { role = "system", content = sys_prompt })
+		if sys_prompt ~= "" and agent_provider ~= "anthropic" then
+			table.insert(messages, { role = "system", content = sys_prompt })
+		end
 
 		local repo_instructions = utils.find_repo_instructions()
 		if repo_instructions ~= "" and sys_prompt ~= "" then
