@@ -19,6 +19,7 @@ local M = {
 	config = {}, -- config variables
 	hooks = {}, -- user defined command functions
 	logger = require("parrot.logger"),
+	ui = ui
 }
 M.logger._plugin_name = M._plugin_name
 

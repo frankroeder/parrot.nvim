@@ -187,7 +187,7 @@ local config = {
 
 			parrot.Prompt(
 				params,
-				parrot.Target.rewrite,
+				parrot.ui.Target.rewrite,
 				nil, -- command will run directly without any prompting for user input
 				agent.model,
 				template,
@@ -207,7 +207,7 @@ local config = {
 			]]
 			local agent = parrot.get_command_agent()
 			parrot.logger.info("Asking agent: " .. agent.name)
-			parrot.Prompt(params, parrot.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
+			parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
 		end,
 	},
 }
