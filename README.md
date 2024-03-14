@@ -6,8 +6,9 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
     <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
 </div>
 
-> ⚠️ This repository is work in progress and will undergo major changes in the near future. <br>
-> It is based on the brilliant work by https://github.com/Robitx.
+> [!NOTE]⚠️
+> This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
+> It is based on the brilliant work [gp.nvim](https://github.com/Robitx/gp.nvim) by https://github.com/Robitx.
 
 Currently, we support the following providers:
 + [Anthropic API](https://www.anthropic.com/api) for Claude-3 ❗
@@ -44,29 +45,29 @@ Let the parrot fix your bugs.
 ### lazy.nvim
 ```lua
 {
-    "frankroeder/parrot.nvim",
-    -- OPTIONAL dependency
-    -- dependencies = { "fzf-lua" }
-    config = function()
-        require("parrot").setup {
-            providers = {
-                pplx = {
-                    api_key = os.getenv "PERPLEXITY_API_KEY",
-                    -- OPTIONAL
-                    -- gpg command
-                    -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/pplx_api_key.txt.gpg"  },
-                    -- macOS security tool
-                    -- api_key = { "/usr/bin/security", "find-generic-password", "-s pplx-api-key", "-w" },
-                },
-                openai = {
-                    api_key = os.getenv "OPENAI_API_KEY",
-                }
-                anthropic = {
-                    api_key = os.getenv "ANTHROPIC_API_KEY",
-                }
-            },
-        }
-    end
+  "frankroeder/parrot.nvim",
+  -- OPTIONAL
+  -- dependencies = { "fzf-lua" },
+  config = function()
+    require("parrot").setup {
+      providers = {
+        pplx = {
+          api_key = os.getenv "PERPLEXITY_API_KEY",
+          -- OPTIONAL
+          -- gpg command
+          -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/pplx_api_key.txt.gpg"  },
+          -- macOS security tool
+          -- api_key = { "/usr/bin/security", "find-generic-password", "-s pplx-api-key", "-w" },
+        },
+        openai = {
+          api_key = os.getenv "OPENAI_API_KEY",
+        },
+        anthropic = {
+          api_key = os.getenv "ANTHROPIC_API_KEY",
+        },
+      },
+    }
+  end,
 }
 ```
 

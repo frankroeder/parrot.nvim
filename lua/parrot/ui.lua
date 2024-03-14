@@ -2,6 +2,49 @@ local utils = require("parrot.utils")
 
 local M = {}
 
+M.Target = {
+	rewrite = 0, -- for replacing the selection, range or the current line
+	append = 1, -- for appending after the selection, range or the current line
+	prepend = 2, -- for prepending before the selection, range or the current line
+	popup = 3, -- for writing into the popup window
+
+	-- for writing into a new buffer
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=4 and filetype=filetype
+	enew = function(filetype)
+		return { type = 4, filetype = filetype }
+	end,
+
+	--- for creating a new horizontal split
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=5 and filetype=filetype
+	new = function(filetype)
+		return { type = 5, filetype = filetype }
+	end,
+
+	--- for creating a new vertical split
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=6 and filetype=filetype
+	vnew = function(filetype)
+		return { type = 6, filetype = filetype }
+	end,
+
+	--- for creating a new tab
+	---@param filetype nil | string # nil = same as the original buffer
+	---@return table # a table with type=7 and filetype=filetype
+	tabnew = function(filetype)
+		return { type = 7, filetype = filetype }
+	end,
+}
+
+M.BufTarget = {
+	current = 0, -- current window
+	popup = 1, -- popup window
+	split = 2, -- split window
+	vsplit = 3, -- vsplit window
+	tabnew = 4, -- new tab
+}
+
 ---@param buf number | nil # buffer number
 ---@param title string # title of the popup
 ---@param size_func function # size_func(editor_width, editor_height) -> width, height, row, col

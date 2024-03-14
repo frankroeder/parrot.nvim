@@ -1,5 +1,6 @@
 local config = require("parrot.config")
 local utils = require("parrot.utils")
+local futils = require("parrot.file_utils")
 local ui = require("parrot.ui")
 
 local _H = {}
@@ -193,26 +194,6 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 
----@param file_path string # the file path from where to read the json into a table
----@return table | nil # the table read from the file, or nil if an error occurred
-M.file_to_table = function(file_path)
-	local file, err = io.open(file_path, "r")
-	if not file then
-		M.logger.warning("Failed to open file for reading: " .. file_path .. "\nError: " .. err)
-		return nil
-	end
-	local content = file:read("*a")
-	file:close()
-
-	if content == nil or content == "" then
-		M.logger.warning("Failed to read any content from file: " .. file_path)
-		return nil
-	end
-
-	local tbl = vim.json.decode(content)
-	return tbl
-end
-
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
@@ -221,7 +202,7 @@ M.append_selection = function(params, origin_buf, target_buf)
 	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
 	local selection = table.concat(lines, "\n")
 	if selection ~= "" then
-		local filetype = utils.get_filetype(origin_buf)
+		local filetype = futils.get_filetype(origin_buf)
 		local fname = vim.api.nvim_buf_get_name(origin_buf)
 		local rendered = utils.template_render(M.config.template_selection, "", selection, filetype, fname)
 		if rendered then
@@ -315,12 +296,12 @@ M.setup = function(opts)
 
 	-- remove invalid agents
 	for name, agent in pairs(M.agents.chat) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt or not agent.provider then
+		if type(agent) ~= "table" or not agent.model or not agent.provider then
 			M.agents.chat[name] = nil
 		end
 	end
 	for name, agent in pairs(M.agents.command) do
-		if type(agent) ~= "table" or not agent.model or not agent.system_prompt or not agent.provider then
+		if type(agent) ~= "table" or not agent.model or not agent.provider then
 			M.agents.command[name] = nil
 		end
 	end
@@ -456,7 +437,7 @@ M.refresh_state = function()
 	local state_file = M.config.state_dir .. "/state.json"
 	local state = {}
 	if vim.fn.filereadable(state_file) ~= 0 then
-		state = M.file_to_table(state_file) or {}
+		state = futils.file_to_table(state_file) or {}
 	end
 
 	if next(state) == nil then
@@ -492,55 +473,20 @@ M.refresh_state = function()
 		M._state.provider = M._available_providers[1]
 	end
 
-	utils.table_to_file(M._state, state_file)
+	futils.table_to_file(M._state, state_file)
 
 	M.prepare_commands()
 end
 
-M.Target = {
-	rewrite = 0, -- for replacing the selection, range or the current line
-	append = 1, -- for appending after the selection, range or the current line
-	prepend = 2, -- for prepending before the selection, range or the current line
-	popup = 3, -- for writing into the popup window
-
-	-- for writing into a new buffer
-	---@param filetype nil | string # nil = same as the original buffer
-	---@return table # a table with type=4 and filetype=filetype
-	enew = function(filetype)
-		return { type = 4, filetype = filetype }
-	end,
-
-	--- for creating a new horizontal split
-	---@param filetype nil | string # nil = same as the original buffer
-	---@return table # a table with type=5 and filetype=filetype
-	new = function(filetype)
-		return { type = 5, filetype = filetype }
-	end,
-
-	--- for creating a new vertical split
-	---@param filetype nil | string # nil = same as the original buffer
-	---@return table # a table with type=6 and filetype=filetype
-	vnew = function(filetype)
-		return { type = 6, filetype = filetype }
-	end,
-
-	--- for creating a new tab
-	---@param filetype nil | string # nil = same as the original buffer
-	---@return table # a table with type=7 and filetype=filetype
-	tabnew = function(filetype)
-		return { type = 7, filetype = filetype }
-	end,
-}
-
 -- creates prompt commands for each target
 M.prepare_commands = function()
-	for name, target in pairs(M.Target) do
+	for name, target in pairs(ui.Target) do
 		-- uppercase first letter
 		local command = name:gsub("^%l", string.upper)
 
 		local agent = M.get_command_agent()
 		-- popup is like ephemeral one off chat
-		if target == M.Target.popup then
+		if target == ui.Target.popup then
 			agent = M.get_chat_agent()
 		end
 
@@ -550,13 +496,13 @@ M.prepare_commands = function()
 			if params.range == 2 then
 				template = M.config.template_selection
 				-- rewrite needs custom template
-				if target == M.Target.rewrite then
+				if target == ui.Target.rewrite then
 					template = M.config.template_rewrite
 				end
-				if target == M.Target.append then
+				if target == ui.Target.append then
 					template = M.config.template_append
 				end
-				if target == M.Target.prepend then
+				if target == ui.Target.prepend then
 					template = M.config.template_prepend
 				end
 			end
@@ -1053,14 +999,6 @@ M.buf_handler = function()
 	end, gid)
 end
 
-M.BufTarget = {
-	current = 0, -- current window
-	popup = 1, -- popup window
-	split = 2, -- split window
-	vsplit = 3, -- vsplit window
-	tabnew = 4, -- new tab
-}
-
 ---@param params table | string # table with args or string args
 ---@return number # buf target
 M.resolve_buf_target = function(params)
@@ -1072,15 +1010,15 @@ M.resolve_buf_target = function(params)
 	end
 
 	if args == "popup" then
-		return M.BufTarget.popup
+		return ui.BufTarget.popup
 	elseif args == "split" then
-		return M.BufTarget.split
+		return ui.BufTarget.split
 	elseif args == "vsplit" then
-		return M.BufTarget.vsplit
+		return ui.BufTarget.vsplit
 	elseif args == "tabnew" then
-		return M.BufTarget.tabnew
+		return ui.BufTarget.tabnew
 	else
-		return M.BufTarget.current
+		return ui.BufTarget.current
 	end
 end
 
@@ -1090,7 +1028,7 @@ end
 ---@param toggle boolean # whether to toggle
 ---@return number # buffer number
 M.open_buf = function(file_name, target, kind, toggle)
-	target = target or M.BufTarget.current
+	target = target or ui.BufTarget.current
 
 	-- close previous popup if it exists
 	M._toggle_close(M._toggle_kind.popup)
@@ -1101,7 +1039,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 
 	local close, buf, win
 
-	if target == M.BufTarget.popup then
+	if target == ui.BufTarget.popup then
 		local old_buf = utils.get_buffer(file_name)
 
 		buf, win, close, _ = ui.create_popup(
@@ -1140,11 +1078,11 @@ M.open_buf = function(file_name, target, kind, toggle)
 		-- insert a new line at the end of the file
 		vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 		vim.api.nvim_command("silent write! " .. file_name)
-	elseif target == M.BufTarget.split then
+	elseif target == ui.BufTarget.split then
 		vim.api.nvim_command("split " .. file_name)
-	elseif target == M.BufTarget.vsplit then
+	elseif target == ui.BufTarget.vsplit then
 		vim.api.nvim_command("vsplit " .. file_name)
-	elseif target == M.BufTarget.tabnew then
+	elseif target == ui.BufTarget.tabnew then
 		vim.api.nvim_command("tabnew " .. file_name)
 	else
 		-- is it already open in a buffer?
@@ -1171,7 +1109,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 		return buf
 	end
 
-	if target == M.BufTarget.split or target == M.BufTarget.vsplit then
+	if target == ui.BufTarget.split or target == ui.BufTarget.vsplit then
 		close = function()
 			if vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)
@@ -1179,7 +1117,7 @@ M.open_buf = function(file_name, target, kind, toggle)
 		end
 	end
 
-	if target == M.BufTarget.tabnew then
+	if target == ui.BufTarget.tabnew then
 		close = function()
 			if vim.api.nvim_win_is_valid(win) then
 				local tab = vim.api.nvim_win_get_tabpage(win)
@@ -1328,14 +1266,14 @@ M.cmd.ChatDelete = function()
 
 	-- delete without confirmation
 	if not M.config.chat_confirm_delete then
-		utils.delete_file(file_name)
+		futils.delete_file(file_name)
 		return
 	end
 
 	-- ask for confirmation
 	vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
 		if input and input:lower() == "y" then
-			utils.delete_file(file_name)
+			futils.delete_file(file_name)
 		end
 	end)
 end
@@ -1832,16 +1770,16 @@ M.cmd.ChatFinder = function()
 	-- enter on picker window will open file
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<cr>", open_chat)
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-f>", function()
-		open_chat(M.BufTarget.popup, false)
+		open_chat(ui.BufTarget.popup, false)
 	end)
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-x>", function()
-		open_chat(M.BufTarget.split, false)
+		open_chat(ui.BufTarget.split, false)
 	end)
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-v>", function()
-		open_chat(M.BufTarget.vsplit, false)
+		open_chat(ui.BufTarget.vsplit, false)
 	end)
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-t>", function()
-		open_chat(M.BufTarget.tabnew, false)
+		open_chat(ui.BufTarget.tabnew, false)
 	end)
 	utils.set_keymap({ picker_buf, preview_buf, command_buf }, { "i", "n", "v" }, "<C-g>", function()
 		local target = M.resolve_buf_target(M.config.toggle_target)
@@ -1877,7 +1815,7 @@ M.cmd.ChatFinder = function()
 
 		-- delete without confirmation
 		if not M.config.chat_confirm_delete then
-			utils.delete_file(file)
+			futils.delete_file(file)
 			refresh_picker()
 			return
 		end
@@ -1885,7 +1823,7 @@ M.cmd.ChatFinder = function()
 		-- ask for confirmation
 		vim.ui.input({ prompt = "Delete " .. file .. "? [y/N] " }, function(input)
 			if input and input:lower() == "y" then
-				utils.delete_file(file)
+				futils.delete_file(file)
 				refresh_picker()
 			end
 		end)
@@ -2052,7 +1990,7 @@ M.cmd.Context = function(params)
 	if buf then
 		file_name = vim.api.nvim_buf_get_name(buf)
 	else
-		local git_root = utils.find_git_root()
+		local git_root = futils.find_git_root()
 		if git_root == "" then
 			M.logger.warning("Not in a git repository")
 			return
@@ -2084,7 +2022,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		target = target()
 	end
 
-	target = target or M.Target.enew()
+	target = target or ui.Target.enew()
 
 	-- get current buffer
 	local buf = vim.api.nvim_get_current_buf()
@@ -2213,7 +2151,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			end
 
 			-- don't select popup response
-			if target == M.Target.popup then
+			if target == ui.Target.popup then
 				return
 			end
 
@@ -2221,11 +2159,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			local start = fl
 			local finish = ll
 
-			if target == M.Target.append then
+			if target == ui.Target.append then
 				start = M._selection_first_line - 1
 			end
 
-			if target == M.Target.prepend then
+			if target == ui.Target.prepend then
 				finish = M._selection_last_line + ll - fl
 			end
 
@@ -2237,7 +2175,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 
 		-- prepare messages
 		local messages = {}
-		local filetype = utils.get_filetype(buf)
+		local filetype = futils.get_filetype(buf)
 		local filename = vim.api.nvim_buf_get_name(buf)
 
 		local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
@@ -2246,7 +2184,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			table.insert(messages, { role = "system", content = sys_prompt })
 		end
 
-		local repo_instructions = utils.find_repo_instructions()
+		local repo_instructions = futils.find_repo_instructions()
 		if repo_instructions ~= "" and sys_prompt ~= "" then
 			table.insert(messages, { role = "system", content = repo_instructions })
 		end
@@ -2263,26 +2201,26 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		end
 
 		-- mode specific logic
-		if target == M.Target.rewrite then
+		if target == ui.Target.rewrite then
 			-- delete selection
 			vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
-		elseif target == M.Target.append then
+		elseif target == ui.Target.append then
 			-- move cursor to the end of the selection
 			vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 			-- put newline after selection
 			vim.api.nvim_put({ "" }, "l", true, true)
 			-- prepare handler
 			handler = M.create_handler(buf, win, end_line, true, prefix, cursor)
-		elseif target == M.Target.prepend then
+		elseif target == ui.Target.prepend then
 			-- move cursor to the start of the selection
 			vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 			-- put newline before selection
 			vim.api.nvim_put({ "" }, "l", false, true)
 			-- prepare handler
 			handler = M.create_handler(buf, win, start_line - 1, true, prefix, cursor)
-		elseif target == M.Target.popup then
+		elseif target == ui.Target.popup then
 			M._toggle_close(M._toggle_kind.popup)
 			-- create a new buffer
 			local popup_close = nil
@@ -2312,13 +2250,13 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 			handler = M.create_handler(buf, win, 0, false, "", false)
 			M._toggle_add(M._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
 		elseif type(target) == "table" then
-			if target.type == M.Target.new().type then
+			if target.type == ui.Target.new().type then
 				vim.cmd("split")
 				win = vim.api.nvim_get_current_win()
-			elseif target.type == M.Target.vnew().type then
+			elseif target.type == ui.Target.vnew().type then
 				vim.cmd("vsplit")
 				win = vim.api.nvim_get_current_win()
-			elseif target.type == M.Target.tabnew().type then
+			elseif target.type == ui.Target.tabnew().type then
 				vim.cmd("tabnew")
 				win = vim.api.nvim_get_current_win()
 			end
