@@ -42,12 +42,16 @@ Let the parrot fix your bugs.
 
 ## Getting Started
 
+### Dependencies
+- [`neovim`](https://github.com/neovim/neovim/releases)
+- [`fzf`](https://github.com/junegunn/fzf)
+- [`ripgrep`](https://github.com/BurntSushi/ripgrep)
+
 ### lazy.nvim
 ```lua
 {
   "frankroeder/parrot.nvim",
-  -- OPTIONAL
-  -- dependencies = { "fzf-lua" },
+  dependencies = { "fzf-lua" },
   config = function()
     require("parrot").setup {
       providers = {
@@ -75,6 +79,71 @@ Let the parrot fix your bugs.
 
 ### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
 https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+
+## Commands
+
+Below are the available commands that can be configured as keybindings.
+These commands are included in the default setup.
+Additional useful commands are implemented through hooks (see my example configuration).
+
+### General
+| Command          | Description                                |
+| ---------------- | ------------------------------------------ |
+| `PrtNew`         | open a new chat                            |
+| `PrtProvider`    | switch the provider                        |
+| `PrtAgent`       | switch the agent                           |
+| `PrtChatToggle`  | toggle chat window                         |
+| `PrtInfo`        | print plugin config                        |
+| `PrtContext`     | edits the local context file               |
+| `PrtAsk`         | ask the selected agent a single question   |
+| `PrtChatFinder`  | fuzzy search chat files                    |
+
+### Interactive
+The following commands can be triggered with visual selections.
+
+| Command          | Description                                |
+| ---------------- | ------------------------------------------ |
+| `PrtChat`        | paste visual selection into new chat       |
+| `PrtChatToggle`  | paste visual selection into new chat       |
+| `PrtImplement`   | implements selected comment/instruction    |
+
+### Chat
+The following commands are available within the chat files.
+
+| Command          | Description                                          |
+| ---------------- | ---------------------------------------------------- |
+| `PrtChatDelete`  | delete the present chat file (requires confirmation) |
+| `PrtChatRespond` | trigger chat respond                                 |
+| `PrtAsk`         | ask the selected agent a single question             |
+| `PrtStop`        | interrupt ongoing respond                            |
+
+### Adding a new command
+
+WIP
+
+```lua
+require("parrot").setup {
+    -- ...
+    hooks = {
+      -- PrtAsk simply ask a question that should be answered short and precisely.
+      Ask = function(parrot, params)
+            local template = [[
+            In light of your existing knowledge base, please generate a response that
+            is succinct and directly addresses the question posed. Prioritize accuracy
+            and relevance in your answer, drawing upon the most recent information
+            available to you. Aim to deliver your response in a concise manner,
+            focusing on the essence of the inquiry.
+            Question: {{command}}
+            ]]
+            local agent = parrot.get_command_agent()
+            parrot.logger.info("Asking agent: " .. agent.name)
+            parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
+      end,
+    }
+    -- ...
+}
+```
+
 
 ## Known Issues
 

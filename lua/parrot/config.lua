@@ -67,8 +67,6 @@ local config = {
 	chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
 	chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
 	chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
-	-- default search term when using :PrtChatFinder
-	chat_finder_pattern = "topic ",
 	-- if true, finished ChatResponder won't move the cursor to the end of the buffer
 	chat_free_cursor = false,
 	-- use prompt buftype for chats (:h prompt-buffer)
@@ -76,17 +74,6 @@ local config = {
 
 	-- how to display PrtChatToggle or PrtContext: popup / split / vsplit / tabnew
 	toggle_target = "vsplit",
-
-	-- styling for chatfinder
-	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
-	style_chat_finder_border = "single",
-	-- margins are number of characters or lines
-	style_chat_finder_margin_bottom = 8,
-	style_chat_finder_margin_left = 1,
-	style_chat_finder_margin_right = 2,
-	style_chat_finder_margin_top = 2,
-	-- how wide should the preview be, number between 0.0 and 1.0
-	style_chat_finder_preview_ratio = 0.5,
 
 	-- styling for popup
 	-- border can be "single", "double", "rounded", "solid", "shadow", "none"
@@ -105,7 +92,13 @@ local config = {
 	-- if false it also frees up the buffer cursor for further editing elsewhere
 	command_auto_select_response = true,
 	-- additional options for the optional dependency fzf_lua
-	fzf_lua_opts = { ["--ansi"] = "", ["--sort"] = "", ["--preview-window"] = "nohidden,down,50%" },
+	fzf_lua_opts = {
+		["--ansi"] = true,
+		["--sort"] = "",
+		["--info"] = "inline",
+		["--layout"] = "reverse",
+		["--preview-window"] = "nohidden:right:75%",
+	},
 	-- templates
 	template_selection = [[
 	I have the following content from {{filename}}:
@@ -155,7 +148,7 @@ local config = {
 
 	-- example hook functions (see Extend functionality section in the README)
 	hooks = {
-		InspectPlugin = function(plugin, params)
+		Info = function(plugin, params)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local copy = vim.deepcopy(plugin)
 			for provider, _ in pairs(copy.providers) do
