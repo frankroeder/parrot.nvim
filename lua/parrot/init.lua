@@ -235,13 +235,15 @@ M.setup = function(opts)
 		opts = {}
 	end
 
-	-- reset M.config
+	-- copy default config
 	M.config = vim.deepcopy(config)
 
 	-- merge nested tables
 	local mergeTables = { "hooks", "agents", "providers" }
 	local mergeAgentTables = { "chat", "command" }
+
 	for _, tbl in ipairs(mergeTables) do
+		-- copy default config into module
 		M[tbl] = M[tbl] or {}
 		---@diagnostic disable-next-line: param-type-mismatch
 		for k, v in pairs(M.config[tbl]) do
@@ -249,14 +251,17 @@ M.setup = function(opts)
 				M[tbl][k] = v
 			elseif tbl == "agents" then
 				for _, _tbl in ipairs(mergeAgentTables) do
+					---@diagnostic disable-next-line: param-type-mismatch
 					for _, _v in pairs(M.config[tbl][_tbl]) do
 						M[tbl][_tbl][_v.name] = _v
 					end
 				end
 			end
 		end
+		-- reset module config
 		M.config[tbl] = nil
 
+		-- read setup options and merge them with module
 		opts[tbl] = opts[tbl] or {}
 		for k, v in pairs(opts[tbl]) do
 			if tbl == "hooks" then
@@ -270,10 +275,8 @@ M.setup = function(opts)
 					M[tbl][k] = nil
 				end
 			elseif tbl == "agents" then
-				for _, _tbl in ipairs(mergeAgentTables) do
-					for _, _v in pairs(M.config[tbl][_tbl]) do
-						M[tbl][_tbl][_v.name] = _v
-					end
+				for _, _v in pairs(v) do
+					M[tbl][k][_v.name] = _v
 				end
 			end
 		end
@@ -298,11 +301,13 @@ M.setup = function(opts)
 	-- remove invalid agents
 	for name, agent in pairs(M.agents.chat) do
 		if type(agent) ~= "table" or not agent.model or not agent.provider then
+			M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
 			M.agents.chat[name] = nil
 		end
 	end
 	for name, agent in pairs(M.agents.command) do
 		if type(agent) ~= "table" or not agent.model or not agent.provider then
+			M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
 			M.agents.command[name] = nil
 		end
 	end
@@ -310,6 +315,7 @@ M.setup = function(opts)
 	-- remove invalid providers
 	for name, provider in pairs(M.providers) do
 		if type(provider) ~= "table" or not provider.endpoint then
+			M.logger.warning("Removing invalid provider " .. name .. " " .. vim.inspect(provider))
 			M.providers[name] = nil
 		end
 	end

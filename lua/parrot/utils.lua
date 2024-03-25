@@ -216,7 +216,7 @@ M.prepare_payload = function(messages, model, default_model)
 
 	-- if model is a string
 	if type(model) == "string" then
-	  model_req.model = model
+		model_req.model = model
 		return model_req
 	end
 
@@ -237,7 +237,6 @@ M.prepare_payload = function(messages, model, default_model)
 			end
 		end
 	end
-
 
 	return model_req
 end
