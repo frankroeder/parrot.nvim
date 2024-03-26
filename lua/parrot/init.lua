@@ -717,7 +717,85 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		table.insert(curl_params, arg)
 	end
 
-	M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
+	-- M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
+	local Job = require("plenary.job")
+
+	local function process_lines(lines_chunk)
+		-- local qt = M.get_query(qid)
+		-- if not qt then
+		-- 	return
+		-- end
+
+		local lines = vim.split(lines_chunk, "\n")
+		for _, line in ipairs(lines) do
+			-- if line ~= "" and line ~= nil then
+			-- 	qt.raw_response = qt.raw_response .. line .. "\n"
+			-- end
+			line = line:gsub("^data: ", "")
+			local content = ""
+
+			if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
+				line = vim.json.decode(line)
+				content = line.choices[1].delta.content
+			end
+
+			if provider == "anthropic" and line:match("content_block_delta") and line:match("text_delta") then
+				line = vim.json.decode(line)
+				if line.delta and line.delta.type == "text_delta" and line.delta.text then
+					content = line.delta.text
+				end
+			end
+
+			if provider == "ollama" and line:match("message") and line:match("content") then
+				line = vim.json.decode(line)
+				if line.message and line.message.content then
+					content = line.message.content
+				end
+			end
+			return content
+
+			-- if content ~= nil then
+			-- 	qt.response = qt.response .. content
+			-- 	handler(qid, content)
+			-- end
+		end
+	end
+
+	local buffer = ""
+	Job:new({
+		command = "curl",
+		args = curl_params,
+		on_exit = function(j, return_val)
+			print("Done, exit code: ", return_val)
+			if j ~= nil then
+				print(vim.inspect(j:result()))
+			end
+		end,
+		on_stdout = function(j, data)
+			-- vim.api.nvim_echo({ { "Downloading: " .. data, "InfoMsg" } }, false, {})
+      -- print("J", j)
+			-- print("output data: " .. data)
+			print(process_lines(data))
+
+				-- add the incoming chunk to the buffer
+			buffer = buffer .. data
+			local last_newline_pos = buffer:find("\n[^\n]*$")
+			if last_newline_pos then
+				print("PROCESS LINEs")
+				local complete_lines = buffer:sub(1, last_newline_pos - 1)
+				-- save the rest of the buffer for the next chunk
+				buffer = buffer:sub(last_newline_pos + 1)
+				process_lines(complete_lines)
+      end
+		end,
+		on_stderr = function(j, data)
+			-- vim.api.nvim_echo({ { "Error: " .. data, "ErrorMsg" } }, false, {})
+			print("Error: " .. data)
+			if j ~= nil then
+				print(j:result())
+			end
+		end,
+		}):start()
 end
 
 -- response handler
