@@ -1717,9 +1717,11 @@ M.cmd.Agent = function(params)
 				if is_chat then
 					M._state[prov].chat_agent = new_agent
 					M.logger.info("Chat agent (" .. prov .. "): " .. new_agent)
+          utils.check_ollama_model(M.get_chat_agent())
 				else
 					M._state[prov].command_agent = new_agent
 					M.logger.info("Command agent (" .. prov .. "): " .. new_agent)
+          utils.check_ollama_model(M.get_command_agent())
 				end
 				M.refresh_state()
 			end,

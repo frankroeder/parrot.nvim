@@ -261,4 +261,72 @@ M.is_chat = function(buf, file_name, chat_dir)
 	return true
 end
 
+M.check_ollama_model = function(agent)
+  if agent.provider ~= "ollama" then
+    return
+  end
+
+	if not vim.fn.executable("ollama") then
+		-- M.error("ollama not found.")
+		print("ollama not found.")
+		return
+	end
+	local model = ""
+	-- if model is a string
+	if type(agent.model) == "string" then
+		model = agent.model
+	else
+		model = agent.model.model
+	end
+
+	local handle = io.popen("ollama list")
+	local result = handle:read("*a")
+	handle:close()
+
+	local lines = {}
+	for line in result:gmatch("[^\r\n]+") do
+		table.insert(lines, line)
+	end
+	local found_match = false
+	for _, line in ipairs(lines) do
+		if string.match(line, model) ~= nil then
+			found_match = true
+		end
+	end
+	if not found_match then
+		if not pcall(require, "plenary") then
+			print("Plenary not installed. Please install nvim-lua/plenary.nvim to use this feature.")
+			return
+		end
+		local confirm = vim.fn.confirm("ollama model not found. Download now?", "&Yes\n&No", 1)
+		if confirm == 1 then
+			local Job = require("plenary.job")
+			Job:new({
+				command = "ollama",
+				args = { "pull", model },
+				on_exit = function(j, return_val)
+					print("Download finished with exit code: ", return_val)
+					if j ~= nil then
+						print(vim.inspect(j:result()))
+					end
+				end,
+				on_stdout = function(j, data)
+					-- vim.api.nvim_echo({ { "Downloading: " .. data, "InfoMsg" } }, false, {})
+					print("Downloading: " .. data)
+					if j ~= nil then
+						print(j:result())
+					end
+				end,
+				on_stderr = function(j, data)
+					-- vim.api.nvim_echo({ { "Error: " .. data, "ErrorMsg" } }, false, {})
+					print("Error: " .. data)
+					if j ~= nil then
+						print(j:result())
+					end
+				end,
+			}):start()
+		end
+	end
+end
+
 return M
