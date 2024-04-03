@@ -23,21 +23,18 @@ M.file_to_table = function(file_path)
 		return nil
 	end
 
-	local tbl = vim.json.decode(content)
-	return tbl
+	return vim.json.decode(content)
 end
 
 ---@param tbl table # the table to be stored
 ---@param file_path string # the file path where the table will be stored as json
 M.table_to_file = function(tbl, file_path)
-	local json = vim.json.encode(tbl)
-
 	local file = io.open(file_path, "w")
 	if not file then
 		M.warning("Failed to open file for writing: " .. file_path)
 		return
 	end
-	file:write(json)
+	file:write(vim.json.encode(tbl))
 	file:close()
 end
 
@@ -75,7 +72,11 @@ M.find_repo_instructions = function()
 end
 
 ---@param file string | nil # name of the file to delete
-M.delete_file = function(file)
+M.delete_file = function(file, state_dir)
+	if file:match(state_dir) ~= nil then
+		print("File not in state directory: " .. file)
+		return nil
+	end
 	if file == nil then
 		return
 	end

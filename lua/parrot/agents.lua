@@ -14,7 +14,7 @@ the highest quality of interaction:
 ]]
 
 local system_code_prompt = [[
-You are an AI specializing in software development"
+You are an AI specializing in software development
 tasks, including code editing, completion, and debugging. Your
 responses should strictly pertain to the code provided. Please ensure
 that your reply is solely focused on the code snippet in question.
