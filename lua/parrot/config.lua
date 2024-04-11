@@ -17,7 +17,7 @@ local config = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			topic_prompt = topic_prompt,
-			topic_model = "gpt-3.5-turbo-0125",
+			topic_model = "gpt-3.5-turbo",
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",

@@ -50,13 +50,13 @@ local ollama_chat_agents = {
 local openai_chat_agents = {
 	{
 		name = "ChatGPT4",
-		model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
+		model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },
 		system_prompt = system_chat_prompt,
 		provider = "openai",
 	},
 	{
 		name = "ChatGPT3.5",
-		model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
+		model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 		system_prompt = system_chat_prompt,
 		provider = "openai",
 	},
@@ -146,13 +146,13 @@ local ollama_command_agents = {
 local openai_command_agents = {
 	{
 		name = "CodeGPT4",
-		model = { model = "gpt-4-0125-preview", temperature = 1.1, top_p = 1 },
+		model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },
 		system_prompt = system_code_prompt,
 		provider = "openai",
 	},
 	{
 		name = "CodeGPT3.5",
-		model = { model = "gpt-3.5-turbo-0125", temperature = 1.1, top_p = 1 },
+		model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
 		system_prompt = system_code_prompt,
 		provider = "openai",
 	},
