@@ -1,13 +1,13 @@
 local config = require("parrot.config")
 local utils = require("parrot.utils")
 local futils = require("parrot.file_utils")
+local handles = require("parrot.handles")
 local ui = require("parrot.ui")
 
 local _H = {}
 local M = {
 	_H = _H, -- helper functions
 	_plugin_name = "parrot.nvim",
-	_handles = {}, -- handles for running processes
 	_queries = {}, -- table of latest queries
 	_state = {}, -- table of state variables
 	providers = {},
@@ -30,165 +30,18 @@ M.logger._plugin_name = M._plugin_name
 -- stop receiving gpt responses for all processes and clean the handles
 ---@param signal number | nil # signal to send to the process
 M.cmd.Stop = function(signal)
-	if M._handles == {} then
+
+	if handles.is_empty() then
 		return
 	end
 
-	for _, handle_info in ipairs(M._handles) do
-		if handle_info.handle ~= nil and not handle_info.handle:is_closing() then
-			vim.loop.kill(handle_info.pid, signal or 15)
+	for _, handle_info in handles.ipairs() do
+		if handle_info.job.handle ~= nil and not handle_info.job.handle:is_closing() then
+			vim.loop.kill(handle_info.job.pid, signal or 15)
 		end
 	end
 
-	M._handles = {}
-end
-
--- add a process handle and its corresponding pid to the _handles table
----@param handle userdata # the Lua uv handle
----@param pid number # the process id
----@param buf number | nil # buffer number
-M.add_handle = function(handle, pid, buf)
-	table.insert(M._handles, { handle = handle, pid = pid, buf = buf })
-end
-
---- Check if there is no other pid running for the given buffer
----@param buf number | nil # buffer number
----@return boolean
-M.can_handle = function(buf)
-	if buf == nil then
-		return true
-	end
-	for _, handle_info in ipairs(M._handles) do
-		if handle_info.buf == buf then
-			return false
-		end
-	end
-	return true
-end
-
--- remove a process handle from the _handles table using its pid
----@param pid number # the process id to find the corresponding handle
-M.remove_handle = function(pid)
-	for i, handle_info in ipairs(M._handles) do
-		if handle_info.pid == pid then
-			table.remove(M._handles, i)
-			return
-		end
-	end
-end
-
----@param buf number | nil # buffer number
----@param cmd string # command to execute
----@param args table # arguments for command
----@param callback function | nil # exit callback function(code, signal, stdout_data, stderr_data)
----@param out_reader function | nil # stdout reader function(err, data)
----@param err_reader function | nil # stderr reader function(err, data)
-_H.process = function(buf, cmd, args, callback, out_reader, err_reader)
-	local handle, pid
-	local stdout = vim.loop.new_pipe(false)
-	local stderr = vim.loop.new_pipe(false)
-	local stdout_data = ""
-	local stderr_data = ""
-
-	if not M.can_handle(buf) then
-		M.logger.warning("Another parrot process is already running for this buffer.")
-		return
-	end
-
-	local on_exit = utils.once(vim.schedule_wrap(function(code, signal)
-		stdout:read_stop()
-		stderr:read_stop()
-		stdout:close()
-		stderr:close()
-		if handle and not handle:is_closing() then
-			handle:close()
-		end
-		if callback then
-			callback(code, signal, stdout_data, stderr_data)
-		end
-		M.remove_handle(pid)
-	end))
-
-	handle, pid = vim.loop.spawn(cmd, {
-		args = args,
-		stdio = { nil, stdout, stderr },
-		hide = true,
-		detach = true,
-	}, on_exit)
-
-	M.add_handle(handle, pid, buf)
-
-	vim.loop.read_start(stdout, function(err, data)
-		if err then
-			M.logger.error("Error reading stdout: " .. vim.inspect(err))
-		end
-		if data then
-			stdout_data = stdout_data .. data
-		end
-		if out_reader then
-			out_reader(err, data)
-		end
-	end)
-
-	vim.loop.read_start(stderr, function(err, data)
-		if err then
-			M.logger.error("Error reading stderr: " .. vim.inspect(err))
-		end
-		if data then
-			stderr_data = stderr_data .. data
-		end
-		if err_reader then
-			err_reader(err, data)
-		end
-	end)
-end
-
----@param buf number | nil # buffer number
----@param directory string # directory to search in
----@param pattern string # pattern to search for
----@param callback function # callback function(results, regex)
--- results: table of elements with file, lnum and line
--- regex: string - final regex used for search
-_H.grep_directory = function(buf, directory, pattern, callback)
-	pattern = pattern or ""
-	-- replace spaces with wildcards
-	pattern = pattern:gsub("%s+", ".*")
-	-- strip leading and trailing non alphanumeric characters
-	local re = pattern:gsub("^%W*(.-)%W*$", "%1")
-
-	_H.process(buf, "grep", { "-irEn", "--null", pattern, directory }, function(c, _, stdout, _)
-		local results = {}
-		if c ~= 0 then
-			callback(results, re)
-			return
-		end
-		for _, line in ipairs(vim.split(stdout, "\n")) do
-			line = line:gsub("^%s*(.-)%s*$", "%1")
-			-- line contains non whitespace characters
-			if line:match("%S") then
-				-- extract file path (until zero byte)
-				local file = line:match("^(.-)%z")
-				-- substract dir from file
-				local filename = vim.fn.fnamemodify(file, ":t")
-				local line_number = line:match("%z(%d+):")
-				local line_text = line:match("%z%d+:(.*)")
-				table.insert(results, {
-					file = filename,
-					lnum = line_number,
-					line = line_text,
-				})
-				-- extract line number
-			end
-		end
-		table.sort(results, function(a, b)
-			if a.file == b.file then
-				return a.lnum < b.lnum
-			else
-				return a.file > b.file
-			end
-		end)
-		callback(results, re)
-	end)
+  handles.clear()
 end
 
 --------------------------------------------------------------------------------
@@ -597,96 +450,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
 
 	M.cleanup_old_queries(8, 60)
 
-	local out_reader = function()
-		local buffer = ""
-
-		---@param lines_chunk string
-		local function process_lines(lines_chunk)
-			local qt = M.get_query(qid)
-			if not qt then
-				return
-			end
-
-			local lines = vim.split(lines_chunk, "\n")
-			for _, line in ipairs(lines) do
-				if line ~= "" and line ~= nil then
-					qt.raw_response = qt.raw_response .. line .. "\n"
-				end
-				line = line:gsub("^data: ", "")
-				local content = ""
-
-				if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
-					line = vim.json.decode(line)
-					content = line.choices[1].delta.content
-				end
-
-				if provider == "anthropic" and line:match("content_block_delta") and line:match("text_delta") then
-					line = vim.json.decode(line)
-					if line.delta and line.delta.type == "text_delta" and line.delta.text then
-						content = line.delta.text
-					end
-				end
-
-				if provider == "ollama" and line:match("message") and line:match("content") then
-					line = vim.json.decode(line)
-					if line.message and line.message.content then
-						content = line.message.content
-					end
-				end
-
-				if content ~= nil then
-					qt.response = qt.response .. content
-					handler(qid, content)
-				end
-			end
-		end
-
-		-- closure for vim.loop.read_start(stdout, fn)
-		return function(err, chunk)
-			local qt = M.get_query(qid)
-			if not qt then
-				return
-			end
-
-			if err then
-				M.logger.error(qt.provider .. " API query stdout error: " .. vim.inspect(err))
-			elseif chunk then
-				-- add the incoming chunk to the buffer
-				buffer = buffer .. chunk
-				local last_newline_pos = buffer:find("\n[^\n]*$")
-				if last_newline_pos then
-					local complete_lines = buffer:sub(1, last_newline_pos - 1)
-					-- save the rest of the buffer for the next chunk
-					buffer = buffer:sub(last_newline_pos + 1)
-
-					process_lines(complete_lines)
-				end
-			-- chunk is nil when EOF is reached
-			else
-				-- if there's remaining data in the buffer, process it
-				if #buffer > 0 then
-					process_lines(buffer)
-				end
-
-				if qt.response == "" then
-					M.logger.error(
-						qt.provider .. " API query response is empty in close: \n" .. vim.inspect(qt.raw_response)
-					)
-				end
-
-				-- optional on_exit handler
-				if type(on_exit) == "function" then
-					on_exit(qid)
-					if qt.ns_id and qt.buf then
-						vim.schedule(function()
-							vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
-						end)
-					end
-				end
-			end
-		end
-	end
-
 	local endpoint = M.providers[provider].endpoint
 	local api_key = M.providers[provider].api_key
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
@@ -717,20 +480,19 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		table.insert(curl_params, arg)
 	end
 
-	-- M._H.process(buf, "curl", curl_params, nil, out_reader(), nil)
 	local Job = require("plenary.job")
 
 	local function process_lines(lines_chunk)
-		-- local qt = M.get_query(qid)
-		-- if not qt then
-		-- 	return
-		-- end
+		local qt = M.get_query(qid)
+		if not qt then
+			return
+		end
 
 		local lines = vim.split(lines_chunk, "\n")
 		for _, line in ipairs(lines) do
-			-- if line ~= "" and line ~= nil then
-			-- 	qt.raw_response = qt.raw_response .. line .. "\n"
-			-- end
+			if line ~= "" and line ~= nil then
+				qt.raw_response = qt.raw_response .. line .. "\n"
+			end
 			line = line:gsub("^data: ", "")
 			local content = ""
 
@@ -752,50 +514,43 @@ M.query = function(buf, provider, payload, handler, on_exit)
 					content = line.message.content
 				end
 			end
-			return content
 
-			-- if content ~= nil then
-			-- 	qt.response = qt.response .. content
-			-- 	handler(qid, content)
-			-- end
+			if content ~= nil then
+				qt.response = qt.response .. content
+				handler(qid, content)
+				return content
+			end
 		end
 	end
 
 	local buffer = ""
-	Job:new({
+	local pid = nil
+
+	local job = Job:new({
 		command = "curl",
 		args = curl_params,
 		on_exit = function(j, return_val)
-			print("Done, exit code: ", return_val)
-			if j ~= nil then
-				print(vim.inspect(j:result()))
-			end
+			handles.remove(pid)
 		end,
 		on_stdout = function(j, data)
-			-- vim.api.nvim_echo({ { "Downloading: " .. data, "InfoMsg" } }, false, {})
-      -- print("J", j)
-			-- print("output data: " .. data)
-			print(process_lines(data))
-
-				-- add the incoming chunk to the buffer
-			buffer = buffer .. data
+			chunk = process_lines(data)
+			buffer = buffer .. chunk
 			local last_newline_pos = buffer:find("\n[^\n]*$")
 			if last_newline_pos then
-				print("PROCESS LINEs")
 				local complete_lines = buffer:sub(1, last_newline_pos - 1)
-				-- save the rest of the buffer for the next chunk
 				buffer = buffer:sub(last_newline_pos + 1)
 				process_lines(complete_lines)
-      end
-		end,
-		on_stderr = function(j, data)
-			-- vim.api.nvim_echo({ { "Error: " .. data, "ErrorMsg" } }, false, {})
-			print("Error: " .. data)
-			if j ~= nil then
-				print(j:result())
 			end
 		end,
-		}):start()
+		on_stderr = function(j, data)
+			M.logger.error("Error: " .. vim.inspect(data))
+			if j ~= nil then
+				M.logger.error(j:result())
+			end
+		end,
+	})
+	job:start()
+	handles.add(job, buf)
 end
 
 -- response handler
@@ -1375,7 +1130,7 @@ M.chat_respond = function(params)
 		return
 	end
 
-	if not M.can_handle(buf) then
+	if not handles.can_handle(buf) then
 		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
@@ -1519,6 +1274,7 @@ M.chat_respond = function(params)
 		utils.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
+      print("HANDLE CALLED", qid)
 			local qt = M.get_query(qid)
 			if not qt then
 				return
@@ -1560,6 +1316,7 @@ M.chat_respond = function(params)
 
 				local topic_prov = M.get_provider()
 
+				print("HERE TOPIC")
 				-- call the model
 				M.query(
 					nil,
@@ -1857,7 +1614,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	if not M.can_handle(buf) then
+	if not handles.can_handle(buf) then
 		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
