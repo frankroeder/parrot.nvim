@@ -214,7 +214,6 @@ M.prepare_payload = function(messages, model, default_model)
 		stream = true,
 	}
 
-	-- if model is a string
 	if type(model) == "string" then
 		model_req.model = model
 		return model_req
@@ -241,6 +240,10 @@ M.prepare_payload = function(messages, model, default_model)
 	return model_req
 end
 
+---@param buf number # buffer number
+---@param file_name string # name of the file
+---@param chat_dir string # directory path for chat files
+---@return boolean # returns true if file is a chat file
 M.is_chat = function(buf, file_name, chat_dir)
 	if not M.starts_with(file_name, chat_dir) then
 		return false
