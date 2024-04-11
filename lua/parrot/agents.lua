@@ -28,7 +28,13 @@ local ollama_chat_agents = {
 		provider = "ollama",
 	},
 	{
-		name = "Llama-13B",
+		name = "Llama2-7B",
+		model = { model = "llama2:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+		system_prompt = system_chat_prompt,
+		provider = "ollama",
+	},
+	{
+		name = "Llama2-13B",
 		model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 		system_prompt = system_chat_prompt,
 		provider = "ollama",
@@ -124,7 +130,13 @@ local ollama_command_agents = {
 		provider = "ollama",
 	},
 	{
-		name = "Llama-13B",
+		name = "Llama2-7B",
+		model = { model = "llama2:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+		system_prompt = system_code_prompt,
+		provider = "ollama",
+	},
+	{
+		name = "Llama2-13B",
 		model = { model = "llama2:13b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
 		system_prompt = system_code_prompt,
 		provider = "ollama",
