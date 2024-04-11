@@ -45,6 +45,18 @@ end
 function M.check()
 	vim.health.start("parrot.nvim checks")
 
+	if vim.F.npcall(require, "fzf-lua") then
+		vim.health.ok("require('fzf-lua') succeeded")
+	else
+		vim.health.info("require('fzf-lua') failed")
+	end
+
+	if vim.F.npcall(require, "plenary") then
+		vim.health.ok("require('plenary') succeeded")
+	else
+		vim.health.info("require('plenary') failed")
+	end
+
 	local ok, parrot = pcall(require, "parrot")
 	if not ok then
 		vim.health.error("require('parrot') failed")
@@ -61,22 +73,12 @@ function M.check()
 		check_provider(parrot, "pplx")
 	end
 
-	if vim.fn.executable("curl") == 1 then
-		vim.health.ok("curl is installed")
-	else
-		vim.health.error("curl is not installed")
-	end
-
-	if vim.fn.executable("grep") == 1 then
-		vim.health.ok("grep is installed")
-	else
-		vim.health.error("grep is not installed")
-	end
-
-	if vim.fn.executable("ln") == 1 then
-		vim.health.ok("ln is installed")
-	else
-		vim.health.error("ln is not installed")
+	for _, name in ipairs({ "curl", "grep", "rg", "ln" }) do
+		if vim.fn.executable(name) == 1 then
+			vim.health.ok(("`%s` is installed"):format(name))
+		else
+			vim.health.warn(("`%s` is not installed"):format(name))
+		end
 	end
 end
 
