@@ -30,7 +30,6 @@ M.logger._plugin_name = M._plugin_name
 -- stop receiving gpt responses for all processes and clean the handles
 ---@param signal number | nil # signal to send to the process
 M.cmd.Stop = function(signal)
-
 	if handles.is_empty() then
 		return
 	end
@@ -41,7 +40,7 @@ M.cmd.Stop = function(signal)
 		end
 	end
 
-  handles.clear()
+	handles.clear()
 end
 
 --------------------------------------------------------------------------------
@@ -524,22 +523,37 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	end
 
 	local buffer = ""
-	local pid = nil
+	local pid, handle = nil, nil
 
 	local job = Job:new({
 		command = "curl",
 		args = curl_params,
 		on_exit = function(j, return_val)
+			if handle and not handle:is_closing() then
+				handle:close()
+			end
+			on_exit(qid)
+			local qt = M.get_query(qid)
+			if qt.ns_id and qt.buf then
+				vim.schedule(function()
+					vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
+				end)
+			end
 			handles.remove(pid)
 		end,
 		on_stdout = function(j, data)
 			chunk = process_lines(data)
-			buffer = buffer .. chunk
-			local last_newline_pos = buffer:find("\n[^\n]*$")
-			if last_newline_pos then
-				local complete_lines = buffer:sub(1, last_newline_pos - 1)
-				buffer = buffer:sub(last_newline_pos + 1)
-				process_lines(complete_lines)
+			if chunk then
+				buffer = buffer .. chunk
+				local last_newline_pos = buffer:find("\n[^\n]*$")
+				if last_newline_pos then
+					local complete_lines = buffer:sub(1, last_newline_pos - 1)
+					buffer = buffer:sub(last_newline_pos + 1)
+					process_lines(complete_lines)
+				end
+			end
+			if #buffer > 0 then
+				process_lines(buffer)
 			end
 		end,
 		on_stderr = function(j, data)
@@ -550,6 +564,8 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		end,
 	})
 	job:start()
+	pid = job.pid
+	handle = job.handle
 	handles.add(job, buf)
 end
 
@@ -1274,7 +1290,6 @@ M.chat_respond = function(params)
 		utils.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
-      print("HANDLE CALLED", qid)
 			local qt = M.get_query(qid)
 			if not qt then
 				return
@@ -1316,7 +1331,6 @@ M.chat_respond = function(params)
 
 				local topic_prov = M.get_provider()
 
-				print("HERE TOPIC")
 				-- call the model
 				M.query(
 					nil,
