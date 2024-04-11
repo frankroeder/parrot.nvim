@@ -17,7 +17,7 @@ local config = {
 			api_key = "",
 			endpoint = "https://api.openai.com/v1/chat/completions",
 			topic_prompt = topic_prompt,
-			topic_model = "gpt-3.5-turbo-0125",
+			topic_model = "gpt-3.5-turbo",
 		},
 		ollama = {
 			endpoint = "http://localhost:11434/api/chat",
@@ -57,8 +57,6 @@ local config = {
 	-- just a static string is legacy and the [{{agent}}] element is added automatically
 	-- if you really want just a static string, make it a table with one element { "🤖:" }
 	chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
-	-- explicitly confirm deletion of a chat file
-	chat_confirm_delete = true,
 	-- conceal model parameters in chat
 	chat_conceal_model_params = true,
 	-- local shortcuts bound to the chat buffer

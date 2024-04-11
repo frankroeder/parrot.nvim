@@ -110,25 +110,25 @@ These commands are included in the default setup.
 Additional useful commands are implemented through hooks (see my example configuration).
 
 ### General
-| Command          | Description                                |
-| ---------------- | ------------------------------------------ |
-| `PrtNew`         | open a new chat                            |
-| `PrtProvider`    | switch the provider                        |
-| `PrtAgent`       | switch the agent                           |
-| `PrtChatToggle`  | toggle chat window                         |
-| `PrtInfo`        | print plugin config                        |
-| `PrtContext`     | edits the local context file               |
-| `PrtAsk`         | ask the selected agent a single question   |
-| `PrtChatFinder`  | fuzzy search chat files                    |
+| Command                   | Description                                  |
+| ------------------        | -------------------------------------------- |
+| `PrtNew`                  | open a new chat                              |
+| `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf) |
+| `PrtAgent <agent>`        | switch the agent (empty arg triggers fzf)    |
+| `PrtChatToggle <target>`  | toggle chat window                           |
+| `PrtInfo`                 | print plugin config                          |
+| `PrtContext`              | edits the local context file                 |
+| `PrtAsk`                  | ask the selected agent a single question     |
+| `PrtChatFinder`           | fuzzy search chat files using fzf            |
 
 ### Interactive
 The following commands can be triggered with visual selections.
 
-| Command          | Description                                |
-| ---------------- | ------------------------------------------ |
-| `PrtChat`        | paste visual selection into new chat       |
-| `PrtChatToggle`  | paste visual selection into new chat       |
-| `PrtImplement`   | implements selected comment/instruction    |
+| Command                  | Description                                                        |
+| ------------------------ | ------------------------------------------------------------------ |
+| `PrtChatNew <target>`    | paste visual selection into new chat (defaults to `toggle_target`) |
+| `PrtChatToggle <target>` | paste visual selection into new chat (defaults to `toggle_target`) |
+| `PrtImplement`           | implements selected comment/instruction                            |
 
 ### Chat
 The following commands are available within the chat files.
