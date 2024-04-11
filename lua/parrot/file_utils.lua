@@ -1,12 +1,6 @@
 local utils = require("parrot.utils")
 local M = {}
 
----@param buf number # buffer number
----@return string # returns filetype of specified buffer
-M.get_filetype = function(buf)
-	return vim.api.nvim_buf_get_option(buf, "filetype")
-end
-
 ---@param file_path string # the file path from where to read the json into a table
 ---@return table | nil # the table read from the file, or nil if an error occurred
 M.file_to_table = function(file_path)

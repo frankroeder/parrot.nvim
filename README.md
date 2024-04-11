@@ -45,13 +45,14 @@ Let the parrot fix your bugs.
 ### Dependencies
 - [`neovim`](https://github.com/neovim/neovim/releases)
 - [`fzf`](https://github.com/junegunn/fzf)
+- [`plenary`](https://github.com/nvim-lua/plenary.nvim)
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep)
 
 ### lazy.nvim
 ```lua
 {
   "frankroeder/parrot.nvim",
-  dependencies = { "fzf-lua" },
+  dependencies = { "fzf-lua", "plenary" },
   config = function()
     require("parrot").setup {
       providers = {

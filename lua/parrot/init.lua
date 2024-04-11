@@ -1,8 +1,10 @@
 local config = require("parrot.config")
 local utils = require("parrot.utils")
 local futils = require("parrot.file_utils")
-local handles = require("parrot.handles")
+local Pool = require("parrot.pool")
+local Queries = require("parrot.queries")
 local ui = require("parrot.ui")
+local pft = require'plenary.filetype'
 
 local _H = {}
 local M = {
@@ -21,26 +23,27 @@ local M = {
 	logger = require("parrot.logger"),
 	ui = ui,
 }
-M.logger._plugin_name = M._plugin_name
+local pool = Pool:new()
+local queries = Queries:new()
 
 --------------------------------------------------------------------------------
 -- Generic helper functions
 --------------------------------------------------------------------------------
 
--- stop receiving gpt responses for all processes and clean the handles
+-- stop receiving responses for all processes and create a new pool
 ---@param signal number | nil # signal to send to the process
 M.cmd.Stop = function(signal)
-	if handles.is_empty() then
+	if pool.is_empty() then
 		return
 	end
 
-	for _, handle_info in handles.ipairs() do
-		if handle_info.job.handle ~= nil and not handle_info.job.handle:is_closing() then
-			vim.loop.kill(handle_info.job.pid, signal or 15)
+	for _, process_info in pool.ipairs() do
+		if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
+			vim.loop.kill(process_info.job.pid, signal or 15)
 		end
 	end
 
-	handles.clear()
+  pool = Pool:new()
 end
 
 --------------------------------------------------------------------------------
@@ -55,7 +58,7 @@ M.append_selection = function(params, origin_buf, target_buf)
 	local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
 	local selection = table.concat(lines, "\n")
 	if selection ~= "" then
-		local filetype = futils.get_filetype(origin_buf)
+		local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
 		local fname = vim.api.nvim_buf_get_name(origin_buf)
 		local rendered = utils.template_render(M.config.template_selection, "", selection, filetype, fname)
 		if rendered then
@@ -382,38 +385,7 @@ M.call_hook = function(name, params)
 	M.logger.error("The hook '" .. name .. "' does not exist.")
 end
 
----@param N number # number of queries to keep
----@param age number # age of queries to keep in seconds
-function M.cleanup_old_queries(N, age)
-	local current_time = os.time()
-
-	local query_count = 0
-	for _ in pairs(M._queries) do
-		query_count = query_count + 1
-	end
-
-	if query_count <= N then
-		return
-	end
-
-	for qid, query_data in pairs(M._queries) do
-		if current_time - query_data.timestamp > age then
-			M._queries[qid] = nil
-		end
-	end
-end
-
----@param qid string # query id
----@return table | nil # query data
-function M.get_query(qid)
-	if not M._queries[qid] then
-		M.logger.error("Query with ID " .. tostring(qid) .. " not found.")
-		return nil
-	end
-	return M._queries[qid]
-end
-
--- gpt query
+-- call the API
 ---@param buf number | nil # buffer number
 ---@param payload table # payload for api
 ---@param handler function # response handler
@@ -432,7 +404,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	end
 
 	local qid = utils.uuid()
-	M._queries[qid] = {
+	queries:add(qid, {
 		timestamp = os.time(),
 		buf = buf,
 		provider = provider,
@@ -445,9 +417,9 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		last_line = -1,
 		ns_id = nil,
 		ex_id = nil,
-	}
+	})
 
-	M.cleanup_old_queries(8, 60)
+	queries:cleanup(8, 60)
 
 	local endpoint = M.providers[provider].endpoint
 	local api_key = M.providers[provider].api_key
@@ -482,7 +454,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	local Job = require("plenary.job")
 
 	local function process_lines(lines_chunk)
-		local qt = M.get_query(qid)
+		local qt = queries:get(qid)
 		if not qt then
 			return
 		end
@@ -523,23 +495,22 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	end
 
 	local buffer = ""
-	local pid, handle = nil, nil
 
 	local job = Job:new({
 		command = "curl",
 		args = curl_params,
 		on_exit = function(j, return_val)
-			if handle and not handle:is_closing() then
-				handle:close()
+			if j.handle and not j.handle:is_closing() then
+				j.handle:close()
 			end
 			on_exit(qid)
-			local qt = M.get_query(qid)
+			local qt = queries:get(qid)
 			if qt.ns_id and qt.buf then
 				vim.schedule(function()
 					vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
 				end)
 			end
-			handles.remove(pid)
+			pool:remove(j.pid)
 		end,
 		on_stdout = function(j, data)
 			chunk = process_lines(data)
@@ -564,9 +535,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		end,
 	})
 	job:start()
-	pid = job.pid
-	handle = job.handle
-	handles.add(job, buf)
+	pool:add(job, buf)
 end
 
 -- response handler
@@ -595,7 +564,7 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
 
 	local response = ""
 	return vim.schedule_wrap(function(qid, chunk)
-		local qt = M.get_query(qid)
+		local qt = queries:get(qid)
 		if not qt then
 			return
 		end
@@ -1146,7 +1115,7 @@ M.chat_respond = function(params)
 		return
 	end
 
-	if not handles.can_handle(buf) then
+	if not pool:unique_for_buffer(buf) then
 		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
@@ -1290,7 +1259,7 @@ M.chat_respond = function(params)
 		utils.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
-			local qt = M.get_query(qid)
+			local qt = queries:get(qid)
 			if not qt then
 				return
 			end
@@ -1628,7 +1597,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 	local buf = vim.api.nvim_get_current_buf()
 	local win = vim.api.nvim_get_current_win()
 
-	if not handles.can_handle(buf) then
+	if not pool:unique_for_buffer(buf) then
 		M.logger.warning("Another parrot process is already running for this buffer.")
 		return
 	end
@@ -1687,7 +1656,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		local handler = function() end
 		-- default on_exit strips trailing backticks if response was markdown snippet
 		local on_exit = function(qid)
-			local qt = M.get_query(qid)
+			local qt = queries:get(qid)
 			if not qt then
 				return
 			end
@@ -1775,7 +1744,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 
 		-- prepare messages
 		local messages = {}
-		local filetype = futils.get_filetype(buf)
+		local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
 		local filename = vim.api.nvim_buf_get_name(buf)
 
 		local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
