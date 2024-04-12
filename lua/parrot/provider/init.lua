@@ -4,8 +4,8 @@ local Anthropic = require("parrot.provider.anthropic")
 local Perplexity = require("parrot.provider.perplexity")
 
 return {
-	Ollama = Ollama,
-	OpenAI = OpenAI,
-	Anthropic = Anthropic,
-	Perplexity = Perplexity,
+  Ollama = Ollama,
+  OpenAI = OpenAI,
+  Anthropic = Anthropic,
+  Perplexity = Perplexity,
 }
