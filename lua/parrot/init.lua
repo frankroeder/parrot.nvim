@@ -4,7 +4,9 @@ local futils = require("parrot.file_utils")
 local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
 local ui = require("parrot.ui")
-local pft = require'plenary.filetype'
+local pft = require("plenary.filetype")
+local provider = require("parrot.provider")
+local Job = require("plenary.job")
 
 local _H = {}
 local M = {
@@ -43,7 +45,7 @@ M.cmd.Stop = function(signal)
 		end
 	end
 
-  pool = Pool:new()
+	pool = Pool:new()
 end
 
 --------------------------------------------------------------------------------
@@ -255,44 +257,22 @@ M.setup = function(opts)
 		M.logger.error("curl is not installed, run :checkhealth parrot")
 	end
 
-	for prov, val in pairs(M.providers) do
+	for prov_name, val in pairs(M.providers) do
 		if type(val.api_key) == "table" then
 			local command = table.concat(val.api_key, " ")
 			local handle = io.popen(command)
 			if handle then
-				M.providers[prov].api_key = handle:read("*a"):gsub("%s+", "")
+				M.providers[prov_name].api_key = handle:read("*a"):gsub("%s+", "")
 			else
-				M.providers[prov].api_key = nil
+				M.providers[prov_name].api_key = nil
 			end
 			handle:close()
-			M.valid_api_key(prov)
+			local prov = M.init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
+			if not prov:verify() then
+				M.logger.error("Error verifying api key of " .. prov_name)
+			end
 		end
 	end
-end
-
-M.valid_api_key = function(current_provider)
-	if current_provider == "ollama" then
-		return true
-	end
-	local api_key = M.providers[current_provider].api_key
-
-	if type(api_key) == "table" then
-		M.logger.error("api_key is still an unresolved command: " .. vim.inspect(api_key))
-		return false
-	end
-
-	if api_key and string.match(api_key, "%S") then
-		return true
-	end
-
-	M.logger.error(
-		"config.providers["
-			.. current_provider
-			.. "].api_key is not set: "
-			.. vim.inspect(api_key)
-			.. " run :checkhealth parrot"
-	)
-	return false
 end
 
 M.refresh_state = function()
@@ -399,7 +379,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		return
 	end
 
-	if not M.valid_api_key(provider) then
+	if not provider:verify() then
 		return
 	end
 
@@ -407,7 +387,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 	queries:add(qid, {
 		timestamp = os.time(),
 		buf = buf,
-		provider = provider,
+		provider = provider.name,
 		payload = payload,
 		handler = handler,
 		on_exit = on_exit,
@@ -421,13 +401,10 @@ M.query = function(buf, provider, payload, handler, on_exit)
 
 	queries:cleanup(8, 60)
 
-	local endpoint = M.providers[provider].endpoint
-	local api_key = M.providers[provider].api_key
 	local curl_params = vim.deepcopy(M.config.curl_params or {})
 	local args = {
 		"--no-buffer",
-		"-s",
-		endpoint,
+		"--silent",
 		"-H",
 		"accept: application/json",
 		"-H",
@@ -435,23 +412,14 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		"-d",
 		vim.json.encode(payload),
 	}
-	if provider ~= "ollama" and provider ~= "anthropic" then
-		table.insert(args, "-H")
-		table.insert(args, "authorization: Bearer " .. api_key)
-	end
-
-	if provider == "anthropic" then
-		table.insert(args, "-H")
-		table.insert(args, "x-api-key: " .. api_key)
-		table.insert(args, "-H")
-		table.insert(args, "anthropic-version: 2023-06-01")
-	end
 
 	for _, arg in ipairs(args) do
 		table.insert(curl_params, arg)
 	end
 
-	local Job = require("plenary.job")
+	for _, parg in ipairs(provider:curl_params()) do
+		table.insert(curl_params, parg)
+	end
 
 	local function process_lines(lines_chunk)
 		local qt = queries:get(qid)
@@ -465,27 +433,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
 				qt.raw_response = qt.raw_response .. line .. "\n"
 			end
 			line = line:gsub("^data: ", "")
-			local content = ""
-
-			if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
-				line = vim.json.decode(line)
-				content = line.choices[1].delta.content
-			end
-
-			if provider == "anthropic" and line:match("content_block_delta") and line:match("text_delta") then
-				line = vim.json.decode(line)
-				if line.delta and line.delta.type == "text_delta" and line.delta.text then
-					content = line.delta.text
-				end
-			end
-
-			if provider == "ollama" and line:match("message") and line:match("content") then
-				line = vim.json.decode(line)
-				if line.message and line.message.content then
-					content = line.message.content
-				end
-			end
-
+			local content = provider:process(line)
 			if content ~= nil then
 				qt.response = qt.response .. content
 				handler(qid, content)
@@ -500,6 +448,19 @@ M.query = function(buf, provider, payload, handler, on_exit)
 		command = "curl",
 		args = curl_params,
 		on_exit = function(j, return_val)
+			for i, result in ipairs(j:result()) do
+				if type(result) == "string" then
+					local success, error_msg = pcall(vim.json.decode, result)
+					if success then
+						if error_msg["error"] ~= nil then
+							M.logger.error(error_msg["error"]["message"])
+						end
+					elseif string.find(result, "error") or string.find(result, "401") then
+						-- TODO: Improve error handling --
+						M.logger.error(result)
+					end
+				end
+			end
 			if j.handle and not j.handle:is_closing() then
 				j.handle:close()
 			end
@@ -1103,8 +1064,9 @@ M.chat_respond = function(params)
 	local agent = M.get_chat_agent()
 	local agent_name = agent.name
 	local agent_provider = agent.provider
+	local prov = M.get_provider()
 
-	if not M.valid_api_key(agent.provider) then
+	if not prov:verify() then
 		return
 	end
 
@@ -1225,11 +1187,7 @@ M.chat_respond = function(params)
 		messages[1] = { role = "system", content = content }
 	end
 
-	-- anthropic system message is inside request body, not in messages
-	if agent_provider == "anthropic" then
-		local messages = table.remove(messages, 1)
-	end
-
+	local messages = prov:preprocess_messages(messages)
 	-- strip whitespace from ends of content
 	for _, message in ipairs(messages) do
 		message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
@@ -1248,7 +1206,7 @@ M.chat_respond = function(params)
 	-- call the model and write response
 	M.query(
 		buf,
-		agent.provider,
+		M.init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key),
 		utils.prepare_payload(messages, headers.model, agent.model),
 		M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
 		vim.schedule_wrap(function(qid)
@@ -1282,7 +1240,7 @@ M.chat_respond = function(params)
 				table.insert(messages, { role = "assistant", content = qt.response })
 
 				-- ask model to generate topic/title for the chat
-				local topic_prompt = M.providers[M.get_provider()].topic_prompt
+				local topic_prompt = M.providers[M.get_provider().name].topic_prompt
 				if topic_prompt ~= "" then
 					table.insert(messages, { role = "user", content = topic_prompt })
 				end
@@ -1297,7 +1255,7 @@ M.chat_respond = function(params)
 				M.query(
 					nil,
 					topic_prov,
-					utils.prepare_payload(messages, M.providers[topic_prov].topic_model, nil),
+					utils.prepare_payload(messages, M.providers[topic_prov.name].topic_model, nil),
 					topic_handler,
 					vim.schedule_wrap(function()
 						-- get topic from invisible buffer
@@ -1448,13 +1406,17 @@ M.cmd.Agent = function(params)
 				end
 				local new_agent = selection[1]
 				if is_chat then
-					M._state[prov].chat_agent = new_agent
-					M.logger.info("Chat agent (" .. prov .. "): " .. new_agent)
-          utils.check_ollama_model(M.get_chat_agent())
+					M._state[prov.name].chat_agent = new_agent
+					M.logger.info("Chat agent (" .. prov.name .. "): " .. new_agent)
+					if not prov:check(M.get_chat_agent()) then
+						M.logger.error("Unavailable  chat agent model " .. new_agent.model .. " for  " .. prov.name)
+					end
 				else
-					M._state[prov].command_agent = new_agent
-					M.logger.info("Command agent (" .. prov .. "): " .. new_agent)
-          utils.check_ollama_model(M.get_command_agent())
+					M._state[prov.name].command_agent = new_agent
+					M.logger.info("Command agent (" .. prov.name .. "): " .. new_agent)
+					if not prov:check(M.get_command_agent()) then
+						M.logger.error("Unavailable command agent model " .. new_agent.model .. " for  " .. prov.name)
+					end
 				end
 				M.refresh_state()
 			end,
@@ -1463,7 +1425,10 @@ M.cmd.Agent = function(params)
 		local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 		if agent_name == "" then
 			M.logger.info(
-				" Chat agent: " .. M._state[prov].chat_agent .. "  |  Command agent: " .. M._state[prov].command_agent
+				" Chat agent: "
+					.. M._state[prov.name].chat_agent
+					.. "  |  Command agent: "
+					.. M._state[prov.name].command_agent
 			)
 			return
 		end
@@ -1474,13 +1439,13 @@ M.cmd.Agent = function(params)
 		end
 
 		if is_chat and M.agents.chat[agent_name] then
-			M._state[prov].chat_agent = agent_name
-			M.logger.info("Chat agent: " .. M._state[prov].chat_agent)
+			M._state[prov.name].chat_agent = agent_name
+			M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
 		elseif is_chat then
 			M.logger.warning(agent_name .. " is not a Chat agent")
 		elseif M.agents.command[agent_name] then
-			M._state[prov].command_agent = agent_name
-			M.logger.info("Command agent: " .. M._state[prov].command_agent)
+			M._state[prov.name].command_agent = agent_name
+			M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
 		else
 			M.logger.warning(agent_name .. " is not a Command agent")
 		end
@@ -1492,8 +1457,8 @@ end
 M.get_command_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local prov = M.get_provider()
-	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov].command_agent })
-	local name = M._state[prov].command_agent
+	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov.name].command_agent })
+	local name = M._state[prov.name].command_agent
 	local model = M.agents.command[name].model
 	local system_prompt = M.agents.command[name].system_prompt
 	local provider = M.agents.command[name].provider
@@ -1510,8 +1475,8 @@ end
 M.get_chat_agent = function()
 	local template = M.config.command_prompt_prefix_template
 	local prov = M.get_provider()
-	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov].chat_agent })
-	local name = M._state[prov].chat_agent
+	local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov.name].chat_agent })
+	local name = M._state[prov.name].chat_agent
 	local model = M.agents.chat[name].model
 	local system_prompt = M.agents.chat[name].system_prompt
 	local provider = M.agents.chat[name].provider
@@ -1524,17 +1489,38 @@ M.get_chat_agent = function()
 	}
 end
 
----@return string
+M.init_provider = function(prov_name, endpoint, api_key)
+	local prov = nil
+	if prov_name == "ollama" then
+		prov = provider.Ollama:new(endpoint, api_key)
+	elseif prov_name == "openai" then
+		prov = provider.OpenAI:new(endpoint, api_key)
+	elseif prov_name == "anthropic" then
+		prov = provider.Anthropic:new(endpoint, api_key)
+	elseif prov_name == "pplx" then
+		prov = provider.Perplexity:new(endpoint, api_key)
+	end
+
+	if prov == nil then
+		M.logger.error("Unknown provider " .. prov_name)
+		return
+	end
+	return prov
+end
+
 M.get_provider = function()
-	return M._state["provider"]
+	local _state_prov = M._state["provider"]
+	local endpoint = M.providers[_state_prov].endpoint
+	local api_key = M.providers[_state_prov].api_key
+	return M.init_provider(_state_prov, endpoint, api_key)
 end
 
 M.get_provider_agents = function(is_chat)
 	local prov = M.get_provider()
 	if is_chat then
-		return M._available_provider_agents[prov].chat
+		return M._available_provider_agents[prov.name].chat
 	else
-		return M._available_provider_agents[prov].command
+		return M._available_provider_agents[prov.name].command
 	end
 end
 
@@ -1580,7 +1566,7 @@ M.cmd.Context = function(params)
 	utils.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, provider)
+M.Prompt = function(params, target, prompt, model, template, system_template, prov)
 	-- enew, new, vnew, tabnew should be resolved into table
 	if type(target) == "function" then
 		target = target()
@@ -1744,9 +1730,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 
 		local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
 		sys_prompt = sys_prompt or ""
-		if sys_prompt ~= "" and agent_provider ~= "anthropic" then
-			table.insert(messages, { role = "system", content = sys_prompt })
-		end
+		messages = prov:add_system_prompt(messages, sys_prompt)
 
 		local repo_instructions = futils.find_repo_instructions()
 		if repo_instructions ~= "" and sys_prompt ~= "" then
@@ -1850,7 +1834,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 		local agent = M.get_command_agent()
 		M.query(
 			buf,
-			provider,
+			prov,
 			utils.prepare_payload(messages, model, agent.model),
 			handler,
 			vim.schedule_wrap(function(qid)
