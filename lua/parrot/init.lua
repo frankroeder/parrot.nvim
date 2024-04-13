@@ -1710,6 +1710,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
 
     local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
+    local prov = M.get_provider()
+    if prov.name ~= agent_provider then
+      M.logger.error("Missmatch of agent and current provider")
+      return
+    end
     messages = prov:add_system_prompt(messages, sys_prompt)
 
     local repo_instructions = futils.find_repo_instructions()

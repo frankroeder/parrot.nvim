@@ -225,7 +225,6 @@ M.chat_agents = {}
 for _, agent in ipairs(ollama_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
-
 for _, agent in ipairs(openai_chat_agents) do
   table.insert(M.chat_agents, agent)
 end

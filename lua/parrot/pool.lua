@@ -9,7 +9,7 @@ function Pool:new()
 end
 
 -- add a process to the pool
----@param job plenary.job # a plenary job
+---@param job table # a plenary job
 ---@param buf number | nil # buffer number
 function Pool:add(job, buf)
   table.insert(self._processes, { job = job, buf = buf })
