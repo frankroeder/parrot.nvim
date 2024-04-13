@@ -170,9 +170,9 @@ M.setup = function(opts)
   end
 
   -- remove invalid providers
-  for name, provider in pairs(M.providers) do
-    if type(provider) ~= "table" or not provider.endpoint then
-      M.logger.warning("Removing invalid provider " .. name .. " " .. vim.inspect(provider))
+  for name, _provider in pairs(M.providers) do
+    if type(_provider) ~= "table" or not _provider.endpoint then
+      M.logger.warning("Removing invalid provider " .. name .. " " .. vim.inspect(_provider))
       M.providers[name] = nil
     end
   end
@@ -367,6 +367,7 @@ end
 
 -- call the API
 ---@param buf number | nil # buffer number
+---@param provider table
 ---@param payload table # payload for api
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
@@ -1342,9 +1343,13 @@ end
 -- Prompt logic
 --------------------
 M.cmd.Provider = function(params)
-  local provider = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
+  local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
-  if has_fzf then
+  if prov_arg ~= "" then
+    M.logger.info("Selected provider: " .. prov_arg)
+    M._state.provider = prov_arg
+    M.refresh_state()
+  elseif has_fzf then
     fzf_lua.fzf_exec(M._available_providers, {
       prompt = "Provider selection ❯",
       fzf_opts = M.config.fzf_lua_opts,
@@ -1360,12 +1365,7 @@ M.cmd.Provider = function(params)
       end,
     })
   else
-    if provider == "" then
-      M.logger.info(" Current provider: " .. M._state.provider)
-      return
-    end
-    M._state.provider = provider
-    M.refresh_state()
+    M.logger.info("Current provider: " .. M._state.provider)
   end
 end
 
@@ -1374,9 +1374,28 @@ M.cmd.Agent = function(params)
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
   local is_chat = utils.is_chat(buf, file_name, M.config.chat_dir)
-
+  local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
-  if has_fzf then
+
+  if agent_name ~= "" then
+    if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
+      M.logger.warning("Unknown agent: " .. agent_name)
+      return
+    end
+
+    if is_chat and M.agents.chat[agent_name] then
+      M._state[prov.name].chat_agent = agent_name
+      M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
+    elseif is_chat then
+      M.logger.warning(agent_name .. " is not a Chat agent")
+    elseif M.agents.command[agent_name] then
+      M._state[prov.name].command_agent = agent_name
+      M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
+    else
+      M.logger.warning(agent_name .. " is not a Command agent")
+    end
+    M.refresh_state()
+  elseif has_fzf then
     fzf_lua.fzf_exec(M.get_provider_agents(is_chat), {
       prompt = "Agent selection ❯",
       fzf_opts = M.config.fzf_lua_opts,
@@ -1410,31 +1429,9 @@ M.cmd.Agent = function(params)
       end,
     })
   else
-    local agent_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-    if agent_name == "" then
-      M.logger.info(
-        " Chat agent: " .. M._state[prov.name].chat_agent .. "  |  Command agent: " .. M._state[prov.name].command_agent
-      )
-      return
-    end
-
-    if not M.agents.chat[agent_name] and not M.agents.command[agent_name] then
-      M.logger.warning("Unknown agent: " .. agent_name)
-      return
-    end
-
-    if is_chat and M.agents.chat[agent_name] then
-      M._state[prov.name].chat_agent = agent_name
-      M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
-    elseif is_chat then
-      M.logger.warning(agent_name .. " is not a Chat agent")
-    elseif M.agents.command[agent_name] then
-      M._state[prov.name].command_agent = agent_name
-      M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
-    else
-      M.logger.warning(agent_name .. " is not a Command agent")
-    end
-    M.refresh_state()
+    M.logger.info(
+      "Chat agent: " .. M._state[prov.name].chat_agent .. "  | Command agent: " .. M._state[prov.name].command_agent
+    )
   end
 end
 
@@ -1446,13 +1443,12 @@ M.get_command_agent = function()
   local name = M._state[prov.name].command_agent
   local model = M.agents.command[name].model
   local system_prompt = M.agents.command[name].system_prompt
-  local provider = M.agents.command[name].provider
   return {
     cmd_prefix = cmd_prefix,
     name = name,
     model = model,
     system_prompt = system_prompt,
-    provider = provider,
+    provider = M.agents.command[name].provider,
   }
 end
 
@@ -1464,13 +1460,12 @@ M.get_chat_agent = function()
   local name = M._state[prov.name].chat_agent
   local model = M.agents.chat[name].model
   local system_prompt = M.agents.chat[name].system_prompt
-  local provider = M.agents.chat[name].provider
   return {
     cmd_prefix = cmd_prefix,
     name = name,
     model = model,
     system_prompt = system_prompt,
-    provider = provider,
+    provider = M.agents.chat[name].provider,
   }
 end
 
