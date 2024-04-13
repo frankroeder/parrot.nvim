@@ -52,11 +52,6 @@ local config = {
   chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
   -- chat user prompt prefix
   chat_user_prefix = "🗨:",
-  -- chat assistant prompt prefix (static string or a table {static, template})
-  -- first string has to be static, second string can contain template {{agent}}
-  -- just a static string is legacy and the [{{agent}}] element is added automatically
-  -- if you really want just a static string, make it a table with one element { "🤖:" }
-  chat_assistant_prefix = { "🤖:", "[{{agent}}]" },
   -- conceal model parameters in chat
   chat_conceal_model_params = true,
   -- local shortcuts bound to the chat buffer
@@ -186,7 +181,7 @@ local config = {
         agent.provider
       )
     end,
-    -- PrtAsk simply ask a question that should be answered short and precisely.
+    -- PrtAsk simply asks a question that should be answered shortly and precisely.
     Ask = function(parrot, params)
       local template = [[
 			In light of your existing knowledge base, please generate a response that

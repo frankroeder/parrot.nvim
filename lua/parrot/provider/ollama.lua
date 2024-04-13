@@ -47,7 +47,7 @@ end
 function Ollama:check(agent)
   if not self.ollama_installed then
     logger.warning("ollama not found.")
-    return
+    return false
   end
   local model = ""
   if type(agent.model) == "string" then
@@ -72,8 +72,8 @@ function Ollama:check(agent)
   end
   if not found_match then
     if not pcall(require, "plenary") then
-      print("Plenary not installed. Please install nvim-lua/plenary.nvim to use this feature.")
-      return
+      logger.error("Plenary not installed. Please install nvim-lua/plenary.nvim to use this plugin.")
+      return false
     end
     local confirm = vim.fn.confirm("ollama model " .. model .. " not found. Download now?", "&Yes\n&No", 1)
     if confirm == 1 then
@@ -92,10 +92,11 @@ function Ollama:check(agent)
       })
       job:start()
       return true
-    else
-      return false
     end
+  else
+    return true
   end
+  return false
 end
 
 return Ollama

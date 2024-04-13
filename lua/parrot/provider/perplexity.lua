@@ -11,7 +11,11 @@ function Perplexity:new(endpoint, api_key)
 end
 
 function Perplexity:curl_params()
-  return { self.endpoint, "-H", "authorization: Bearer " .. self.api_key }
+  return {
+    self.endpoint,
+    "-H",
+    "authorization: Bearer " .. self.api_key,
+  }
 end
 
 function Perplexity:verify()

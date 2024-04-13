@@ -11,7 +11,13 @@ function Anthropic:new(endpoint, api_key)
 end
 
 function Anthropic:curl_params()
-  return { self.endpoint, "-H", "x-api-key: " .. self.api_key, "-H", "anthropic-version: 2023-06-01" }
+  return {
+    self.endpoint,
+    "-H",
+    "x-api-key: " .. self.api_key,
+    "-H",
+    "anthropic-version: 2023-06-01",
+  }
 end
 
 function Anthropic:verify()
@@ -29,11 +35,13 @@ function Anthropic:verify()
 end
 
 function Anthropic:preprocess_messages(messages)
+  -- remove the first message that serves as the system prompt as anthropic
+  -- expects the system prompt to be part of the curl request and not the messages
   table.remove(messages, 1)
   return messages
 end
 
-function Anthropic:add_system_prompt(messages, sys_prompt)
+function Anthropic:add_system_prompt(messages, _)
   return messages
 end
 

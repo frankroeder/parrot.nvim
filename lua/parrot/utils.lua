@@ -1,4 +1,4 @@
-local logger = require("parrot.logger")
+local pft = require("plenary.filetype")
 
 local M = {}
 
@@ -264,6 +264,31 @@ M.is_chat = function(buf, file_name, chat_dir)
     return false
   end
   return true
+end
+
+---@param params table # table with command args
+---@param origin_buf number # selection origin buffer
+---@param target_buf number # selection target buffer
+M.append_selection = function(params, origin_buf, target_buf, template_selection)
+  -- prepare selection
+  local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
+  local selection = table.concat(lines, "\n")
+  if selection ~= "" then
+    local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf))
+    local fname = vim.api.nvim_buf_get_name(origin_buf)
+    local rendered = M.template_render(template_selection, "", selection, filetype, fname)
+    if rendered then
+      selection = rendered
+    end
+  end
+
+  -- delete whitespace lines at the end of the file
+  local last_content_line = M.last_content_line(target_buf)
+  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
+
+  -- insert selection lines
+  lines = vim.split("\n" .. selection, "\n")
+  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
 return M

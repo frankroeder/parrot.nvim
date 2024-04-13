@@ -28,18 +28,14 @@ local M = {
 local pool = Pool:new()
 local queries = Queries:new()
 
---------------------------------------------------------------------------------
--- Generic helper functions
---------------------------------------------------------------------------------
-
 -- stop receiving responses for all processes and create a new pool
 ---@param signal number | nil # signal to send to the process
 M.cmd.Stop = function(signal)
-  if pool.is_empty() then
+  if pool:is_empty() then
     return
   end
 
-  for _, process_info in pool.ipairs() do
+  for _, process_info in pool:ipairs() do
     if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
       vim.loop.kill(process_info.job.pid, signal or 15)
     end
@@ -51,31 +47,6 @@ end
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
-
----@param params table # table with command args
----@param origin_buf number # selection origin buffer
----@param target_buf number # selection target buffer
-M.append_selection = function(params, origin_buf, target_buf)
-  -- prepare selection
-  local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
-  local selection = table.concat(lines, "\n")
-  if selection ~= "" then
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
-    local fname = vim.api.nvim_buf_get_name(origin_buf)
-    local rendered = utils.template_render(M.config.template_selection, "", selection, filetype, fname)
-    if rendered then
-      selection = rendered
-    end
-  end
-
-  -- delete whitespace lines at the end of the file
-  local last_content_line = utils.last_content_line(target_buf)
-  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
-
-  -- insert selection lines
-  lines = vim.split("\n" .. selection, "\n")
-  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
-end
 
 -- setup function
 M._setup_called = false
@@ -253,8 +224,10 @@ M.setup = function(opts)
 
   M.buf_handler()
 
-  if vim.fn.executable("curl") == 0 then
-    M.logger.error("curl is not installed, run :checkhealth parrot")
+  for _, name in ipairs({ "curl", "grep", "rg", "ln" }) do
+    if vim.fn.executable(name) == 0 then
+      M.logger.error(name .. " is not installed, run :checkhealth parrot")
+    end
   end
 
   for prov_name, val in pairs(M.providers) do
@@ -449,14 +422,14 @@ M.query = function(buf, provider, payload, handler, on_exit)
     command = "curl",
     args = curl_params,
     on_exit = function(j, return_val)
-      for i, result in ipairs(j:result()) do
+      for _, result in ipairs(j:result()) do
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
             if error_msg["error"] ~= nil then
               M.logger.error(error_msg["error"]["message"])
             end
-          elseif string.find(result, "error") or string.find(result, "401") then
+          elseif j.signal ~= 0 and string.find(result, "error") or string.find(result, "401") then
             -- TODO: Improve error handling --
             M.logger.error(result)
           end
@@ -987,7 +960,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
   local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 
   if params.range == 2 then
-    M.append_selection(params, cbuf, buf)
+    utils.append_selection(params, cbuf, buf, M.config.template_selection)
   end
   utils.feedkeys("G", "xn")
   return buf
@@ -1139,15 +1112,8 @@ M.chat_respond = function(params)
     agent_name = agent_name .. " & custom role"
   end
 
-  local agent_prefix = config.chat_assistant_prefix[1]
-  local agent_suffix = config.chat_assistant_prefix[2]
-  if type(M.config.chat_assistant_prefix) == "string" then
-    ---@diagnostic disable-next-line: cast-local-type
-    agent_prefix = M.config.chat_assistant_prefix
-  elseif type(M.config.chat_assistant_prefix) == "table" then
-    agent_prefix = M.config.chat_assistant_prefix[1]
-    agent_suffix = M.config.chat_assistant_prefix[2] or ""
-  end
+  local agent_prefix = "🦜:"
+  local agent_suffix = "[{{agent}}]"
   ---@diagnostic disable-next-line: cast-local-type
   agent_suffix =
     utils.template_render_from_list(agent_suffix, { ["{{agent}}"] = agent_name .. " - " .. agent_provider })
@@ -1412,17 +1378,18 @@ M.cmd.Agent = function(params)
           return
         end
         local new_agent = selection[1]
+        print("NEW AGENT", new_agent)
         if is_chat then
           M._state[prov.name].chat_agent = new_agent
           M.logger.info("Chat agent (" .. prov.name .. "): " .. new_agent)
           if not prov:check(M.get_chat_agent()) then
-            M.logger.error("Unavailable  chat agent model " .. new_agent.model .. " for  " .. prov.name)
+            M.logger.error("Unavailable chat agent model " .. new_agent .. " for  " .. prov.name)
           end
         else
           M._state[prov.name].command_agent = new_agent
           M.logger.info("Command agent (" .. prov.name .. "): " .. new_agent)
           if not prov:check(M.get_command_agent()) then
-            M.logger.error("Unavailable command agent model " .. new_agent.model .. " for  " .. prov.name)
+            M.logger.error("Unavailable command agent model " .. new_agent .. " for  " .. prov.name)
           end
         end
         M.refresh_state()
@@ -1540,13 +1507,13 @@ M.cmd.Context = function(params)
   buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
 
   if params.range == 2 then
-    M.append_selection(params, cbuf, buf)
+    utils.append_selection(params, cbuf, buf, M.config.template_selection)
   end
 
   utils.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, prov)
+M.Prompt = function(params, target, prompt, model, template, system_template, agent_provider)
   -- enew, new, vnew, tabnew should be resolved into table
   if type(target) == "function" then
     target = target()
@@ -1712,7 +1679,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, pr
     sys_prompt = sys_prompt or ""
     local prov = M.get_provider()
     if prov.name ~= agent_provider then
-      M.logger.error("Missmatch of agent and current provider")
+      M.logger.error("Missmatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
       return
     end
     messages = prov:add_system_prompt(messages, sys_prompt)

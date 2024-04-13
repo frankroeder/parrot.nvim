@@ -10,7 +10,7 @@ function Queries:new()
   return o
 end
 
--- add a process to the pool
+-- add a query to the list
 ---@param qid number # query id
 ---@param data table # query data
 function Queries:add(qid, data)
@@ -23,7 +23,7 @@ end
 
 ---@param qid string # query id
 function Queries:delete(qid)
-  self._queries[qid] = nil
+  table.remove(self._queries, qid)
 end
 
 ---@param qid string # query id

@@ -11,7 +11,11 @@ function OpenAI:new(endpoint, api_key)
 end
 
 function OpenAI:curl_params()
-  return { self.endpoint, "-H", "authorization: Bearer " .. self.api_key }
+  return {
+    self.endpoint,
+    "-H",
+    "authorization: Bearer " .. self.api_key,
+  }
 end
 
 function OpenAI:verify()
