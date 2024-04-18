@@ -94,8 +94,14 @@ local pplx_chat_agents = {
     provider = "pplx",
   },
   {
-    name = "Mistral-8x7B",
+    name = "Mixtral-8x7B",
     model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "pplx",
+  },
+  {
+    name = "Mixtral-8x22B",
+    model = { model = "mixtral-8x22b-instruct", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
@@ -194,8 +200,14 @@ local pplx_command_agents = {
     provider = "pplx",
   },
   {
-    name = "Mistral-8x7B",
+    name = "Mixtral-8x7B",
     model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "pplx",
+  },
+  {
+    name = "Mixtral-8x22B",
+    model = { model = "mixtral-8x22b-instruct", temperature = 0.8, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "pplx",
   },
