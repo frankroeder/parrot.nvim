@@ -40,6 +40,12 @@ local ollama_chat_agents = {
     provider = "ollama",
   },
   {
+    name = "Llama3-8B",
+    model = { model = "llama3:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+    system_prompt = system_chat_prompt,
+    provider = "ollama",
+  },
+  {
     name = "Gemma-2B",
     model = { model = "gemma:2b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
     system_prompt = system_chat_prompt,
@@ -105,6 +111,18 @@ local pplx_chat_agents = {
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
+  {
+    name = "Llama3-8B",
+    model = { model = "llama-3-8b-instruct", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "pplx",
+  },
+  {
+    name = "Llama3-70B",
+    model = { model = "llama-3-70b-instruct", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "pplx",
+  },
 }
 
 local anthropic_chat_agents = {
@@ -138,6 +156,12 @@ local ollama_command_agents = {
   {
     name = "Llama2-7B",
     model = { model = "llama2:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+    system_prompt = system_code_prompt,
+    provider = "ollama",
+  },
+  {
+    name = "Llama3-8B",
+    model = { model = "llama3:latest", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
     system_prompt = system_code_prompt,
     provider = "ollama",
   },
@@ -208,6 +232,18 @@ local pplx_command_agents = {
   {
     name = "Mixtral-8x22B",
     model = { model = "mixtral-8x22b-instruct", temperature = 0.8, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "pplx",
+  },
+  {
+    name = "Llama3-8B",
+    model = { model = "llama-3-8b-instruct", temperature = 0.8, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "pplx",
+  },
+  {
+    name = "Llama3-70B",
+    model = { model = "llama-3-70b-instruct", temperature = 0.8, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "pplx",
   },
