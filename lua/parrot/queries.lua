@@ -4,13 +4,9 @@ local Queries = {}
 Queries.__index = Queries
 
 function Queries:new()
-  local o = { _queries = {} }
-  setmetatable(o, self)
-  self.__index = self
-  return o
+  return setmetatable({ _queries = {} }, self)
 end
 
--- add a query to the list
 ---@param qid number # query id
 ---@param data table # query data
 function Queries:add(qid, data)
@@ -23,7 +19,7 @@ end
 
 ---@param qid string # query id
 function Queries:delete(qid)
-  table.remove(self._queries, qid)
+  self._queries[qid] = nil
 end
 
 ---@param qid string # query id

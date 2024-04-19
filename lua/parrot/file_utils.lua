@@ -85,15 +85,15 @@ M.find_repo_instructions = function()
 end
 
 ---@param file string | nil # name of the file to delete
-M.delete_file = function(file, state_dir)
+M.delete_file = function(file, target_dir)
   if not file then
     logger.error("No file specified for deletion.")
     return
   end
 
-  -- Checks if the file is actually located in the specified state directory
-  if file:match(state_dir) ~= nil then
-    logger.error("File '" .. file .. "' not in state directory.")
+  -- Checks if the file is actually located in the specified directory
+  if file:match(target_dir) == nil then
+    logger.error("File '" .. file .. "' not in target directory.")
     return
   end
 

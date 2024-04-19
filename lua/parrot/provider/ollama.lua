@@ -5,15 +5,12 @@ local Ollama = {}
 Ollama.__index = Ollama
 
 function Ollama:new(endpoint, api_key)
-  local o = {
+  return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
     name = "ollama",
     ollama_installed = vim.fn.executable("ollama"),
-  }
-  setmetatable(o, self)
-  self.__index = self
-  return o
+  }, self)
 end
 
 function Ollama:curl_params()
@@ -49,27 +46,20 @@ function Ollama:check(agent)
     logger.warning("ollama not found.")
     return false
   end
-  local model = ""
-  if type(agent.model) == "string" then
-    model = agent.model
-  else
-    model = agent.model.model
-  end
+  local model = type(agent.model) == "string" and agent.model or agent.model.model
 
   local handle = io.popen("ollama list")
   local result = handle:read("*a")
   handle:close()
 
-  local lines = {}
-  for line in result:gmatch("[^\r\n]+") do
-    table.insert(lines, line)
-  end
   local found_match = false
-  for _, line in ipairs(lines) do
-    if string.match(line, model) ~= nil then
+  for line in result:gmatch("[^\r\n]+") do
+    if string.match(line, model) then
       found_match = true
+      break
     end
   end
+
   if not found_match then
     if not pcall(require, "plenary") then
       logger.error("Plenary not installed. Please install nvim-lua/plenary.nvim to use this plugin.")
@@ -80,7 +70,7 @@ function Ollama:check(agent)
       local job = Job:new({
         command = "ollama",
         args = { "pull", model },
-        on_exit = function(j, return_val)
+        on_exit = function(_, return_val)
           logger.info("Download finished with exit code: " .. return_val)
         end,
         on_stderr = function(j, data)

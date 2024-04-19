@@ -5,7 +5,8 @@ local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
 local ui = require("parrot.ui")
 local pft = require("plenary.filetype")
-local provider = require("parrot.provider")
+local scan = require("plenary.scandir")
+local init_provider = require("parrot.provider").init_provider
 local Job = require("plenary.job")
 
 local _H = {}
@@ -240,7 +241,7 @@ M.setup = function(opts)
         M.providers[prov_name].api_key = nil
       end
       handle:close()
-      local prov = M.init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
+      local prov = init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
       if not prov:verify() then
         M.logger.error("Error verifying api key of " .. prov_name)
       end
@@ -1020,7 +1021,7 @@ M.cmd.ChatDelete = function()
 
   vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
     if input and input:lower() == "y" then
-      futils.delete_file(file_name, M.config.state_dir)
+      futils.delete_file(file_name, M.config.chat_dir)
     end
   end)
 end
@@ -1161,7 +1162,7 @@ M.chat_respond = function(params)
   -- call the model and write response
   M.query(
     buf,
-    M.init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key),
+    init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key),
     utils.prepare_payload(messages, headers.model, agent.model),
     M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
     vim.schedule_wrap(function(qid)
@@ -1276,13 +1277,13 @@ M.cmd.ChatFinder = function()
 
   if has_fzf then
     local actions = require("fzf-lua").defaults.actions.files
-
     -- add custom action to delete chat files
     actions["ctrl-d"] = {
       fn = function(selected)
-        if vim.fn.confirm("Are you sure you want to delete " .. selected[1] .. "?", "&Yes\n&No", 2) == 1 then
-          futils.delete_file(selected[1], M.config.state_dir)
-          M.logger.info(selected[1] .. " deleted.")
+        local filename = string.match(selected[1], "(%d%d%d%d%-%d%d%-%d%d%.%d%d%-%d%d%-%d%d%.%d%d%d%.md)")
+        if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
+          futils.delete_file(M.config.chat_dir .. "/" .. filename, M.config.chat_dir)
+          M.logger.info(filename .. " deleted.state")
         end
       end,
       -- TODO: Fix bug, currently not possible --
@@ -1301,38 +1302,89 @@ M.cmd.ChatFinder = function()
     })
     return
   else
-    M.logger.error("Dependency fzf-lua not installed.")
+    local chat_files = scan.scan_dir(M.config.chat_dir, { depth = 1, search_pattern = "%.md$" })
+    vim.ui.select(chat_files, {
+      prompt = "Select your chat file:",
+      format_item = function(item)
+        local read_first_line = function(it)
+          local file = io.open(it, "r")
+          if not file then
+            M.logger.error("Failed to open file: " .. it)
+            return ""
+          end
+          local first_line = file:read("*l")
+          file:close()
+          return first_line or ""
+        end
+        return read_first_line(item)
+      end,
+    }, function(selected_chat)
+      if selected_chat == nil then
+        M.logger.warning("Invalid chat file selection.")
+        return
+      end
+      vim.api.nvim_command("edit " .. selected_chat)
+    end)
   end
 end
 
---------------------
--- Prompt logic
---------------------
+M.switch_provider = function(selected_prov)
+  if selected_prov == nil then
+    M.logger.warning("Empty provider selection")
+    return
+  end
+
+  if M.providers[selected_prov] then
+    M._state.provider = selected_prov
+    M.refresh_state()
+    M.logger.info("Switched to provider: " .. selected_prov)
+    return
+  else
+    M.logger.error("Provider not found: " .. selected_prov)
+    return
+  end
+end
+
 M.cmd.Provider = function(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   if prov_arg ~= "" then
-    M.logger.info("Selected provider: " .. prov_arg)
-    M._state.provider = prov_arg
-    M.refresh_state()
+    M.switch_provider(prov_arg)
   elseif has_fzf then
     fzf_lua.fzf_exec(M._available_providers, {
       prompt = "Provider selection ❯",
       fzf_opts = M.config.fzf_lua_opts,
       complete = function(selection)
-        if #selection == 0 then
-          M.logger.info(" Current provider: " .. M._state.provider)
-          return
-        end
-        local selected_prov = selection[1]
-        M.logger.info("Selected provider: " .. selected_prov)
-        M._state.provider = selected_prov
-        M.refresh_state()
+        M.switch_provider(selection[1])
       end,
     })
   else
-    M.logger.info("Current provider: " .. M._state.provider)
+    vim.ui.select(M._available_providers, {
+      prompt = "Select your provider:",
+    }, function(selected_prov)
+      M.switch_provider(selected_prov)
+    end)
   end
+end
+
+M.switch_agent = function(is_chat, selected_agent, prov)
+  if selected_agent == nil then
+    M.logger.warning("Empty agent selection")
+    return
+  end
+
+  if is_chat and M.agents.chat[selected_agent] then
+    M._state[prov.name].chat_agent = selected_agent
+    M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
+  elseif is_chat then
+    M.logger.warning(selected_agent .. " is not a Chat agent")
+  elseif M.agents.command[selected_agent] then
+    M._state[prov.name].command_agent = selected_agent
+    M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
+  else
+    M.logger.warning(selected_agent .. " is not a Command agent")
+  end
+  M.refresh_state()
 end
 
 M.cmd.Agent = function(params)
@@ -1348,19 +1400,7 @@ M.cmd.Agent = function(params)
       M.logger.warning("Unknown agent: " .. agent_name)
       return
     end
-
-    if is_chat and M.agents.chat[agent_name] then
-      M._state[prov.name].chat_agent = agent_name
-      M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
-    elseif is_chat then
-      M.logger.warning(agent_name .. " is not a Chat agent")
-    elseif M.agents.command[agent_name] then
-      M._state[prov.name].command_agent = agent_name
-      M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
-    else
-      M.logger.warning(agent_name .. " is not a Command agent")
-    end
-    M.refresh_state()
+    M.switch_agent(is_chat, agent_name, prov)
   elseif has_fzf then
     fzf_lua.fzf_exec(M.get_provider_agents(is_chat), {
       prompt = "Agent selection ❯",
@@ -1377,28 +1417,16 @@ M.cmd.Agent = function(params)
           M.logger.warning("No agent selected")
           return
         end
-        local new_agent = selection[1]
-        print("NEW AGENT", new_agent)
-        if is_chat then
-          M._state[prov.name].chat_agent = new_agent
-          M.logger.info("Chat agent (" .. prov.name .. "): " .. new_agent)
-          if not prov:check(M.get_chat_agent()) then
-            M.logger.error("Unavailable chat agent model " .. new_agent .. " for  " .. prov.name)
-          end
-        else
-          M._state[prov.name].command_agent = new_agent
-          M.logger.info("Command agent (" .. prov.name .. "): " .. new_agent)
-          if not prov:check(M.get_command_agent()) then
-            M.logger.error("Unavailable command agent model " .. new_agent .. " for  " .. prov.name)
-          end
-        end
-        M.refresh_state()
+        local selected_agent = selection[1]
+        M.switch_agent(is_chat, selected_agent, prov)
       end,
     })
   else
-    M.logger.info(
-      "Chat agent: " .. M._state[prov.name].chat_agent .. "  | Command agent: " .. M._state[prov.name].command_agent
-    )
+    vim.ui.select(M.get_provider_agents(is_chat), {
+      prompt = "Select your agent:",
+    }, function(selected_agent)
+      M.switch_agent(is_chat, selected_agent, prov)
+    end)
   end
 end
 
@@ -1436,30 +1464,11 @@ M.get_chat_agent = function()
   }
 end
 
-M.init_provider = function(prov_name, endpoint, api_key)
-  local prov = nil
-  if prov_name == "ollama" then
-    prov = provider.Ollama:new(endpoint, api_key)
-  elseif prov_name == "openai" then
-    prov = provider.OpenAI:new(endpoint, api_key)
-  elseif prov_name == "anthropic" then
-    prov = provider.Anthropic:new(endpoint, api_key)
-  elseif prov_name == "pplx" then
-    prov = provider.Perplexity:new(endpoint, api_key)
-  end
-
-  if prov == nil then
-    M.logger.error("Unknown provider " .. prov_name)
-    return
-  end
-  return prov
-end
-
 M.get_provider = function()
   local _state_prov = M._state["provider"]
   local endpoint = M.providers[_state_prov].endpoint
   local api_key = M.providers[_state_prov].api_key
-  return M.init_provider(_state_prov, endpoint, api_key)
+  return init_provider(_state_prov, endpoint, api_key)
 end
 
 M.get_provider_agents = function(is_chat)

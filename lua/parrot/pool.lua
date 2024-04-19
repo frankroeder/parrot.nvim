@@ -2,10 +2,7 @@ local Pool = {}
 Pool.__index = Pool
 
 function Pool:new()
-  local o = { _processes = {} }
-  setmetatable(o, self)
-  self.__index = self
-  return o
+  return setmetatable({ _processes = {} }, self)
 end
 
 -- add a process to the pool
@@ -42,7 +39,7 @@ function Pool:remove(pid)
 end
 
 function Pool:is_empty()
-  return self._processes == {}
+  return next(self._processes) == nil
 end
 
 function Pool:ipairs()

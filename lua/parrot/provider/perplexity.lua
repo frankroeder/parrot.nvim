@@ -3,11 +3,25 @@ local logger = require("parrot.logger")
 local Perplexity = {}
 Perplexity.__index = Perplexity
 
+local available_model_set = {
+  ["sonar-small-chat"] = true,
+  ["sonar-small-online"] = true,
+  ["sonar-medium-chat"] = true,
+  ["sonar-medium-online"] = true,
+  ["llama-3-8b-instruct"] = true,
+  ["llama-3-70b-instruct"] = true,
+  ["codellama-70b-instruct"] = true,
+  ["mistral-7b-instruct"] = true,
+  ["mixtral-8x7b-instruct"] = true,
+  ["mixtral-8x22b-instruct"] = true,
+}
+
 function Perplexity:new(endpoint, api_key)
-  local o = { endpoint = endpoint, api_key = api_key, name = "pplx" }
-  setmetatable(o, self)
-  self.__index = self
-  return o
+  return setmetatable({
+    endpoint = endpoint,
+    api_key = api_key,
+    name = "pplx",
+  }, self)
 end
 
 function Perplexity:curl_params()
@@ -15,6 +29,7 @@ function Perplexity:curl_params()
     self.endpoint,
     "-H",
     "authorization: Bearer " .. self.api_key,
+    "content-type: text/event-stream",
   }
 end
 
@@ -22,14 +37,12 @@ function Perplexity:verify()
   if type(self.api_key) == "table" then
     logger.error("api_key is still an unresolved command: " .. vim.inspect(self.api_key))
     return false
-  end
-
-  if self.api_key and string.match(self.api_key, "%S") then
+  elseif self.api_key and string.match(self.api_key, "%S") then
     return true
+  else
+    logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    return false
   end
-
-  logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
-  return false
 end
 
 function Perplexity:preprocess_messages(messages)
@@ -51,30 +64,8 @@ function Perplexity:process(line)
 end
 
 function Perplexity:check(agent)
-  local available_models = {
-    "sonar-small-chat",
-    "sonar-small-online",
-    "sonar-medium-chat",
-    "sonar-medium-online",
-    "codellama-70b-instruct",
-    "mistral-7b-instruct",
-    "mixtral-8x7b-instruct",
-  }
-  local valid_model = false
-  local model = ""
-  if type(agent.model) == "string" then
-    model = agent.model
-  else
-    model = agent.model.model
-  end
-  for _, available_model in ipairs(available_models) do
-    if model == available_model then
-      valid_model = true
-      break
-    end
-  end
-
-  return valid_model
+  local model = type(agent.model) == "string" and agent.model or agent.model.model
+  return available_model_set[model]
 end
 
 return Perplexity

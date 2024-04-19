@@ -3,11 +3,18 @@ local logger = require("parrot.logger")
 local Anthropic = {}
 Anthropic.__index = Anthropic
 
+local available_model_set = {
+  ["claude-3-opus-20240229"] = true,
+  ["claude-3-sonnet-20240229"] = true,
+  ["claude-3-haiku-20240307"] = true,
+}
+
 function Anthropic:new(endpoint, api_key)
-  local o = { endpoint = endpoint, api_key = api_key, name = "anthropic" }
-  setmetatable(o, self)
-  self.__index = self
-  return o
+  return setmetatable({
+    endpoint = endpoint,
+    api_key = api_key,
+    name = "anthropic",
+  }, self)
 end
 
 function Anthropic:curl_params()
@@ -24,14 +31,12 @@ function Anthropic:verify()
   if type(self.api_key) == "table" then
     logger.error("api_key is still an unresolved command: " .. vim.inspect(self.api_key))
     return false
-  end
-
-  if self.api_key and string.match(self.api_key, "%S") then
+  elseif self.api_key and string.match(self.api_key, "%S") then
     return true
+  else
+    logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    return false
   end
-
-  logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
-  return false
 end
 
 function Anthropic:preprocess_messages(messages)
@@ -47,35 +52,16 @@ end
 
 function Anthropic:process(line)
   if line:match("content_block_delta") and line:match("text_delta") then
-    line = vim.json.decode(line)
-    if line.delta and line.delta.type == "text_delta" and line.delta.text then
-      return line.delta.text
+    local decoded_line = vim.json.decode(line)
+    if decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
+      return decoded_line.delta.text
     end
   end
 end
 
 function Anthropic:check(agent)
-  local available_models = {
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
-    "claude-3-haiku-20240307",
-  }
-  local valid_model = false
-  local model = ""
-  if type(agent.model) == "string" then
-    model = agent.model
-  else
-    model = agent.model.model
-  end
-
-  for _, available_model in ipairs(available_models) do
-    if model == available_model then
-      valid_model = true
-      break
-    end
-  end
-
-  return valid_model
+  local model = type(agent.model) == "string" and agent.model or agent.model.model
+  return available_model_set[model]
 end
 
 return Anthropic

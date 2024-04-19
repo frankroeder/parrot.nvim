@@ -192,7 +192,7 @@ local config = {
 			Question: {{command}}
 			]]
       local agent = parrot.get_command_agent()
-      parrot.logger.info("Asking agent: " .. agent.name)
+      parrot.logger.info("Asking agent: " .. vim.inspect(agent.name))
       parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
     end,
   },

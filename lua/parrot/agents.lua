@@ -112,13 +112,13 @@ local pplx_chat_agents = {
     provider = "pplx",
   },
   {
-    name = "Llama3-8B",
+    name = "Llama3-8B-Instruct",
     model = { model = "llama-3-8b-instruct", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
   {
-    name = "Llama3-70B",
+    name = "Llama3-70B-Instruct",
     model = { model = "llama-3-70b-instruct", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
@@ -236,13 +236,13 @@ local pplx_command_agents = {
     provider = "pplx",
   },
   {
-    name = "Llama3-8B",
+    name = "Llama3-8B-Instruct",
     model = { model = "llama-3-8b-instruct", temperature = 0.8, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "pplx",
   },
   {
-    name = "Llama3-70B",
+    name = "Llama3-70B-Instruct",
     model = { model = "llama-3-70b-instruct", temperature = 0.8, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "pplx",
