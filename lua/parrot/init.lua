@@ -1206,6 +1206,7 @@ M.chat_respond = function(params)
         local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
 
         local topic_prov = M.get_provider()
+        topic_prov:check({ model = topic_prov.model })
 
         -- call the model
         M.query(
@@ -1376,11 +1377,13 @@ M.switch_agent = function(is_chat, selected_agent, prov)
   if is_chat and M.agents.chat[selected_agent] then
     M._state[prov.name].chat_agent = selected_agent
     M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
+    prov:check(M.agents.chat[selected_agent])
   elseif is_chat then
     M.logger.warning(selected_agent .. " is not a Chat agent")
   elseif M.agents.command[selected_agent] then
     M._state[prov.name].command_agent = selected_agent
     M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
+    prov:check(M.agents.command[selected_agent])
   else
     M.logger.warning(selected_agent .. " is not a Command agent")
   end

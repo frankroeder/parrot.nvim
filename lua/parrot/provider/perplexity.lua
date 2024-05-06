@@ -4,16 +4,13 @@ local Perplexity = {}
 Perplexity.__index = Perplexity
 
 local available_model_set = {
-  ["sonar-small-chat"] = true,
-  ["sonar-small-online"] = true,
-  ["sonar-medium-chat"] = true,
-  ["sonar-medium-online"] = true,
   ["llama-3-8b-instruct"] = true,
   ["llama-3-70b-instruct"] = true,
-  ["codellama-70b-instruct"] = true,
-  ["mistral-7b-instruct"] = true,
   ["mixtral-8x7b-instruct"] = true,
-  ["mixtral-8x22b-instruct"] = true,
+  ["llama-3-sonar-small-32k-chat"] = true,
+  ["llama-3-sonar-small-32k-online"] = true,
+  ["llama-3-sonar-large-32k-chat"] = true,
+  ["llama-3-sonar-large-32k-online"] = true,
 }
 
 function Perplexity:new(endpoint, api_key)

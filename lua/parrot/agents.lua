@@ -76,38 +76,20 @@ local openai_chat_agents = {
 
 local pplx_chat_agents = {
   {
-    name = "Sonar-Small-Chat",
-    model = { model = "sonar-small-chat", temperature = 1.1, top_p = 1 },
+    name = "Llama3-Sonar-Small-32k-Chat",
+    model = { model = "llama-3-sonar-small-32k-chat", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
   {
-    name = "Sonar-Medium-Chat",
-    model = { model = "sonar-medium-chat", temperature = 1.1, top_p = 1 },
-    system_prompt = system_chat_prompt,
-    provider = "pplx",
-  },
-  {
-    name = "CodeLlama-70B",
-    model = { model = "codellama-70b-instruct", temperature = 1.1, top_p = 1 },
-    system_prompt = system_chat_prompt,
-    provider = "pplx",
-  },
-  {
-    name = "Mistral-7B",
-    model = { model = "mistral-7b-instruct", temperature = 1.1, top_p = 1 },
+    name = "Llama3-Sonar-Large-32k-Chat",
+    model = { model = "llama-3-sonar-large-32k-chat", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
   {
     name = "Mixtral-8x7B",
     model = { model = "mixtral-8x7b-instruct", temperature = 1.1, top_p = 1 },
-    system_prompt = system_chat_prompt,
-    provider = "pplx",
-  },
-  {
-    name = "Mixtral-8x22B",
-    model = { model = "mixtral-8x22b-instruct", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
     provider = "pplx",
   },
@@ -202,36 +184,18 @@ local openai_command_agents = {
 
 local pplx_command_agents = {
   {
-    name = "Sonar-Small-Online",
-    model = { model = "sonar-small-online", temperature = 0.8, top_p = 1 },
+    name = "Llama3-Sonar-Small-32k--Online",
+    model = { model = "llama-3-sonar-small-32k-online", temperature = 0.8, top_p = 1 },
     provider = "pplx",
   },
   {
-    name = "Sonar-Medium-Online",
-    model = { model = "sonar-medium-online", temperature = 0.8, top_p = 1 },
-    provider = "pplx",
-  },
-  {
-    name = "CodeLlama-70B",
-    model = { model = "codellama-70b-instruct", temperature = 0.8, top_p = 1 },
-    system_prompt = system_code_prompt,
-    provider = "pplx",
-  },
-  {
-    name = "Mistral-7B",
-    model = { model = "mistral-7b-instruct", temperature = 0.8, top_p = 1 },
-    system_prompt = system_code_prompt,
+    name = "Llama3-Sonar-Large-32k--Online",
+    model = { model = "llama-3-sonar-large-32k-online", temperature = 0.8, top_p = 1 },
     provider = "pplx",
   },
   {
     name = "Mixtral-8x7B",
     model = { model = "mixtral-8x7b-instruct", temperature = 0.8, top_p = 1 },
-    system_prompt = system_code_prompt,
-    provider = "pplx",
-  },
-  {
-    name = "Mixtral-8x22B",
-    model = { model = "mixtral-8x22b-instruct", temperature = 0.8, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "pplx",
   },
