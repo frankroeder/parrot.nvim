@@ -61,6 +61,12 @@ local ollama_chat_agents = {
 
 local openai_chat_agents = {
   {
+    name = "ChatGPT4o",
+    model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "openai",
+  },
+  {
     name = "ChatGPT4",
     model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },
     system_prompt = system_chat_prompt,
@@ -168,6 +174,12 @@ local ollama_command_agents = {
 }
 
 local openai_command_agents = {
+  {
+    name = "CodeGPT4o",
+    model = { model = "gpt-4o", temperature = 1.1, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "openai",
+  },
   {
     name = "CodeGPT4",
     model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },

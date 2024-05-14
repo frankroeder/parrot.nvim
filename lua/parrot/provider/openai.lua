@@ -4,6 +4,8 @@ local OpenAI = {}
 OpenAI.__index = OpenAI
 
 local available_model_set = {
+  ["gpt-4o"] = true,
+  ["gpt-4o-2024-05-13"] = true,
   ["gpt-4-turbo-2024-04-09"] = true,
   ["gpt-4-0613"] = true,
   ["gpt-4-turbo"] = true,
