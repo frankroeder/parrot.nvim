@@ -1206,7 +1206,7 @@ M.chat_respond = function(params)
         local topic_handler = M.create_handler(topic_buf, nil, 0, false, "", false)
 
         local topic_prov = M.get_provider()
-        topic_prov:check({ model = topic_prov.model })
+        topic_prov:check({ model = M.providers[topic_prov.name].topic_model })
 
         -- call the model
         M.query(
