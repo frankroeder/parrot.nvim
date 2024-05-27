@@ -322,7 +322,7 @@ M.prepare_commands = function()
           template = M.config.template_prepend
         end
       end
-      M.Prompt(params, target, agent.cmd_prefix, agent.model, template, agent.system_prompt, agent.provider)
+      M.Prompt(params, target, agent.cmd_prefix, agent.model, utils.trim(template), agent.system_prompt, agent.provider)
     end
 
     M.cmd[command] = function(params)
@@ -955,13 +955,16 @@ M.new_chat = function(params, model, system_prompt, toggle)
   -- strip leading and trailing newlines
   template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
+  -- -- strip leading tabs
+  -- template = template:gsub("^%s*(.-)%s*$", "%1"):gsub("^\t*", "") .. "\n"
+
   -- create chat file
   vim.fn.writefile(vim.split(template, "\n"), filename)
   local target = M.resolve_buf_target(params)
   local buf = M.open_buf(filename, target, M._toggle_kind.chat, toggle)
 
   if params.range == 2 then
-    utils.append_selection(params, cbuf, buf, M.config.template_selection)
+    utils.append_selection(params, cbuf, buf, utils.trim(M.config.template_selection))
   end
   utils.feedkeys("G", "xn")
   return buf
@@ -1519,7 +1522,7 @@ M.cmd.Context = function(params)
   buf = M.open_buf(file_name, target, M._toggle_kind.context, true)
 
   if params.range == 2 then
-    utils.append_selection(params, cbuf, buf, M.config.template_selection)
+    utils.append_selection(params, cbuf, buf, utils.trim(M.config.template_selection))
   end
 
   utils.feedkeys("G", "xn")
