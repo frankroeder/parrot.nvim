@@ -52,6 +52,8 @@ local config = {
   chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
   -- chat user prompt prefix
   chat_user_prefix = "🗨:",
+  -- explicitly confirm deletion of a chat file
+  chat_confirm_delete = true,
   -- conceal model parameters in chat
   chat_conceal_model_params = true,
   -- local shortcuts bound to the chat buffer
