@@ -10,14 +10,22 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 > This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
 > It is based on the brilliant work [gp.nvim](https://github.com/Robitx/gp.nvim) by https://github.com/Robitx.
 
-Currently, we support the following providers:
-+ [Anthropic API](https://www.anthropic.com/api) for Claude-3 ❗
-+ [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
-+ [OpenAI API](https://platform.openai.com/)
-+ Local and offline serving via [ollama](https://github.com/ollama/ollama)
-
 I started this repository because a perplexity subscription provides $5 of API credits every month for free.
 Instead of letting them go to waste, I modified my favorite GPT plugin, [gp.nvim](https://github.com/Robitx/gp.nvim), to meet my needs - a new Neovim plugin was born! 🔥
+
+Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://github.com/frankroeder/parrot.nvim) prioritizes a seamless out-of-the-box experience by simplifying functionality and focusing solely on text generation, excluding the integration of DALLE and Whisper.
+
+## Features
+
+- Persistent conversations as markdown files stored within the Neovim standard path or a user-defined location
+- Custom hooks for inline text editing with predefined prompts
+- Support for multiple providers:
+    + [Anthropic API](https://www.anthropic.com/api)
+    + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
+    + [OpenAI API](https://platform.openai.com/)
+    + Local and offline serving via [ollama](https://github.com/ollama/ollama)
+- Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
+- Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI
 
 ## Demo
 
