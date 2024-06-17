@@ -1022,6 +1022,13 @@ M.cmd.ChatDelete = function()
     return
   end
 
+  -- delete without confirmation
+  if not M.config.chat_confirm_delete then
+      futils.delete_file(file_name, M.config.chat_dir)
+      return
+  end
+
+  -- ask for confirmation
   vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
     if input and input:lower() == "y" then
       futils.delete_file(file_name, M.config.chat_dir)
