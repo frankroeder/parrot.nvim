@@ -4,6 +4,7 @@ local Anthropic = {}
 Anthropic.__index = Anthropic
 
 local available_model_set = {
+  ["claude-3-5-sonnet-20240620"] = true,
   ["claude-3-opus-20240229"] = true,
   ["claude-3-sonnet-20240229"] = true,
   ["claude-3-haiku-20240307"] = true,
