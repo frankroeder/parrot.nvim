@@ -26,6 +26,8 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
 - Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
 - Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI
+- Provide repository-specific instructions with a `.parrot.md` file using the command `PrtContext`
+- **No** autocompletion and **no** hidden requests in the background to analyze your files
 
 ## Demo
 
