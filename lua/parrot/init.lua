@@ -1313,7 +1313,7 @@ M.cmd.ChatFinder = function()
     })
     return
   else
-    local chat_files = scan.scan_dir(M.config.chat_dir, { depth = 1, search_pattern = "%.md$" })
+    local chat_files = scan.scan_dir(M.config.chat_dir, { depth = 1, search_pattern = "%d+%.md$" })
     vim.ui.select(chat_files, {
       prompt = "Select your chat file:",
       format_item = function(item)
@@ -1518,7 +1518,7 @@ M.cmd.Context = function(params)
   end
 
   if vim.fn.filereadable(file_name) ~= 1 then
-    vim.fn.writefile({ "Additional context is provided bellow.", "" }, file_name)
+    vim.fn.writefile({ "Additional context is provided below.", "" }, file_name)
   end
 
   params.args = params.args or ""
