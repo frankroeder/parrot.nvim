@@ -1024,8 +1024,8 @@ M.cmd.ChatDelete = function()
 
   -- delete without confirmation
   if not M.config.chat_confirm_delete then
-      futils.delete_file(file_name, M.config.chat_dir)
-      return
+    futils.delete_file(file_name, M.config.chat_dir)
+    return
   end
 
   -- ask for confirmation
