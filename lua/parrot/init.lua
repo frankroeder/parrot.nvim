@@ -1832,13 +1832,18 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       return
     end
 
-    -- if prompt is provided, ask the user to enter the command
-    vim.ui.input({ prompt = prompt }, function(input)
-      if not input or input == "" then
-        return
-      end
-      callback(input)
-    end)
+    local input_function = M.config.user_input_ui == "custom" and ui.input
+      or M.config.user_input_ui == "native" and vim.ui.input
+    if input_function then
+      input_function({ prompt = prompt }, function(input)
+        if not input or input == "" or input:match("^%s*$") then
+          return
+        end
+        callback(input)
+      end)
+    else
+      M.logger.error("Invalid user input ui option", M.config.user_input_ui)
+    end
   end)
 end
 

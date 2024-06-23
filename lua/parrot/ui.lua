@@ -185,4 +185,80 @@ M.template_render = function(template, key_value_pairs)
   return template
 end
 
+M.open_input_buffer = function(on_confirm)
+  -- Create a new buffer
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  -- Open the buffer in a split window above
+  vim.api.nvim_command("aboveleft split")
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(win, buf)
+
+  -- Set buffer options
+  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  -- Set up autocmd to capture buffer content on close
+  vim.api.nvim_create_autocmd("BufWinLeave", {
+    buffer = buf,
+    callback = function()
+      local content = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      on_confirm(table.concat(content, "\n"))
+    end,
+  })
+end
+
+M.input = function(opts, on_confirm)
+  vim.validate({
+    opts = { opts, "table", true },
+    on_confirm = { on_confirm, "function", false },
+  })
+  opts = (opts and not vim.tbl_isempty(opts)) and opts or vim.empty_dict()
+
+  local prompt = opts.prompt or "Enter text here..."
+  local hint = "(confirm with CTRL-W_q or CTRL-C)"
+
+  -- Create a new buffer
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  -- Open the buffer in an upper split
+  vim.cmd("aboveleft split")
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(win, buf)
+
+  -- Set buffer options
+  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  -- Add prompt and hint as virtual text
+  local ns_id = vim.api.nvim_create_namespace("input_prompt")
+  vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
+    virt_text = { { prompt .. " " .. hint, "Comment" } },
+    virt_text_pos = "overlay",
+  })
+
+  -- Enter insert mode in next line
+  vim.cmd("normal! o")
+  vim.cmd("startinsert")
+
+  -- Set up an autocommand to capture when the window is closed
+  vim.api.nvim_create_autocmd({ "WinClosed", "BufLeave" }, {
+    buffer = buf,
+    callback = function()
+      -- Get buffer content
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local content = table.concat(lines, "\n")
+
+      -- Delete the buffer
+      vim.api.nvim_buf_delete(buf, { force = true })
+
+      on_confirm(content)
+      return true
+    end,
+  })
+
+  vim.api.nvim_buf_set_keymap(buf, "i", "<C-c>", "<Esc>:q<CR>", { noremap = true, silent = true })
+  vim.api.nvim_buf_set_keymap(buf, "n", "<C-c>", ":q<CR>", { noremap = true, silent = true })
+end
+
 return M
