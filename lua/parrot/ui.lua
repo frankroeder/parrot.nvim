@@ -216,7 +216,7 @@ M.input = function(opts, on_confirm)
   opts = (opts and not vim.tbl_isempty(opts)) and opts or vim.empty_dict()
 
   local prompt = opts.prompt or "Enter text here..."
-  local hint = "(close with CTRL-W_q or CTRL-C)"
+  local hint = "(confirm with CTRL-W_q or CTRL-C)"
 
   -- Create a new buffer
   local buf = vim.api.nvim_create_buf(false, true)
@@ -230,14 +230,14 @@ M.input = function(opts, on_confirm)
   vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
   vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 
-  -- Add prompt as virtual text
+  -- Add prompt and hint as virtual text
   local ns_id = vim.api.nvim_create_namespace("input_prompt")
   vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
     virt_text = { { prompt .. " " .. hint, "Comment" } },
     virt_text_pos = "overlay",
   })
 
-  -- Enter insert mode
+  -- Enter insert mode in next line
   vim.cmd("normal! o")
   vim.cmd("startinsert")
 
@@ -252,10 +252,7 @@ M.input = function(opts, on_confirm)
       -- Delete the buffer
       vim.api.nvim_buf_delete(buf, { force = true })
 
-      -- Call the callback with the content
       on_confirm(content)
-
-      -- Remove this autocommand
       return true
     end,
   })
