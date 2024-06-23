@@ -99,6 +99,12 @@ local config = {
     ["--preview-window"] = "nohidden:right:75%",
   },
   -- templates
+  chat_template = [[
+  # topic: ?
+
+  ---
+
+  %s]],
   template_selection = [[
 	I have the following content from {{filename}}:
 
