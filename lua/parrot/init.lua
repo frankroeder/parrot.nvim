@@ -822,6 +822,7 @@ M.open_buf = function(file_name, target, kind, toggle)
       -- read file into buffer and force write it
       vim.api.nvim_command("silent 0read " .. file_name)
       vim.api.nvim_command("silent file " .. file_name)
+      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
     else
       -- move cursor to the beginning of the file and scroll to the end
       utils.feedkeys("ggG", "xn")
