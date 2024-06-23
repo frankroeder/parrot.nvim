@@ -70,6 +70,10 @@ local config = {
   -- how to display PrtChatToggle or PrtContext: popup / split / vsplit / tabnew
   toggle_target = "vsplit",
 
+  -- interactive user input
+  -- can be "native" or "buffer"
+  user_input_ui = "native",
+
   -- styling for popup
   -- border can be "single", "double", "rounded", "solid", "shadow", "none"
   style_popup_border = "single",
