@@ -20,6 +20,42 @@ M.once = function(fn)
   end
 end
 
+---@param buf number
+---@return string, string
+function M.get_buffer_content_as_string(buf, start_line, end_line)
+  local lines = vim.api.nvim_buf_get_lines(buf, start_line, end_line, false)
+
+  local min_indent = nil
+  local use_tabs = false
+  -- measure minimal common indentation for lines with content
+  for i, line in ipairs(lines) do
+    lines[i] = line
+    -- skip whitespace only lines
+    if not line:match("^%s*$") then
+      local indent = line:match("^%s*")
+      -- contains tabs
+      if indent:match("\t") then
+        use_tabs = true
+      end
+      if min_indent == nil or #indent < min_indent then
+        min_indent = #indent
+      end
+    end
+  end
+  if min_indent == nil then
+    min_indent = 0
+  end
+  local prefix = string.rep(use_tabs and "\t" or " ", min_indent)
+
+  for i, line in ipairs(lines) do
+    lines[i] = line:sub(min_indent + 1)
+  end
+
+  local selection = table.concat(lines, "\n")
+
+  return selection, prefix
+end
+
 ---@param keys string # string of keystrokes
 ---@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
 M.feedkeys = function(keys, mode)
@@ -202,12 +238,15 @@ M.template_render_from_list = function(template, key_value_pairs)
   return template
 end
 
-M.template_render = function(template, command, selection, filetype, filename)
+M.template_render = function(template, command, selection, filetype, filename, filecontent, linestart, lineend)
   local key_value_pairs = {
     ["{{command}}"] = command,
     ["{{selection}}"] = selection,
     ["{{filetype}}"] = filetype,
     ["{{filename}}"] = filename,
+    ["{{filecontent}}"] = filecontent,
+    ["{{linestart}}"] = tostring(linestart),
+    ["{{lineend}}"] = tostring(lineend),
   }
   return M.template_render_from_list(template, key_value_pairs)
 end
@@ -279,10 +318,12 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   -- prepare selection
   local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
   local selection = table.concat(lines, "\n")
+  local filecontent = M.get_buffer_content_as_string(origin_buf, 0, -1)
   if selection ~= "" then
     local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf))
     local fname = vim.api.nvim_buf_get_name(origin_buf)
-    local rendered = M.template_render(template_selection, "", selection, filetype, fname)
+    local rendered =
+      M.template_render(template_selection, "", selection, filetype, fname, filecontent, params.line1, params.line2)
     if rendered then
       selection = rendered
     end

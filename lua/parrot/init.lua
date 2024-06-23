@@ -1024,8 +1024,8 @@ M.cmd.ChatDelete = function()
 
   -- delete without confirmation
   if not M.config.chat_confirm_delete then
-      futils.delete_file(file_name, M.config.chat_dir)
-      return
+    futils.delete_file(file_name, M.config.chat_dir)
+    return
   end
 
   -- ask for confirmation
@@ -1562,40 +1562,15 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
   if params.range == 2 then
     start_line = params.line1
     end_line = params.line2
-    local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
-
-    local min_indent = nil
-    local use_tabs = false
-    -- measure minimal common indentation for lines with content
-    for i, line in ipairs(lines) do
-      lines[i] = line
-      -- skip whitespace only lines
-      if not line:match("^%s*$") then
-        local indent = line:match("^%s*")
-        -- contains tabs
-        if indent:match("\t") then
-          use_tabs = true
-        end
-        if min_indent == nil or #indent < min_indent then
-          min_indent = #indent
-        end
-      end
-    end
-    if min_indent == nil then
-      min_indent = 0
-    end
-    prefix = string.rep(use_tabs and "\t" or " ", min_indent)
-
-    for i, line in ipairs(lines) do
-      lines[i] = line:sub(min_indent + 1)
-    end
-
-    selection = table.concat(lines, "\n")
+    local sel, pr = utils.get_buffer_content_as_string(buf, start_line - 1, end_line)
 
     if selection == "" then
       M.logger.warning("Please select some text to rewrite")
       return
     end
+
+    selection = sel
+    prefix = pr
   end
 
   M._selection_first_line = start_line
@@ -1696,8 +1671,18 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
     local filename = vim.api.nvim_buf_get_name(buf)
+    local filecontent = utils.get_buffer_content_as_string(buf, 0, -1)
 
-    local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
+    local sys_prompt = utils.template_render(
+      system_template,
+      command,
+      selection,
+      filetype,
+      filename,
+      filecontent,
+      params.line1,
+      params.line2
+    )
     sys_prompt = sys_prompt or ""
     local prov = M.get_provider()
     if prov.name ~= agent_provider then
@@ -1711,7 +1696,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       table.insert(messages, { role = "system", content = repo_instructions })
     end
 
-    local user_prompt = utils.template_render(template, command, selection, filetype, filename)
+    local user_prompt =
+      utils.template_render(template, command, selection, filetype, filename, filecontent, params.line1, params.line2)
     table.insert(messages, { role = "user", content = user_prompt })
 
     -- cancel possible visual mode before calling the model
