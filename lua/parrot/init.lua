@@ -1697,8 +1697,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
     local filename = vim.api.nvim_buf_get_name(buf)
+    local entire_file = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
 
-    local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
+    local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename, entire_file)
     sys_prompt = sys_prompt or ""
     local prov = M.get_provider()
     if prov.name ~= agent_provider then
@@ -1712,7 +1713,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       table.insert(messages, { role = "system", content = repo_instructions })
     end
 
-    local user_prompt = utils.template_render(template, command, selection, filetype, filename)
+    local user_prompt = utils.template_render(template, command, selection, filetype, filename, entire_file)
     table.insert(messages, { role = "user", content = user_prompt })
 
     -- cancel possible visual mode before calling the model
