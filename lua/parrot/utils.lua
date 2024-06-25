@@ -202,12 +202,14 @@ M.template_render_from_list = function(template, key_value_pairs)
   return template
 end
 
-M.template_render = function(template, command, selection, filetype, filename)
+M.template_render = function(template, command, selection, filetype, filename, filecontent)
+  filecontent = filecontent or ""
   local key_value_pairs = {
     ["{{command}}"] = command,
     ["{{selection}}"] = selection,
     ["{{filetype}}"] = filetype,
     ["{{filename}}"] = filename,
+    ["{{filecontent}}"] = filecontent,
   }
   return M.template_render_from_list(template, key_value_pairs)
 end
@@ -279,7 +281,8 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   if selection ~= "" then
     local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf))
     local fname = vim.api.nvim_buf_get_name(origin_buf)
-    local rendered = M.template_render(template_selection, "", selection, filetype, fname)
+    local filecontent = table.concat(vim.api.nvim_buf_get_lines(origin_buf, 0, -1, false), "\n")
+    local rendered = M.template_render(template_selection, "", selection, filetype, fname, filecontent)
     if rendered then
       selection = rendered
     end

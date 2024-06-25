@@ -152,8 +152,6 @@ The following commands are available within the chat files.
 
 ### Adding a new command
 
-WIP
-
 ```lua
 require("parrot").setup {
     -- ...
@@ -172,6 +170,50 @@ require("parrot").setup {
             parrot.logger.info("Asking agent: " .. agent.name)
             parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
       end,
+    }
+    -- ...
+}
+```
+
+### Utilizing Template Placeholders
+
+Users can utilize the following placeholders in their templates to inject
+specific content into the user messages:
+
+| Placeholder             | Content                              |
+|-------------------------|--------------------------------------|
+| `{{selection}}`         | Current visual selection             |
+| `{{filetype}}`          | Filetype of the current buffer       |
+| `{{filepath}}`          | Full path of the current file        |
+| `{{filecontent}}`       | Full content of the current buffer   |
+
+Below is an example of how to use these placeholders in a completion hook, which
+receives the full file context and the selected code snippet as input.
+
+
+```lua
+require("parrot").setup {
+    -- ...
+    hooks = {
+    	CompleteFullContext = function(prt, params)
+    	  local template = [[
+          I have the following code from {{filename}}:
+        
+          ```{{filetype}}
+          {{filecontent}}
+          ```
+          
+          Please look at the following section specifically:
+          ```{{filetype}}
+          {{selection}}
+          ```
+          
+          Please finish the code above carefully and logically.
+          Respond just with the snippet of code that should be inserted.
+          ]]
+    	  local agent = prt.get_command_agent()
+    	  prt.Prompt(params, prt.ui.Target.append, nil, agent.model, template, agent.system_prompt, agent.provider)
+    	end,
     }
     -- ...
 }
