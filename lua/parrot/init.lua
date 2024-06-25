@@ -192,6 +192,7 @@ M.setup = function(opts)
 
   local completions = {
     ChatNew = { "popup", "split", "vsplit", "tabnew" },
+    ChatPaste = { "popup", "split", "vsplit", "tabnew" },
     ChatToggle = { "popup", "split", "vsplit", "tabnew" },
     Context = { "popup", "split", "vsplit", "tabnew" },
   }
@@ -950,6 +951,50 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
   end
 
   M.new_chat(params, true)
+end
+
+M.cmd.ChatPaste = function(params)
+  -- if there is no selection, do nothing
+  if params.range ~= 2 then
+    M.warning("Please select some text to paste into the chat.")
+    return
+  end
+
+  -- get current buffer
+  local cbuf = vim.api.nvim_get_current_buf()
+
+  local last = M.config.chat_dir .. "/last.md"
+
+  -- make new chat if last doesn't exist
+  if vim.fn.filereadable(last) ~= 1 then
+    -- skip rest since new chat will handle snippet on it's own
+    M.cmd.ChatNew(params, nil, nil)
+    return
+  end
+
+  params.args = params.args or ""
+  if params.args == "" then
+    params.args = M.config.toggle_target
+  end
+  local target = M.resolve_buf_target(params)
+
+  last = vim.fn.resolve(last)
+  local buf = utils.get_buffer(last)
+  local win_found = false
+  if buf then
+    for _, w in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_buf(w) == buf then
+        vim.api.nvim_set_current_win(w)
+        vim.api.nvim_set_current_buf(buf)
+        win_found = true
+        break
+      end
+    end
+  end
+  buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
+
+  utils.append_selection(params, cbuf, buf, utils.trim(M.config.template_selection))
+  utils.feedkeys("G", "xn")
 end
 
 M.cmd.ChatDelete = function()

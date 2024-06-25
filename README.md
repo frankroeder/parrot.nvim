@@ -130,6 +130,7 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtContext`              | edits the local context file                 |
 | `PrtAsk`                  | ask the selected agent a single question     |
 | `PrtChatFinder`           | fuzzy search chat files using fzf            |
+| `PrtChatPaste <target>`   | paste visual selection into the latest chat  |
 
 ### Interactive
 The following commands can be triggered with visual selections.
