@@ -20,7 +20,7 @@ M.init_provider = function(prov_name, endpoint, api_key)
   local ProviderClass = providers[prov_name]
   if not ProviderClass then
     M.logger.error("Unknown provider " .. prov_name)
-    return
+    return {}
   end
 
   return ProviderClass:new(endpoint, api_key)

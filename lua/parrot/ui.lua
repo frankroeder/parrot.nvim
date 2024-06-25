@@ -78,8 +78,8 @@ M.create_popup = function(buf, title, size_func, opts, style)
 
   local resize = function()
     -- get editor dimensions
-    local ew = vim.api.nvim_get_option("columns")
-    local eh = vim.api.nvim_get_option("lines")
+    local ew = vim.api.nvim_get_option_value("columns", {})
+    local eh = vim.api.nvim_get_option_value("lines", {})
 
     local w, h, r, c = size_func(ew, eh)
 
@@ -98,7 +98,7 @@ M.create_popup = function(buf, title, size_func, opts, style)
     vim.api.nvim_win_set_config(win, o)
   end
 
-  local pgid = opts.gid or utils.create_augroup("PplxPopup", { clear = true })
+  local pgid = opts.gid or utils.create_augroup("PrtPopup", { clear = true })
 
   -- cleanup on exit
   local close = utils.once(function()
@@ -195,8 +195,8 @@ M.open_input_buffer = function(on_confirm)
   vim.api.nvim_win_set_buf(win, buf)
 
   -- Set buffer options
-  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
 
   -- Set up autocmd to capture buffer content on close
   vim.api.nvim_create_autocmd("BufWinLeave", {
@@ -227,8 +227,8 @@ M.input = function(opts, on_confirm)
   vim.api.nvim_win_set_buf(win, buf)
 
   -- Set buffer options
-  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
 
   -- Add prompt and hint as virtual text
   local ns_id = vim.api.nvim_create_namespace("input_prompt")

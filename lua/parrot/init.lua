@@ -651,7 +651,7 @@ M.prep_chat = function(buf, file_name)
   M.prep_md(buf)
 
   if M.config.chat_prompt_buf_type then
-    vim.api.nvim_buf_set_option(buf, "buftype", "prompt")
+    vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
     vim.fn.prompt_setprompt(buf, "")
     vim.fn.prompt_setcallback(buf, function()
       M.cmd.ChatRespond({ args = "" })
@@ -809,7 +809,7 @@ M.open_buf = function(file_name, target, kind, toggle)
       -- read file into buffer and force write it
       vim.api.nvim_command("silent 0read " .. file_name)
       vim.api.nvim_command("silent file " .. file_name)
-      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+      vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
     else
       -- move cursor to the beginning of the file and scroll to the end
       utils.feedkeys("ggG", "xn")
@@ -1769,7 +1769,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       -- set the created buffer as the current buffer
       vim.api.nvim_set_current_buf(buf)
       -- set the filetype to markdown
-      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+      vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
       -- better text wrapping
       vim.api.nvim_command("setlocal wrap linebreak")
       -- prepare handler
@@ -1795,7 +1795,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
         buffer = buf,
         group = group,
         callback = function(ctx)
-          vim.api.nvim_buf_set_option(ctx.buf, "buftype", "")
+          vim.api.nvim_set_option_value("buftype", "", { buf = ctx.buf })
           vim.api.nvim_buf_set_name(ctx.buf, ctx.file)
           vim.api.nvim_command("w!")
           vim.api.nvim_del_augroup_by_id(ctx.group)
@@ -1803,7 +1803,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       })
 
       local ft = target.filetype or filetype
-      vim.api.nvim_buf_set_option(buf, "filetype", ft)
+      vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
       handler = M.create_handler(buf, win, 0, false, "", cursor)
     end
