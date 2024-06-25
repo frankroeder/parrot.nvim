@@ -267,9 +267,6 @@ M.is_chat = function(buf, file_name, chat_dir)
     return false
   end
 
-  if not (lines[3]:match("^- file: ") or lines[4]:match("^- file: ")) then
-    return false
-  end
   return true
 end
 

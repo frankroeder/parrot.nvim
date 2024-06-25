@@ -567,20 +567,6 @@ end
 -- Chat logic
 --------------------
 
-M.chat_template = [[
-# topic: ?
-
-- file: %s
-%s
-Write your queries after %s. Use `%s` or :%sChatRespond to generate a response.
-Response generation can be terminated by using `%s` or :%sChatStop command.
-Chats are saved automatically. To delete this chat, use `%s` or :%sChatDelete.
-Be cautious of very long chats. Start a fresh chat by using `%s` or :%sChatNew.
-
----
-
-%s]]
-
 M._toggle = {}
 
 M._toggle_kind = {
@@ -889,11 +875,9 @@ M.open_buf = function(file_name, target, kind, toggle)
 end
 
 ---@param params table # table with args
----@param model string | table | nil # model to use
----@param system_prompt string | nil # system prompt to use
 ---@param toggle boolean # whether chat is toggled
 ---@return number # buffer number
-M.new_chat = function(params, model, system_prompt, toggle)
+M.new_chat = function(params, toggle)
   M._toggle_close(M._toggle_kind.popup)
 
   -- prepare filename
@@ -905,48 +889,7 @@ M.new_chat = function(params, model, system_prompt, toggle)
   end
   time = time .. "." .. stamp
   local filename = M.config.chat_dir .. "/" .. time .. ".md"
-
-  -- local chat_agent = M.get_chat_agent()
-  --
-  -- if system_prompt == nil then
-  --   system_prompt = chat_agent.system_prompt
-  -- end
-  --
-  -- if model == nil then
-  --   model = chat_agent.model
-  -- end
-
-  -- encode as json if model is a table
-  if model and type(model) == "table" then
-    model = "- model: " .. vim.json.encode(model) .. "\n"
-  elseif model then
-    model = "- model: " .. model .. "\n"
-  else
-    model = ""
-  end
-
-  -- display system prompt as single line with escaped newlines
-  if system_prompt then
-    system_prompt = "- role: " .. system_prompt:gsub("\n", "\\n") .. "\n"
-  else
-    system_prompt = ""
-  end
-
-  local template = string.format(
-    M.chat_template,
-    string.match(filename, "([^/]+)$"),
-    model .. system_prompt,
-    M.config.chat_user_prefix,
-    M.config.chat_shortcut_respond.shortcut,
-    M.config.cmd_prefix,
-    M.config.chat_shortcut_stop.shortcut,
-    M.config.cmd_prefix,
-    M.config.chat_shortcut_delete.shortcut,
-    M.config.cmd_prefix,
-    M.config.chat_shortcut_new.shortcut,
-    M.config.cmd_prefix,
-    M.config.chat_user_prefix
-  )
+  local template = string.format(utils.trim(M.config.chat_template), M.config.chat_user_prefix)
 
   -- escape underscores (for markdown)
   template = template:gsub("_", "\\_")
@@ -955,9 +898,6 @@ M.new_chat = function(params, model, system_prompt, toggle)
 
   -- strip leading and trailing newlines
   template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
-
-  -- -- strip leading tabs
-  -- template = template:gsub("^%s*(.-)%s*$", "%1"):gsub("^\t*", "") .. "\n"
 
   -- create chat file
   vim.fn.writefile(vim.split(template, "\n"), filename)
@@ -979,10 +919,10 @@ M.cmd.ChatNew = function(params, model, system_prompt)
     if params.args == "" then
       params.args = M.config.toggle_target
     end
-    return M.new_chat(params, model, system_prompt, true)
+    return M.new_chat(params, true)
   end
 
-  return M.new_chat(params, model, system_prompt, false)
+  return M.new_chat(params, false)
 end
 
 M.cmd.ChatToggle = function(params, model, system_prompt)
@@ -1009,7 +949,7 @@ M.cmd.ChatToggle = function(params, model, system_prompt)
     end
   end
 
-  M.new_chat(params, model, system_prompt, true)
+  M.new_chat(params, true)
 end
 
 M.cmd.ChatDelete = function()
@@ -1833,13 +1773,18 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       return
     end
 
-    -- if prompt is provided, ask the user to enter the command
-    vim.ui.input({ prompt = prompt }, function(input)
-      if not input or input == "" then
-        return
-      end
-      callback(input)
-    end)
+    local input_function = M.config.user_input_ui == "custom" and ui.input
+      or M.config.user_input_ui == "native" and vim.ui.input
+    if input_function then
+      input_function({ prompt = prompt }, function(input)
+        if not input or input == "" or input:match("^%s*$") then
+          return
+        end
+        callback(input)
+      end)
+    else
+      M.logger.error("Invalid user input ui option", M.config.user_input_ui)
+    end
   end)
 end
 

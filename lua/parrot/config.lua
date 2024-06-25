@@ -70,6 +70,10 @@ local config = {
   -- how to display PrtChatToggle or PrtContext: popup / split / vsplit / tabnew
   toggle_target = "vsplit",
 
+  -- interactive user input
+  -- can be "native" or "buffer"
+  user_input_ui = "native",
+
   -- styling for popup
   -- border can be "single", "double", "rounded", "solid", "shadow", "none"
   style_popup_border = "single",
@@ -95,6 +99,12 @@ local config = {
     ["--preview-window"] = "nohidden:right:75%",
   },
   -- templates
+  chat_template = [[
+  # topic: ?
+
+  ---
+
+  %s]],
   template_selection = [[
 	I have the following content from {{filename}}:
 
