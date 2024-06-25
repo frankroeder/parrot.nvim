@@ -67,7 +67,8 @@ local config = {
   -- use prompt buftype for chats (:h prompt-buffer)
   chat_prompt_buf_type = false,
 
-  -- how to display PrtChatToggle or PrtContext: popup / split / vsplit / tabnew
+  -- how to display PrtChatToggle, PrtContext and the chats opened from the ChatFinder
+  -- values: popup / split / vsplit / tabnew
   toggle_target = "vsplit",
 
   -- interactive user input

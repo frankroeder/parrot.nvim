@@ -1227,12 +1227,20 @@ end
 M.cmd.ChatFinder = function()
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
 
+  local filename_from_selection = function(selected)
+    return string.match(selected[1], "(%d%d%d%d%-%d%d%-%d%d%.%d%d%-%d%d%-%d%d%.%d%d%d%.md)")
+  end
+
   if has_fzf then
     local actions = require("fzf-lua").defaults.actions.files
+    actions["ctrl-p"] = function(selected)
+      local filename = filename_from_selection(selected)
+      return M.open_buf(M.config.chat_dir .. "/" .. filename, ui.BufTarget.popup, M._toggle_kind.chat, false)
+    end
     -- add custom action to delete chat files
     actions["ctrl-d"] = {
       fn = function(selected)
-        local filename = string.match(selected[1], "(%d%d%d%d%-%d%d%-%d%d%.%d%d%-%d%d%-%d%d%.%d%d%d%.md)")
+        local filename = filename_from_selection(selected)
         if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
           futils.delete_file(M.config.chat_dir .. "/" .. filename, M.config.chat_dir)
           M.logger.info(filename .. " deleted.state")
@@ -1241,6 +1249,16 @@ M.cmd.ChatFinder = function()
       -- TODO: Fix bug, currently not possible --
       reload = false,
     }
+
+    if M.config.toggle_target == "popup" then
+      actions["default"] = actions["ctrl-p"]
+    elseif M.config.toggle_target == "split" then
+      actions["default"] = actions["ctrl-s"]
+    elseif M.config.toggle_target == "vsplit" then
+      actions["default"] = actions["ctrl-v"]
+    elseif M.config.toggle_target == "tabnew" then
+      actions["default"] = actions["ctrl-t"]
+    end
 
     fzf_lua.fzf_exec("rg --no-heading topic --type=md", {
       cwd = M.config.chat_dir,
@@ -1275,7 +1293,7 @@ M.cmd.ChatFinder = function()
         M.logger.warning("Invalid chat file selection.")
         return
       end
-      vim.api.nvim_command("edit " .. selected_chat)
+      M.open_buf(selected_chat, M.resolve_buf_target(M.config.toggle_target), M._toggle_kind.chat, false)
     end)
   end
 end
