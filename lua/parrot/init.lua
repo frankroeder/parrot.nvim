@@ -956,7 +956,7 @@ end
 M.cmd.ChatPaste = function(params)
   -- if there is no selection, do nothing
   if params.range ~= 2 then
-    M.warning("Please select some text to paste into the chat.")
+    M.logger.warning("Please select some text to paste into the chat.")
     return
   end
 
