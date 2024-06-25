@@ -137,7 +137,7 @@ end
 ---@param str string # string to check
 ---@param ending string # string to check for
 M.ends_with = function(str, ending)
-  return ending == "" or str:sub(- #ending) == ending
+  return ending == "" or str:sub(-#ending) == ending
 end
 
 ---@param file_name string # name of the file for which to get buffer
