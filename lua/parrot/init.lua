@@ -450,7 +450,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(j.pid)
     end,
     on_stdout = function(j, data)
-      chunk = process_lines(data)
+      local chunk = process_lines(data)
       if chunk then
         buffer = buffer .. chunk
         local last_newline_pos = buffer:find("\n[^\n]*$")
@@ -913,7 +913,7 @@ M.new_chat = function(params, toggle)
 end
 
 ---@return number # buffer number
-M.cmd.ChatNew = function(params, model, system_prompt)
+M.cmd.ChatNew = function(params)
   -- if chat toggle is open, close it and start a new one
   if M._toggle_close(M._toggle_kind.chat) then
     params.args = params.args or ""
@@ -926,7 +926,7 @@ M.cmd.ChatNew = function(params, model, system_prompt)
   return M.new_chat(params, false)
 end
 
-M.cmd.ChatToggle = function(params, model, system_prompt)
+M.cmd.ChatToggle = function(params)
   M._toggle_close(M._toggle_kind.popup)
   if M._toggle_close(M._toggle_kind.chat) and params.range ~= 2 then
     return
@@ -968,7 +968,7 @@ M.cmd.ChatPaste = function(params)
   -- make new chat if last doesn't exist
   if vim.fn.filereadable(last) ~= 1 then
     -- skip rest since new chat will handle snippet on it's own
-    M.cmd.ChatNew(params, nil, nil)
+    M.cmd.ChatNew(params)
     return
   end
 
