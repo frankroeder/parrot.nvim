@@ -1,9 +1,13 @@
+<div align="center">
+
 # parrot.nvim 🦜
 
 This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate [stochastic parrot](https://en.wikipedia.org/wiki/Stochastic_parrot) to support your text editing inside Neovim.
 
-<div align="center">
-    <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
+[Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration)
+
+<img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
+
 </div>
 
 > [!NOTE]⚠️
@@ -86,33 +90,6 @@ Let the parrot fix your bugs.
 }
 ```
 
-## Configuration
-
-### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
-
-## Adding a new agents
-
-We provide two types of agents that might need different system prompts and API parameters.
-To make a new chat agent available, one simply adds a new entry to the list `chat` or to `command`, respectively.
-
-```lua
-require("parrot").setup {
-    -- ...
-    agents = {
-        chat = {
-          {
-              name = "CodeLlama",
-              model = { model = "codellama", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-              system_prompt = "Help me!",
-              provider = "ollama",
-          }
-        }
-    },
-    -- ...
-}
-```
-
 ## Commands
 
 Below are the available commands that can be configured as keybindings.
@@ -151,6 +128,33 @@ The following commands are available within the chat files.
 | `PrtAsk`         | ask the selected agent a single question             |
 | `PrtStop`        | interrupt ongoing respond                            |
 
+
+## Configuration
+
+### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+
+### Adding a new agents
+
+We provide two types of agents that might need different system prompts and API parameters.
+To make a new chat agent available, one simply adds a new entry to the list `chat` or to `command`, respectively.
+
+```lua
+require("parrot").setup {
+    -- ...
+    agents = {
+        chat = {
+          {
+              name = "CodeLlama",
+              model = { model = "codellama", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+              system_prompt = "Help me!",
+              provider = "ollama",
+          }
+        }
+    },
+    -- ...
+}
+```
 ### Adding a new command
 
 ```lua
