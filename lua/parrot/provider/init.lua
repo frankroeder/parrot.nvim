@@ -3,7 +3,9 @@ local OpenAI = require("parrot.provider.openai")
 local Anthropic = require("parrot.provider.anthropic")
 local Perplexity = require("parrot.provider.perplexity")
 
-local M = {}
+local M = {
+  logger = require("parrot.logger"),
+}
 
 ---@param prov_name string # name of the provider
 ---@param endpoint string # API endpoint for the provider
