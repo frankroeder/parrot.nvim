@@ -269,7 +269,7 @@ M.refresh_state = function()
     end
 
     if M._state[prov].chat_agent == nil then
-      if state[prov].chat_agent == nil then
+      if state[prov] == nil or state[prov].chat_agent == nil then
         M._state[prov].chat_agent = M._available_provider_agents[prov].chat[1]
       else
         M._state[prov].chat_agent = state[prov].chat_agent
@@ -277,7 +277,7 @@ M.refresh_state = function()
     end
 
     if M._state[prov].command_agent == nil then
-      if state[prov].command_agent == nil then
+      if state[prov] == nil or state[prov].command_agent == nil then
         M._state[prov].command_agent = M._available_provider_agents[prov].command[1]
       else
         M._state[prov].command_agent = state[prov].command_agent
