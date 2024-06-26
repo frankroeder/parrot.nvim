@@ -420,7 +420,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
 
   local buffer = ""
 
-    io.stderr:write(vim.inspect(curl_params))
   local job = Job:new({
     command = "curl",
     args = curl_params,
