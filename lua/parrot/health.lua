@@ -71,6 +71,7 @@ function M.check()
     check_provider(parrot, "openai")
     check_provider(parrot, "ollama")
     check_provider(parrot, "pplx")
+    check_provider(parrot, "mistral")
   end
 
   for _, name in ipairs({ "curl", "grep", "rg", "ln" }) do

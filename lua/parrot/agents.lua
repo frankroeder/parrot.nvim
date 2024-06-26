@@ -139,6 +139,56 @@ local anthropic_chat_agents = {
     provider = "anthropic",
   },
 }
+local mistral_chat_agents = {
+  {
+  name = "Codestral",
+  model = { model = "codestral-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Tiny",
+  model = { model = "mistral-tiny", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Small",
+  model = { model = "mistral-small-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Medium",
+  model = { model = "mistral-medium-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Large",
+  model = { model = "mistral-large-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mistral-7B",
+  model = { model = "open-mistral-7b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mixtral-8x7B",
+  model = { model = "open-mixtral-8x7b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mixtral-8x22B",
+  model = { model = "open-mixtral-8x22b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_chat_prompt,
+  provider = "mistral",
+  },
+}
 
 local ollama_command_agents = {
   {
@@ -253,6 +303,56 @@ local anthropic_command_agents = {
     provider = "anthropic",
   },
 }
+local mistral_command_agents = {
+  {
+  name = "Codestral",
+  model = { model = "codestral-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Tiny",
+  model = { model = "mistral-tiny", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Small",
+  model = { model = "mistral-small-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Medium",
+  model = { model = "mistral-medium-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Mistral-Large",
+  model = { model = "mistral-large-latest", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mistral-7B",
+  model = { model = "open-mistral-7b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mixtral-8x7B",
+  model = { model = "open-mixtral-8x7b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+  {
+  name = "Open-Mixtral-8x22B",
+  model = { model = "open-mixtral-8x22b", temperature = 1.5, top_p = 1 },
+  system_prompt = system_code_prompt,
+  provider = "mistral",
+  },
+}
 
 local M = {}
 
@@ -269,6 +369,9 @@ end
 for _, agent in ipairs(anthropic_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
+for _, agent in ipairs(mistral_chat_agents) do
+  table.insert(M.chat_agents, agent)
+end
 
 M.command_agents = {}
 for _, agent in ipairs(ollama_command_agents) do
@@ -281,6 +384,9 @@ for _, agent in ipairs(pplx_command_agents) do
   table.insert(M.command_agents, agent)
 end
 for _, agent in ipairs(anthropic_command_agents) do
+  table.insert(M.command_agents, agent)
+end
+for _, agent in ipairs(mistral_command_agents) do
   table.insert(M.command_agents, agent)
 end
 

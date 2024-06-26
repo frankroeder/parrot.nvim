@@ -34,6 +34,16 @@ local config = {
       topic_prompt = "You only respond with 2 to 3 words to summarize the past conversation.",
       topic_model = { model = "claude-3-sonnet-20240229", max_tokens = 32, system = topic_prompt },
     },
+    mistral = {
+      api_key = "",
+      endpoint = "https://api.mistral.ai/v1/chat/completions",
+      topic_prompt = [[
+			Summarize the chat above and only provide a short headline of 2 to 3
+			words without any opening phrase like "Sure, here is the summary",
+			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
+			]],
+      topic_model = "mistral-medium-latest",
+    },
   },
   -- prefix for all commands
   cmd_prefix = "Prt",

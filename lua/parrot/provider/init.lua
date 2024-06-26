@@ -2,6 +2,7 @@ local Ollama = require("parrot.provider.ollama")
 local OpenAI = require("parrot.provider.openai")
 local Anthropic = require("parrot.provider.anthropic")
 local Perplexity = require("parrot.provider.perplexity")
+local Mistral = require("parrot.provider.mistral")
 
 local M = {}
 
@@ -15,6 +16,7 @@ M.init_provider = function(prov_name, endpoint, api_key)
     openai = OpenAI,
     anthropic = Anthropic,
     pplx = Perplexity,
+    mistral = Mistral,
   }
 
   local ProviderClass = providers[prov_name]

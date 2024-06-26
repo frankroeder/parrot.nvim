@@ -420,11 +420,13 @@ M.query = function(buf, provider, payload, handler, on_exit)
 
   local buffer = ""
 
+    io.stderr:write(vim.inspect(curl_params))
   local job = Job:new({
     command = "curl",
     args = curl_params,
     on_exit = function(j, return_val)
       for _, result in ipairs(j:result()) do
+      io.stderr:write(vim.inspect(result .. "\n"))
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
@@ -1704,7 +1706,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     sys_prompt = sys_prompt or ""
     local prov = M.get_provider()
     if prov.name ~= agent_provider then
-      M.logger.error("Missmatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
+      M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
       return
     end
     messages = prov:add_system_prompt(messages, sys_prompt)

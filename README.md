@@ -27,6 +27,7 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + [Anthropic API](https://www.anthropic.com/api)
     + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
     + [OpenAI API](https://platform.openai.com/)
+    + [Mistral API](https://docs.mistral.ai/api/)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
 - Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
 - Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI
@@ -83,6 +84,9 @@ Let the parrot fix your bugs.
         },
         anthropic = {
           api_key = os.getenv "ANTHROPIC_API_KEY",
+        },
+        mistral = {
+          api_key = os.getenv "MISTRAL_API_KEY",
         },
       },
     }
@@ -203,16 +207,16 @@ require("parrot").setup {
     	CompleteFullContext = function(prt, params)
     	  local template = [[
           I have the following code from {{filename}}:
-        
+
           ```{{filetype}}
           {{filecontent}}
           ```
-          
+
           Please look at the following section specifically:
           ```{{filetype}}
           {{selection}}
           ```
-          
+
           Please finish the code above carefully and logically.
           Respond just with the snippet of code that should be inserted.
           ]]
