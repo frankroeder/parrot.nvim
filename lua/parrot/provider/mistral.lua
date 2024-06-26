@@ -3,7 +3,7 @@ local logger = require("parrot.logger")
 local Mistral = {}
 Mistral.__index = Mistral
 
-  local available_model_set = {
+local available_model_set = {
   ["codestral-latest"] = true,
   ["mistral-tiny"] = true,
   ["mistral-small-latest"] = true,

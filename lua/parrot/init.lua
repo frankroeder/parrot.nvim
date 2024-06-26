@@ -425,7 +425,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
     args = curl_params,
     on_exit = function(j, return_val)
       for _, result in ipairs(j:result()) do
-      io.stderr:write(vim.inspect(result .. "\n"))
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
