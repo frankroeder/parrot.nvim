@@ -286,7 +286,7 @@ M.refresh_state = function()
   end
 
   M._state.provider = M._state.provider or state.provider or nil
-  if M._state.provider == nil or M._available_providers[M._state.provider] == nil then
+  if M._state.provider == nil then
     M._state.provider = M._available_providers[1]
   end
 
