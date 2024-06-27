@@ -116,7 +116,7 @@ M.setup = function(opts)
     M.config[k] = v
   end
 
-  -- make sure _dirs exists
+  -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
     if k:match("_dir$") and type(v) == "string" then
       local dir = v:gsub("/$", "")
@@ -127,29 +127,54 @@ M.setup = function(opts)
     end
   end
 
-  -- remove invalid agents
-  for name, agent in pairs(M.agents.chat) do
-    if type(agent) ~= "table" or not agent.model or not agent.provider then
-      M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
-      M.agents.chat[name] = nil
+  local function is_valid_provider(name, provider)
+    if type(provider) ~= "table" then
+      M.logger.warning(string.format("Removing provider %s: not a table", name))
+      return false
     end
-  end
-  for name, agent in pairs(M.agents.command) do
-    if type(agent) ~= "table" or not agent.model or not agent.provider then
-      M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
-      M.agents.command[name] = nil
+    if not provider.endpoint then
+      M.logger.warning(string.format("Removing provider %s: endpoint missing or empty", name))
+      return false
     end
-  end
-
-  -- remove invalid providers
-  for name, _provider in pairs(M.providers) do
-    if type(_provider) ~= "table" or not _provider.endpoint then
-      M.logger.warning("Removing invalid provider " .. name .. " " .. vim.inspect(_provider))
-      M.providers[name] = nil
+    if provider.api_key == "" then
+      M.logger.warning(string.format("Removing provider %s: api_key missing or empty", name))
+      return false
     end
+    return true
   end
 
-  -- prepare agent completions
+  local filtered_providers = {}
+  for name, provider in pairs(M.providers) do
+    if is_valid_provider(name, provider) then
+      filtered_providers[name] = provider
+    else
+      M.logger.warning(string.format("Removing provider %s: invalid configuration", name))
+    end
+  end
+  M.providers = filtered_providers
+
+  local filter_valid_agents = function(agents, atype)
+    for name, agent in pairs(agents) do
+      if type(agent) ~= "table" then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. " because it is not a table")
+        agents[name] = nil
+      elseif not agent.provider then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", provider missing")
+        agents[name] = nil
+      elseif M.providers[agent.provider] == nil then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", invalid provider")
+        agents[name] = nil
+      elseif not agent.model then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", model missing")
+        agents[name] = nil
+      end
+    end
+    return agents
+  end
+
+  M.agents.chat = filter_valid_agents(M.agents.chat, "chat")
+  M.agents.command = filter_valid_agents(M.agents.command, "command")
+
   M._chat_agents = {}
   M._command_agents = {}
   M._available_providers = {}
