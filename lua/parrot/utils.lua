@@ -297,4 +297,13 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
+M.contains = function(table, val)
+  for i = 1, #table do
+    if table[i] == val then
+      return true
+    end
+  end
+  return false
+end
+
 return M
