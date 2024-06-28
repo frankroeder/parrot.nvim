@@ -3,18 +3,15 @@ local utils = require("parrot.utils")
 local futils = require("parrot.file_utils")
 local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
+local State = require("parrot.state")
 local ui = require("parrot.ui")
 local pft = require("plenary.filetype")
 local scan = require("plenary.scandir")
 local init_provider = require("parrot.provider").init_provider
 local Job = require("plenary.job")
 
-local _H = {}
 local M = {
-  _H = _H, -- helper functions
   _plugin_name = "parrot.nvim",
-  _queries = {}, -- table of latest queries
-  _state = {}, -- table of state variables
   providers = {},
   agents = { -- table of agents
     chat = {},
@@ -24,7 +21,6 @@ local M = {
   config = {}, -- config variables
   hooks = {}, -- user defined command functions
   logger = require("parrot.logger"),
-  ui = ui,
 }
 local pool = Pool:new()
 local queries = Queries:new()
@@ -116,7 +112,7 @@ M.setup = function(opts)
     M.config[k] = v
   end
 
-  -- make sure _dirs exists
+  -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
     if k:match("_dir$") and type(v) == "string" then
       local dir = v:gsub("/$", "")
@@ -127,29 +123,54 @@ M.setup = function(opts)
     end
   end
 
-  -- remove invalid agents
-  for name, agent in pairs(M.agents.chat) do
-    if type(agent) ~= "table" or not agent.model or not agent.provider then
-      M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
-      M.agents.chat[name] = nil
+  local function is_valid_provider(name, provider)
+    if type(provider) ~= "table" then
+      M.logger.warning(string.format("Removing provider %s: not a table", name))
+      return false
     end
-  end
-  for name, agent in pairs(M.agents.command) do
-    if type(agent) ~= "table" or not agent.model or not agent.provider then
-      M.logger.warning("Removing invalid agent " .. name .. " " .. vim.inspect(agent))
-      M.agents.command[name] = nil
+    if not provider.endpoint then
+      M.logger.warning(string.format("Removing provider %s: endpoint missing or empty", name))
+      return false
     end
-  end
-
-  -- remove invalid providers
-  for name, _provider in pairs(M.providers) do
-    if type(_provider) ~= "table" or not _provider.endpoint then
-      M.logger.warning("Removing invalid provider " .. name .. " " .. vim.inspect(_provider))
-      M.providers[name] = nil
+    if provider.api_key == "" then
+      M.logger.warning(string.format("Removing provider %s: api_key missing or empty", name))
+      return false
     end
+    return true
   end
 
-  -- prepare agent completions
+  local filtered_providers = {}
+  for name, provider in pairs(M.providers) do
+    if is_valid_provider(name, provider) then
+      filtered_providers[name] = provider
+    else
+      M.logger.warning(string.format("Removing provider %s: invalid configuration", name))
+    end
+  end
+  M.providers = filtered_providers
+
+  local filter_valid_agents = function(agents, atype)
+    for name, agent in pairs(agents) do
+      if type(agent) ~= "table" then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. " because it is not a table")
+        agents[name] = nil
+      elseif not agent.provider then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", provider missing")
+        agents[name] = nil
+      elseif M.providers[agent.provider] == nil then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", invalid provider")
+        agents[name] = nil
+      elseif not agent.model then
+        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", model missing")
+        agents[name] = nil
+      end
+    end
+    return agents
+  end
+
+  M.agents.chat = filter_valid_agents(M.agents.chat, "chat")
+  M.agents.command = filter_valid_agents(M.agents.command, "command")
+
   M._chat_agents = {}
   M._command_agents = {}
   M._available_providers = {}
@@ -181,7 +202,10 @@ M.setup = function(opts)
   table.sort(M._available_providers)
   table.sort(M._available_provider_agents)
 
-  M.refresh_state()
+  -- global state
+  Pstate = State:new(M.config.state_dir)
+  Pstate:refresh(M._available_providers, M._available_provider_agents)
+  M.prepare_commands()
 
   -- register user commands
   for hook, _ in pairs(M.hooks) do
@@ -248,51 +272,6 @@ M.setup = function(opts)
       end
     end
   end
-end
-
-M.refresh_state = function()
-  local state_file = M.config.state_dir .. "/state.json"
-  local state = {}
-  if vim.fn.filereadable(state_file) ~= 0 then
-    state = futils.file_to_table(state_file) or {}
-  end
-
-  if next(state) == nil then
-    for _, prov in pairs(M._available_providers) do
-      state[prov] = { chat_agent = nil, command_agent = nil }
-    end
-  end
-
-  for _, prov in pairs(M._available_providers) do
-    if not M._state[prov] then
-      M._state[prov] = { chat_agent = nil, command_agent = nil }
-    end
-
-    if M._state[prov].chat_agent == nil then
-      if state[prov] == nil or state[prov].chat_agent == nil then
-        M._state[prov].chat_agent = M._available_provider_agents[prov].chat[1]
-      else
-        M._state[prov].chat_agent = state[prov].chat_agent
-      end
-    end
-
-    if M._state[prov].command_agent == nil then
-      if state[prov] == nil or state[prov].command_agent == nil then
-        M._state[prov].command_agent = M._available_provider_agents[prov].command[1]
-      else
-        M._state[prov].command_agent = state[prov].command_agent
-      end
-    end
-  end
-
-  M._state.provider = M._state.provider or state.provider or nil
-  if M._state.provider == nil then
-    M._state.provider = M._available_providers[1]
-  end
-
-  futils.table_to_file(M._state, state_file)
-
-  M.prepare_commands()
 end
 
 -- creates prompt commands for each target
@@ -1145,7 +1124,7 @@ M.chat_respond = function(params)
     messages[1] = { role = "system", content = content }
   end
 
-  local messages = prov:preprocess_messages(messages)
+  messages = prov:preprocess_messages(messages)
   -- strip whitespace from ends of content
   for _, message in ipairs(messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
@@ -1350,8 +1329,9 @@ M.switch_provider = function(selected_prov)
   end
 
   if M.providers[selected_prov] then
-    M._state.provider = selected_prov
-    M.refresh_state()
+    Pstate:set_provider(selected_prov)
+    Pstate:refresh(M._available_providers, M._available_provider_agents)
+    M.prepare_commands()
     M.logger.info("Switched to provider: " .. selected_prov)
     return
   else
@@ -1389,19 +1369,20 @@ M.switch_agent = function(is_chat, selected_agent, prov)
   end
 
   if is_chat and M.agents.chat[selected_agent] then
-    M._state[prov.name].chat_agent = selected_agent
-    M.logger.info("Chat agent: " .. M._state[prov.name].chat_agent)
+    Pstate:set_agent(prov.name, selected_agent, "chat")
+    M.logger.info("Chat agent: " .. Pstate:get_agent(prov.name, "chat"))
     prov:check(M.agents.chat[selected_agent])
   elseif is_chat then
     M.logger.warning(selected_agent .. " is not a Chat agent")
   elseif M.agents.command[selected_agent] then
-    M._state[prov.name].command_agent = selected_agent
-    M.logger.info("Command agent: " .. M._state[prov.name].command_agent)
+    Pstate:set_agent(prov.name, selected_agent, "command")
+    M.logger.info("Command agent: " .. Pstate:get_agent(prov.name, "command"))
     prov:check(M.agents.command[selected_agent])
   else
     M.logger.warning(selected_agent .. " is not a Command agent")
   end
-  M.refresh_state()
+  Pstate:refresh(M._available_providers, M._available_provider_agents)
+  M.prepare_commands()
 end
 
 M.cmd.Agent = function(params)
@@ -1451,8 +1432,9 @@ end
 M.get_command_agent = function()
   local template = M.config.command_prompt_prefix_template
   local prov = M.get_provider()
-  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov.name].command_agent })
-  local name = M._state[prov.name].command_agent
+  local cmd_prefix =
+    utils.template_render_from_list(template, { ["{{agent}}"] = Pstate:get_agent(prov.name, "command") })
+  local name = Pstate:get_agent(prov.name, "command")
   local model = M.agents.command[name].model
   local system_prompt = M.agents.command[name].system_prompt
   return {
@@ -1468,8 +1450,8 @@ end
 M.get_chat_agent = function()
   local template = M.config.command_prompt_prefix_template
   local prov = M.get_provider()
-  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = M._state[prov.name].chat_agent })
-  local name = M._state[prov.name].chat_agent
+  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = Pstate:get_agent(prov.name, "chat") })
+  local name = Pstate:get_agent(prov.name, "chat")
   local model = M.agents.chat[name].model
   local system_prompt = M.agents.chat[name].system_prompt
   return {
@@ -1482,7 +1464,7 @@ M.get_chat_agent = function()
 end
 
 M.get_provider = function()
-  local _state_prov = M._state["provider"]
+  local _state_prov = Pstate:get_provider()
   local endpoint = M.providers[_state_prov].endpoint
   local api_key = M.providers[_state_prov].api_key
   return init_provider(_state_prov, endpoint, api_key)

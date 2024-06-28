@@ -3,7 +3,7 @@ local pft = require("plenary.filetype")
 local M = {}
 
 --- Trim leading whitespace and tabs from a string.
---@param str string # The input string to be trimmed.
+---@param str string # The input string to be trimmed.
 M.trim = function(str)
   return str:gsub("^[\t ]+", ""):gsub("\n[\t ]+", "\n")
 end
@@ -295,6 +295,15 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   -- insert selection lines
   lines = vim.split("\n" .. selection, "\n")
   vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
+end
+
+M.contains = function(table, val)
+  for i = 1, #table do
+    if table[i] == val then
+      return true
+    end
+  end
+  return false
 end
 
 return M
