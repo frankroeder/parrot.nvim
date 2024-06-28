@@ -215,7 +215,7 @@ M.input = function(opts, on_confirm)
   })
   opts = (opts and not vim.tbl_isempty(opts)) and opts or vim.empty_dict()
 
-  local prompt = opts.prompt or "Enter text here..."
+  local prompt = opts.prompt or "Enter text here... "
   local hint = "(confirm with CTRL-W_q or CTRL-C)"
 
   -- Create a new buffer
@@ -233,7 +233,7 @@ M.input = function(opts, on_confirm)
   -- Add prompt and hint as virtual text
   local ns_id = vim.api.nvim_create_namespace("input_prompt")
   vim.api.nvim_buf_set_extmark(buf, ns_id, 0, 0, {
-    virt_text = { { prompt .. " " .. hint, "Comment" } },
+    virt_text = { { prompt .. hint, "Comment" } },
     virt_text_pos = "overlay",
   })
 

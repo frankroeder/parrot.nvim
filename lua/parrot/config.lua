@@ -11,7 +11,7 @@ local config = {
       api_key = "",
       endpoint = "https://api.perplexity.ai/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "mistral-7b-instruct",
+      topic_model = "llama-3-8b-instruct",
     },
     openai = {
       api_key = "",

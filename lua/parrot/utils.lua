@@ -3,7 +3,7 @@ local pft = require("plenary.filetype")
 local M = {}
 
 --- Trim leading whitespace and tabs from a string.
---@param str string # The input string to be trimmed.
+---@param str string # The input string to be trimmed.
 M.trim = function(str)
   return str:gsub("^[\t ]+", ""):gsub("\n[\t ]+", "\n")
 end

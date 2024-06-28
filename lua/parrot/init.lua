@@ -10,11 +10,8 @@ local scan = require("plenary.scandir")
 local init_provider = require("parrot.provider").init_provider
 local Job = require("plenary.job")
 
-local _H = {}
 local M = {
-  _H = _H, -- helper functions
   _plugin_name = "parrot.nvim",
-  _queries = {}, -- table of latest queries
   providers = {},
   agents = { -- table of agents
     chat = {},
@@ -24,7 +21,6 @@ local M = {
   config = {}, -- config variables
   hooks = {}, -- user defined command functions
   logger = require("parrot.logger"),
-  ui = ui,
 }
 local pool = Pool:new()
 local queries = Queries:new()
