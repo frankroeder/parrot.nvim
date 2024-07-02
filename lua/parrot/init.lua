@@ -21,6 +21,7 @@ local M = {
   config = {}, -- config variables
   hooks = {}, -- user defined command functions
   logger = require("parrot.logger"),
+  ui = ui,
 }
 local pool = Pool:new()
 local queries = Queries:new()
