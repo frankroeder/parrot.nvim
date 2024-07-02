@@ -67,7 +67,7 @@ Let the parrot fix your bugs.
 ```lua
 {
   "frankroeder/parrot.nvim",
-  tag = "v0.3.1",
+  tag = "v0.3.2",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   config = function()
     require("parrot").setup {
