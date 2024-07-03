@@ -48,17 +48,31 @@ end
 ---
 local function merge_providers(default_providers, user_providers)
   local result = {}
-  for provider, config in pairs(user_providers) do
-    result[provider] = vim.tbl_deep_extend("force", default_providers[provider] or {}, config)
+  for provider, prov_config in pairs(default_providers) do
+    result[provider] = prov_config
+  end
+  for uprovider, uprov_config in pairs(user_providers) do
+    result[uprovider] = vim.tbl_deep_extend("force", result[uprovider], uprov_config)
   end
   return result
 end
 
-local function merge_agent_type(default_agents, user_agents, user_providers)
-  local merged = vim.deepcopy(user_agents) or {}
+local function merge_agent_type(default_agents, user_agents, providers)
+  local merged = {}
   for _, default_agent in ipairs(default_agents) do
-    if user_providers[default_agent.provider] then
-      table.insert(merged, vim.deepcopy(default_agent))
+    if providers[default_agent.provider] then
+      merged[default_agent.name] = default_agent
+    end
+  end
+  if user_agents then
+    for _, user_agent in ipairs(user_agents) do
+      if user_agent and providers[user_agent.provider] then
+        if merged[user_agent.name] then
+          merged[user_agent.name] = vim.tbl_deep_extend("force", merged[user_agent.name], user_agent)
+        else
+          merged[user_agent.name] = user_agent
+        end
+      end
     end
   end
   return merged
@@ -87,13 +101,9 @@ M.setup = function(user_opts)
   local default_opts = vim.deepcopy(config)
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
-  -- print(vim.inspect(M.config))
-  -- print("PROV", vim.inspect(default_opts.providers))
-  print("USER PROV", vim.inspect(user_opts.agents))
   M.providers = merge_providers(default_opts.providers, user_opts.providers)
-  M.agents = merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.config.agents)
+  M.agents = merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
   M.hooks = M.config.hooks
-  print("MERGED", vim.inspect(M.agents))
 
   -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
