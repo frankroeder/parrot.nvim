@@ -45,73 +45,55 @@ end
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
+---
+local function merge_providers(default_providers, user_providers)
+  local result = {}
+  for provider, config in pairs(user_providers) do
+    result[provider] = vim.tbl_deep_extend("force", default_providers[provider] or {}, config)
+  end
+  return result
+end
+
+local function merge_agent_type(default_agents, user_agents, user_providers)
+  local merged = vim.deepcopy(user_agents) or {}
+  for _, default_agent in ipairs(default_agents) do
+    if user_providers[default_agent.provider] then
+      table.insert(merged, vim.deepcopy(default_agent))
+    end
+  end
+  return merged
+end
+
+local function merge_agents(default_agents, user_agents, user_providers)
+  return {
+    command = merge_agent_type(default_agents.command or {}, user_agents.command, user_providers),
+    chat = merge_agent_type(default_agents.chat or {}, user_agents.chat, user_providers),
+  }
+end
 
 -- setup function
 M._setup_called = false
 ---@param opts table | nil # table with options
-M.setup = function(opts)
+M.setup = function(user_opts)
   M._setup_called = true
+
+  if type(user_opts) ~= "table" then
+    M.logger.error(string.format("setup() expects table, but got %s", type(user_opts)))
+    return
+  end
 
   math.randomseed(os.time())
 
-  -- make sure opts is a table
-  opts = opts or {}
-  if type(opts) ~= "table" then
-    M.logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
-    opts = {}
-  end
+  local default_opts = vim.deepcopy(config)
 
-  -- copy default config
-  M.config = vim.deepcopy(config)
-
-  -- merge nested tables
-  local mergeTables = { "hooks", "agents", "providers" }
-  local mergeAgentTables = { "chat", "command" }
-
-  for _, tbl in ipairs(mergeTables) do
-    -- copy default config into module
-    M[tbl] = M[tbl] or {}
-    ---@diagnostic disable-next-line: param-type-mismatch
-    for k, v in pairs(M.config[tbl]) do
-      if tbl == "hooks" or tbl == "providers" then
-        M[tbl][k] = v
-      elseif tbl == "agents" then
-        for _, _tbl in ipairs(mergeAgentTables) do
-          ---@diagnostic disable-next-line: param-type-mismatch
-          for _, _v in pairs(M.config[tbl][_tbl]) do
-            M[tbl][_tbl][_v.name] = _v
-          end
-        end
-      end
-    end
-    -- reset module config
-    M.config[tbl] = nil
-
-    -- read setup options and merge them with module
-    opts[tbl] = opts[tbl] or {}
-    for k, v in pairs(opts[tbl]) do
-      if tbl == "hooks" then
-        M[tbl][k] = v
-      elseif tbl == "providers" then
-        M[tbl][k] = M[tbl][k] or {}
-        for pk, pv in pairs(v) do
-          M[tbl][k][pk] = pv
-        end
-        if next(v) == nil then
-          M[tbl][k] = nil
-        end
-      elseif tbl == "agents" then
-        for _, _v in pairs(v) do
-          M[tbl][k][_v.name] = _v
-        end
-      end
-    end
-    opts[tbl] = nil
-  end
-
-  for k, v in pairs(opts) do
-    M.config[k] = v
-  end
+  M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
+  -- print(vim.inspect(M.config))
+  -- print("PROV", vim.inspect(default_opts.providers))
+  print("USER PROV", vim.inspect(user_opts.agents))
+  M.providers = merge_providers(default_opts.providers, user_opts.providers)
+  M.agents = merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.config.agents)
+  M.hooks = M.config.hooks
+  print("MERGED", vim.inspect(M.agents))
 
   -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
