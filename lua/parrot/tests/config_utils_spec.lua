@@ -1,4 +1,4 @@
-local cutils = require("parrot.config_utils")
+local config_utils = require("parrot.config_utils")
 
 describe("config_utils", function()
   describe("merge_providers", function()
@@ -27,7 +27,7 @@ describe("config_utils", function()
         ollama = { endpoint = "http://localhost:8000/api/chat" },
       }
 
-      local result = cutils.merge_providers(default_providers, user_providers)
+      local result = config_utils.merge_providers(default_providers, user_providers)
 
       assert.are.same({
         pplx = {
@@ -40,6 +40,71 @@ describe("config_utils", function()
           endpoint = "http://localhost:8000/api/chat",
           topic_prompt = "Summarize the chat above in max 3 words",
           topic_model = "mistral:latest",
+        },
+      }, result)
+    end)
+  end)
+
+  describe('merge_agent_type', function()
+    it('should merge default and user agents', function()
+      local default_agents = {
+        {
+          name = "ChatGPT4",
+          model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "openai",
+        },
+        {
+          name = "ChatGPT3.5",
+          model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "openai",
+        },
+        {
+          name = "Codestral",
+          model = { model = "codestral-latest", temperature = 1.5, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "mistral",
+        },
+        {
+          name = "Mistral-Tiny",
+          model = { model = "mistral-tiny", temperature = 1.5, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "mistral",
+        },
+      }
+      local user_agents = {
+        {
+          name = "CustomChatGPT4",
+          model = { model = "gpt-4-turbo", temperature = 1.2 },
+          system_prompt = "You are an AI assistant",
+          provider = "openai",
+        },
+      }
+      local user_providers = {
+        openai = { api_key = '123' },
+      }
+
+      local result = config_utils.merge_agent_type(default_agents, user_agents, user_providers)
+
+      assert.are.same({
+        {
+          name = "CustomChatGPT4",
+          model = { model = "gpt-4-turbo", temperature = 1.2 },
+          system_prompt = "You are an AI assistant",
+          provider = "openai",
+        },
+        {
+          name = "ChatGPT4",
+          model = { model = "gpt-4-turbo", temperature = 1.1, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "openai",
+        },
+        {
+          name = "ChatGPT3.5",
+          model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
+          system_prompt = "You are a versatile AI assistant",
+          provider = "openai",
         },
       }, result)
     end)
