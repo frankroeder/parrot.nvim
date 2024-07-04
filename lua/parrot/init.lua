@@ -1,5 +1,6 @@
 local config = require("parrot.config")
 local utils = require("parrot.utils")
+local cutils = require("parrot.config_utils")
 local futils = require("parrot.file_utils")
 local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
@@ -46,44 +47,6 @@ end
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
 ---
-local function merge_providers(default_providers, user_providers)
-  local result = {}
-  for provider, prov_config in pairs(default_providers) do
-    result[provider] = prov_config
-  end
-  for uprovider, uprov_config in pairs(user_providers) do
-    result[uprovider] = vim.tbl_deep_extend("force", result[uprovider], uprov_config)
-  end
-  return result
-end
-
-local function merge_agent_type(default_agents, user_agents, providers)
-  local merged = {}
-  for _, default_agent in ipairs(default_agents) do
-    if providers[default_agent.provider] then
-      merged[default_agent.name] = default_agent
-    end
-  end
-  if user_agents then
-    for _, user_agent in ipairs(user_agents) do
-      if user_agent and providers[user_agent.provider] then
-        if merged[user_agent.name] then
-          merged[user_agent.name] = vim.tbl_deep_extend("force", merged[user_agent.name], user_agent)
-        else
-          merged[user_agent.name] = user_agent
-        end
-      end
-    end
-  end
-  return merged
-end
-
-local function merge_agents(default_agents, user_agents, user_providers)
-  return {
-    command = merge_agent_type(default_agents.command or {}, user_agents.command, user_providers),
-    chat = merge_agent_type(default_agents.chat or {}, user_agents.chat, user_providers),
-  }
-end
 
 -- setup function
 M._setup_called = false
@@ -101,8 +64,8 @@ M.setup = function(user_opts)
   local default_opts = vim.deepcopy(config)
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
-  M.providers = merge_providers(default_opts.providers, user_opts.providers)
-  M.agents = merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
+  M.agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
   M.hooks = M.config.hooks
 
   -- make sure config director matching "*_dir" exist
