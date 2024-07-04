@@ -10,6 +10,12 @@ describe("config_utils", function()
           topic_prompt = "default prompt",
           topic_model = "llama-3-8b-instruct",
         },
+        openai = {
+          api_key = "",
+          endpoint = "https://api.openai.com/v1/chat/completions",
+          topic_prompt = "default prompt",
+          topic_model = "gpt-3.5-turbo",
+        },
         ollama = {
           endpoint = "http://localhost:11434/api/chat",
           topic_prompt = "Summarize the chat above in max 3 words",
