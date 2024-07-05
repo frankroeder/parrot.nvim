@@ -85,54 +85,6 @@ M.setup = function(user_opts)
     end
   end
 
-  local function is_valid_provider(name, provider)
-    if type(provider) ~= "table" then
-      M.logger.warning(string.format("Removing provider %s: not a table", name))
-      return false
-    end
-    if not provider.endpoint then
-      M.logger.warning(string.format("Removing provider %s: endpoint missing or empty", name))
-      return false
-    end
-    if provider.api_key == "" then
-      M.logger.warning(string.format("Removing provider %s: api_key missing or empty", name))
-      return false
-    end
-    return true
-  end
-
-  local filtered_providers = {}
-  for name, provider in pairs(M.providers) do
-    if is_valid_provider(name, provider) then
-      filtered_providers[name] = provider
-    else
-      M.logger.warning(string.format("Removing provider %s: invalid configuration", name))
-    end
-  end
-  M.providers = filtered_providers
-
-  local filter_valid_agents = function(agents, atype)
-    for name, agent in pairs(agents) do
-      if type(agent) ~= "table" then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. " because it is not a table")
-        agents[name] = nil
-      elseif not agent.provider then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", provider missing")
-        agents[name] = nil
-      elseif M.providers[agent.provider] == nil then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", invalid provider")
-        agents[name] = nil
-      elseif not agent.model then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", model missing")
-        agents[name] = nil
-      end
-    end
-    return agents
-  end
-
-  M.agents.chat = filter_valid_agents(M.agents.chat, "chat")
-  M.agents.command = filter_valid_agents(M.agents.command, "command")
-
   M._chat_agents = {}
   M._command_agents = {}
   M._available_providers = {}
