@@ -25,4 +25,15 @@ M.merge_agents = function(default_agents, user_agents, user_providers)
   }
 end
 
+M.index_agents_by_name = function(agents)
+  local result = {}
+  for category, agent_list in pairs(agents) do
+    result[category] = {}
+    for _, agent in ipairs(agent_list) do
+      result[category][agent.name] = agent
+    end
+  end
+  return result
+end
+
 return M

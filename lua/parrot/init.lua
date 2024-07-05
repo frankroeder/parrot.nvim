@@ -50,7 +50,7 @@ end
 
 -- setup function
 M._setup_called = false
----@param opts table | nil # table with options
+---@param user_opts table | nil # table with options
 M.setup = function(user_opts)
   M._setup_called = true
 
@@ -65,8 +65,14 @@ M.setup = function(user_opts)
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
   M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
-  M.agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  local agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  M.agents = cutils.index_agents_by_name(agents)
   M.hooks = M.config.hooks
+
+  if next(M.providers) == nil then
+    M.logger.error("No providers configured")
+    return false
+  end
 
   -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
