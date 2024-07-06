@@ -86,18 +86,8 @@ M.setup = function(user_opts)
     end
   end
 
-  M._chat_agents = {}
-  M._command_agents = {}
   M._available_providers = {}
   M._available_provider_agents = {}
-
-  for name, _ in pairs(M.agents.command) do
-    table.insert(M._command_agents, name)
-  end
-
-  for name, _ in pairs(M.agents.chat) do
-    table.insert(M._chat_agents, name)
-  end
 
   for name, _ in pairs(M.providers) do
     table.insert(M._available_providers, name)
@@ -112,8 +102,6 @@ M.setup = function(user_opts)
     table.insert(M._available_provider_agents[agt.provider].command, agt_name)
   end
 
-  table.sort(M._chat_agents)
-  table.sort(M._command_agents)
   table.sort(M._available_providers)
   table.sort(M._available_provider_agents)
 
