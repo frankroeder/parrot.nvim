@@ -297,6 +297,18 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
+--- @param table table<string, any> # the table to check
+--- @param valid_keys string[] # valid key names to look for
+--- @return boolean # true if at least one valid key is found, false otherwise
+M.has_valid_key = function(table, valid_keys)
+  for _, key in ipairs(valid_keys) do
+    if table[key] ~= nil then
+      return true
+    end
+  end
+  return false
+end
+
 M.contains = function(table, val)
   for i = 1, #table do
     if table[i] == val then

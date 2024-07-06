@@ -50,7 +50,7 @@ end
 
 -- setup function
 M._setup_called = false
----@param opts table | nil # table with options
+---@param user_opts table | nil # table with options
 M.setup = function(user_opts)
   M._setup_called = true
 
@@ -62,99 +62,39 @@ M.setup = function(user_opts)
   math.randomseed(os.time())
 
   local default_opts = vim.deepcopy(config)
+  local valid_provider_names = vim.tbl_keys(default_opts.providers)
+
+  if not utils.has_valid_key(user_opts.providers, valid_provider_names) then
+    M.logger.error("Invalid provider configuration")
+    return false
+  end
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
   M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
-  M.agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  local agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  M.agents = cutils.index_agents_by_name(agents)
   M.hooks = M.config.hooks
 
-  -- make sure config director matching "*_dir" exist
+  -- Ensure config directories ending with "_dir" exist
   for k, v in pairs(M.config) do
-    if k:match("_dir$") and type(v) == "string" then
-      local dir = v:gsub("/$", "")
+    if type(v) == 'string' and k:match('_dir$') then
+      local dir = v:gsub('/$', '')
       M.config[k] = dir
-      if vim.fn.isdirectory(dir) == 0 then
-        vim.fn.mkdir(dir, "p")
-      end
+      vim.fn.mkdir(dir, 'p')
     end
   end
 
-  local function is_valid_provider(name, provider)
-    if type(provider) ~= "table" then
-      M.logger.warning(string.format("Removing provider %s: not a table", name))
-      return false
-    end
-    if not provider.endpoint then
-      M.logger.warning(string.format("Removing provider %s: endpoint missing or empty", name))
-      return false
-    end
-    if provider.api_key == "" then
-      M.logger.warning(string.format("Removing provider %s: api_key missing or empty", name))
-      return false
-    end
-    return true
-  end
+  M._available_providers = vim.tbl_keys(M.providers)
+  M._available_provider_agents = vim.tbl_map(function()
+    return {chat = {}, command = {}}
+  end, M.providers)
 
-  local filtered_providers = {}
-  for name, provider in pairs(M.providers) do
-    if is_valid_provider(name, provider) then
-      filtered_providers[name] = provider
-    else
-      M.logger.warning(string.format("Removing provider %s: invalid configuration", name))
+  for type, agts in pairs(M.agents) do
+    for agt_name, agt in pairs(agts) do
+      table.insert(M._available_provider_agents[agt.provider][type], agt_name)
     end
   end
-  M.providers = filtered_providers
 
-  local filter_valid_agents = function(agents, atype)
-    for name, agent in pairs(agents) do
-      if type(agent) ~= "table" then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. " because it is not a table")
-        agents[name] = nil
-      elseif not agent.provider then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", provider missing")
-        agents[name] = nil
-      elseif M.providers[agent.provider] == nil then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", invalid provider")
-        agents[name] = nil
-      elseif not agent.model then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", model missing")
-        agents[name] = nil
-      end
-    end
-    return agents
-  end
-
-  M.agents.chat = filter_valid_agents(M.agents.chat, "chat")
-  M.agents.command = filter_valid_agents(M.agents.command, "command")
-
-  M._chat_agents = {}
-  M._command_agents = {}
-  M._available_providers = {}
-  M._available_provider_agents = {}
-
-  for name, _ in pairs(M.agents.command) do
-    table.insert(M._command_agents, name)
-  end
-
-  for name, _ in pairs(M.agents.chat) do
-    table.insert(M._chat_agents, name)
-  end
-
-  for name, _ in pairs(M.providers) do
-    table.insert(M._available_providers, name)
-    M._available_provider_agents[name] = { chat = {}, command = {} }
-  end
-
-  for agt_name, agt in pairs(M.agents.chat) do
-    table.insert(M._available_provider_agents[agt.provider].chat, agt_name)
-  end
-
-  for agt_name, agt in pairs(M.agents.command) do
-    table.insert(M._available_provider_agents[agt.provider].command, agt_name)
-  end
-
-  table.sort(M._chat_agents)
-  table.sort(M._command_agents)
   table.sort(M._available_providers)
   table.sort(M._available_provider_agents)
 
