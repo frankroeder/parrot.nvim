@@ -62,17 +62,18 @@ M.setup = function(user_opts)
   math.randomseed(os.time())
 
   local default_opts = vim.deepcopy(config)
+  local valid_provider_names = vim.tbl_keys(default_opts.providers)
+
+  if not utils.has_valid_key(user_opts.providers, valid_provider_names) then
+    M.logger.error("Invalid provider configuration")
+    return false
+  end
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
   M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
   local agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
   M.agents = cutils.index_agents_by_name(agents)
   M.hooks = M.config.hooks
-
-  if next(M.providers) == nil then
-    M.logger.error("No providers configured")
-    return false
-  end
 
   -- make sure config director matching "*_dir" exist
   for k, v in pairs(M.config) do
