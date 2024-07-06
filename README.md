@@ -89,6 +89,7 @@ Let the parrot fix your bugs.
         mistral = {
           api_key = os.getenv "MISTRAL_API_KEY",
         },
+        ollama = {} -- provide an empty list to make provider available
       },
     }
   end,
