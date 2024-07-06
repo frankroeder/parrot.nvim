@@ -75,31 +75,24 @@ M.setup = function(user_opts)
   M.agents = cutils.index_agents_by_name(agents)
   M.hooks = M.config.hooks
 
-  -- make sure config director matching "*_dir" exist
+  -- Ensure config directories ending with "_dir" exist
   for k, v in pairs(M.config) do
-    if k:match("_dir$") and type(v) == "string" then
-      local dir = v:gsub("/$", "")
+    if type(v) == 'string' and k:match('_dir$') then
+      local dir = v:gsub('/$', '')
       M.config[k] = dir
-      if vim.fn.isdirectory(dir) == 0 then
-        vim.fn.mkdir(dir, "p")
-      end
+      vim.fn.mkdir(dir, 'p')
     end
   end
 
-  M._available_providers = {}
-  M._available_provider_agents = {}
+  M._available_providers = vim.tbl_keys(M.providers)
+  M._available_provider_agents = vim.tbl_map(function()
+    return {chat = {}, command = {}}
+  end, M.providers)
 
-  for name, _ in pairs(M.providers) do
-    table.insert(M._available_providers, name)
-    M._available_provider_agents[name] = { chat = {}, command = {} }
-  end
-
-  for agt_name, agt in pairs(M.agents.chat) do
-    table.insert(M._available_provider_agents[agt.provider].chat, agt_name)
-  end
-
-  for agt_name, agt in pairs(M.agents.command) do
-    table.insert(M._available_provider_agents[agt.provider].command, agt_name)
+  for type, agts in pairs(M.agents) do
+    for agt_name, agt in pairs(agts) do
+      table.insert(M._available_provider_agents[agt.provider][type], agt_name)
+    end
   end
 
   table.sort(M._available_providers)
