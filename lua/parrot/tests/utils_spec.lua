@@ -12,7 +12,9 @@ describe("utils", function()
   describe("once", function()
     it("should only call the function once", function()
       local count = 0
-      local increment = utils.once(function() count = count + 1 end)
+      local increment = utils.once(function()
+        count = count + 1
+      end)
       increment()
       increment()
       increment()
@@ -25,7 +27,7 @@ describe("utils", function()
       local original_nvim_feedkeys = vim.api.nvim_feedkeys
       local called_with = {}
       vim.api.nvim_feedkeys = function(keys, mode, escape)
-        called_with = {keys = keys, mode = mode, escape = escape}
+        called_with = { keys = keys, mode = mode, escape = escape }
       end
 
       utils.feedkeys("iHello<Esc>", "n")
@@ -33,7 +35,7 @@ describe("utils", function()
       assert.are.same({
         keys = vim.api.nvim_replace_termcodes("iHello<Esc>", true, false, true),
         mode = "n",
-        escape = true
+        escape = true,
       }, called_with)
 
       vim.api.nvim_feedkeys = original_nvim_feedkeys
@@ -64,41 +66,41 @@ describe("utils", function()
 
   describe("prepare_payload", function()
     it("should prepare payload with string model", function()
-      local messages = {{"role", "user", "content", "Hello"}}
+      local messages = { { "role", "user", "content", "Hello" } }
       local model = "gpt-3.5-turbo"
       local result = utils.prepare_payload(messages, model)
       assert.are.same({
         messages = messages,
         stream = true,
-        model = "gpt-3.5-turbo"
+        model = "gpt-3.5-turbo",
       }, result)
     end)
 
     it("should prepare payload with table model", function()
-      local messages = {{"role", "user", "content", "Hello"}}
-      local model = {model = "gpt-4", temperature = 0.7, top_p = 0.9}
+      local messages = { { "role", "user", "content", "Hello" } }
+      local model = { model = "gpt-4", temperature = 0.7, top_p = 0.9 }
       local result = utils.prepare_payload(messages, model)
       assert.are.same({
         messages = messages,
         stream = true,
         model = "gpt-4",
         temperature = 0.7,
-        top_p = 0.9
+        top_p = 0.9,
       }, result)
     end)
   end)
 
   describe("has_valid_key", function()
     it("should return true if table has at least one valid key", function()
-      local table = {a = 1, b = 2, c = 3}
-      assert.is_true(utils.has_valid_key(table, {"b", "d", "e"}))
-      assert.is_false(utils.has_valid_key(table, {"d", "e", "f"}))
+      local table = { a = 1, b = 2, c = 3 }
+      assert.is_true(utils.has_valid_key(table, { "b", "d", "e" }))
+      assert.is_false(utils.has_valid_key(table, { "d", "e", "f" }))
     end)
   end)
 
   describe("contains", function()
     it("should return true if table contains the value", function()
-      local table = {1, 2, 3, 4, 5}
+      local table = { 1, 2, 3, 4, 5 }
       assert.is_true(utils.contains(table, 3))
       assert.is_false(utils.contains(table, 6))
     end)

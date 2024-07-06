@@ -1,7 +1,6 @@
 local ui = require("parrot.ui")
 
 describe("ui", function()
-
   describe("template_replace", function()
     it("should replace key with value in template", function()
       local template = "Hello {{name}}!"
@@ -17,7 +16,7 @@ describe("ui", function()
 
     it("should handle table values", function()
       local template = "Items: {{items}}"
-      local result = ui.template_replace(template, "{{items}}", {"apple", "banana", "cherry"})
+      local result = ui.template_replace(template, "{{items}}", { "apple", "banana", "cherry" })
       assert.are.equal("Items: apple\nbanana\ncherry", result)
     end)
   end)
@@ -28,7 +27,7 @@ describe("ui", function()
       local key_value_pairs = {
         ["{{greeting}}"] = "Hello",
         ["{{name}}"] = "Alice",
-        ["{{age}}"] = "30"
+        ["{{age}}"] = "30",
       }
       local result = ui.template_render(template, key_value_pairs)
       assert.are.equal("Hello Alice! You are 30 years old.", result)
@@ -42,7 +41,9 @@ describe("ui", function()
 
   describe("create_popup", function()
     it("should create a popup window", function()
-      local buf, win, close, resize = ui.create_popup(nil, "Test Popup", function() return 50, 10, 5, 10 end)
+      local buf, win, close, resize = ui.create_popup(nil, "Test Popup", function()
+        return 50, 10, 5, 10
+      end)
       assert.is_not_nil(buf)
       assert.is_not_nil(win)
       assert.is_function(close)

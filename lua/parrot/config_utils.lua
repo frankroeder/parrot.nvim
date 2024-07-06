@@ -3,7 +3,7 @@ local M = {}
 M.merge_providers = function(default_providers, user_providers)
   local result = {}
   for provider, config in pairs(user_providers) do
-    result[provider] = vim.tbl_deep_extend('force', default_providers[provider] or {}, config)
+    result[provider] = vim.tbl_deep_extend("force", default_providers[provider] or {}, config)
   end
   return result
 end

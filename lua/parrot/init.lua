@@ -77,16 +77,16 @@ M.setup = function(user_opts)
 
   -- Create directories for all config entries ending with "_dir"
   for k, v in pairs(M.config) do
-    if type(v) == 'string' and k:match('_dir$') then
-      local dir = v:gsub('/$', '')
+    if type(v) == "string" and k:match("_dir$") then
+      local dir = v:gsub("/$", "")
       M.config[k] = dir
-      vim.fn.mkdir(dir, 'p')
+      vim.fn.mkdir(dir, "p")
     end
   end
 
   M._available_providers = vim.tbl_keys(M.providers)
   M._available_provider_agents = vim.tbl_map(function()
-    return {chat = {}, command = {}}
+    return { chat = {}, command = {} }
   end, M.providers)
 
   for type, agts in pairs(M.agents) do
@@ -107,7 +107,7 @@ M.setup = function(user_opts)
   for hook, _ in pairs(M.hooks) do
     vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
       M.call_hook(hook, params)
-    end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
+    end, { nargs = "?", range = true, desc = "Parrot LLM plugin" })
   end
 
   local completions = {
@@ -125,7 +125,7 @@ M.setup = function(user_opts)
       end, {
         nargs = "?",
         range = true,
-        desc = "GPT Prompt plugin",
+        desc = "Parrot LLM plugin",
         complete = function()
           if completions[cmd] then
             return completions[cmd]
@@ -539,13 +539,13 @@ M.prep_chat = function(buf, file_name)
       command = "ChatRespond",
       modes = M.config.chat_shortcut_respond.modes,
       shortcut = M.config.chat_shortcut_respond.shortcut,
-      comment = "GPT prompt Chat Respond",
+      comment = "Parrot Chat Respond",
     },
     {
       command = "ChatNew",
       modes = M.config.chat_shortcut_new.modes,
       shortcut = M.config.chat_shortcut_new.shortcut,
-      comment = "GPT prompt Chat New",
+      comment = "Parrot Chat New",
     },
   }
   for _, rc in ipairs(range_commands) do
@@ -565,10 +565,10 @@ M.prep_chat = function(buf, file_name)
   end
 
   local ds = M.config.chat_shortcut_delete
-  utils.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+  utils.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "Parrot Chat Delete")
 
   local ss = M.config.chat_shortcut_stop
-  utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
+  utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "Parrot Chat Stop")
 
   -- conceal parameters in model header so it's not distracting
   if M.config.chat_conceal_model_params then

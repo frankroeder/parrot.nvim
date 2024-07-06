@@ -14,7 +14,7 @@ describe("Pool", function()
       local job = { pid = 1 }
       local buf = 10
       pool:add(job, buf)
-      assert.are.same({{ job = job, buf = buf }}, pool._processes)
+      assert.are.same({ { job = job, buf = buf } }, pool._processes)
     end)
   end)
 
@@ -45,7 +45,7 @@ describe("Pool", function()
       pool:add(job1, 10)
       pool:add(job2, 20)
       pool:remove(1)
-      assert.are.same({{ job = job2, buf = 20 }}, pool._processes)
+      assert.are.same({ { job = job2, buf = 20 } }, pool._processes)
     end)
   end)
 

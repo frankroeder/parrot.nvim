@@ -45,8 +45,8 @@ describe("config_utils", function()
     end)
   end)
 
-  describe('merge_agent_type', function()
-    it('should merge default and user agents', function()
+  describe("merge_agent_type", function()
+    it("should merge default and user agents", function()
       local default_agents = {
         {
           name = "ChatGPT4",
@@ -82,7 +82,7 @@ describe("config_utils", function()
         },
       }
       local user_providers = {
-        openai = { api_key = '123' },
+        openai = { api_key = "123" },
       }
 
       local result = config_utils.merge_agent_type(default_agents, user_agents, user_providers)
