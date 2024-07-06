@@ -75,7 +75,7 @@ M.setup = function(user_opts)
   M.agents = cutils.index_agents_by_name(agents)
   M.hooks = M.config.hooks
 
-  -- Ensure config directories ending with "_dir" exist
+  -- Create directories for all config entries ending with "_dir"
   for k, v in pairs(M.config) do
     if type(v) == 'string' and k:match('_dir$') then
       local dir = v:gsub('/$', '')
