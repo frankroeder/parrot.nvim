@@ -19,6 +19,12 @@ local config = {
       topic_prompt = topic_prompt,
       topic_model = "gpt-3.5-turbo",
     },
+    gemini = {
+      api_key = "",
+      endpoint = "https://generativelanguage.googleapis.com/v1beta/models/",
+      topic_prompt = topic_prompt,
+      topic_model = "gemini-1.5-flash",
+    },
     ollama = {
       endpoint = "http://localhost:11434/api/chat",
       topic_prompt = [[

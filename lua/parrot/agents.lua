@@ -80,6 +80,22 @@ local openai_chat_agents = {
   },
 }
 
+local gemini_chat_agents = {
+  {
+    name = "Gemini-1.5-Flash-Chat",
+    model = { model = "gemini-1.5-flash", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "gemini",
+  },
+  {
+    name = "Gemini-1.5-Pro-Chat",
+    model = { model = "gemini-1.5-pro", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "gemini",
+  },
+}
+
+
 local pplx_chat_agents = {
   {
     name = "Llama3-Sonar-Small-32k-Chat",
@@ -250,6 +266,22 @@ local openai_command_agents = {
   },
 }
 
+local gemini_command_agents = {
+  {
+    name = "Gemini-1.5-Flash",
+    model = { model = "gemini-1.5-flash", temperature = 1.1, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "gemini",
+  },
+  {
+    name = "Gemini-1.5-Pro",
+    model = { model = "gemini-1.5-pro", temperature = 1.1, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "gemini",
+  },
+}
+
+
 local pplx_command_agents = {
   {
     name = "Llama3-Sonar-Small-32k--Online",
@@ -363,6 +395,9 @@ end
 for _, agent in ipairs(openai_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
+for _, agent in ipairs(gemini_chat_agents) do
+  table.insert(M.chat_agents, agent)
+end
 for _, agent in ipairs(pplx_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
@@ -378,6 +413,9 @@ for _, agent in ipairs(ollama_command_agents) do
   table.insert(M.command_agents, agent)
 end
 for _, agent in ipairs(openai_command_agents) do
+  table.insert(M.command_agents, agent)
+end
+for _, agent in ipairs(gemini_command_agents) do
   table.insert(M.command_agents, agent)
 end
 for _, agent in ipairs(pplx_command_agents) do

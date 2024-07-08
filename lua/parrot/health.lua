@@ -69,6 +69,7 @@ function M.check()
       vim.health.error("require('parrot').setup() has not been called")
     end
     check_provider(parrot, "openai")
+    check_provider(parrot, "gemini")
     check_provider(parrot, "ollama")
     check_provider(parrot, "pplx")
     check_provider(parrot, "mistral")
