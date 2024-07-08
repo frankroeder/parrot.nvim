@@ -47,7 +47,7 @@ describe("State", function()
 
       local state = State:new("/tmp")
 
-      assert.are.same("/tmp/parrot_test_state.json", state.state_file)
+      assert.are.same("/tmp/state.json", state.state_file)
       assert.are.same({
         ollama = {
           command_agent = "Gemma-7B",
@@ -79,7 +79,7 @@ describe("State", function()
 
       local state = State:new("/tmp")
 
-      assert.are.same("/tmp/parrot_test_state.json", state.state_file)
+      assert.are.same("/tmp/state.json", state.state_file)
       assert.are.same({}, state.file_state)
       assert.are.same({}, state._state)
     end)
@@ -162,6 +162,31 @@ describe("State", function()
         provider = "ollama",
       }, state._state)
     end)
+
+    it("should switch to default provider, if previous state provider gets unavailable", function()
+      local state = State:new("/tmp")
+      state.file_state = {
+        provider = "anthropic",
+        anthropic = { command_agent = "Claude-3-Haiku", chat_agent = "Claude-3-Haiku-Chat" },
+        openai = { command_agent = "CodeGPT3.5", chat_agent = "ChatGPT3.5" },
+        ollama = { command_agent = "Llama2-13B", chat_agent = "Llama2-13B" },
+      }
+
+      local available_providers = { "ollama", "openai" }
+      local available_agents = {
+        ollama = { chat = { "Gemma-7B" }, command = { "Gemma-7B" } },
+        openai = { chat = { "ChatGPT4" }, command = { "CodeGPT4o" } },
+        provider = "anthropic",
+      }
+
+      state:refresh(available_providers, available_agents)
+
+      assert.are.same({
+        ollama = { chat_agent = "Gemma-7B", command_agent = "Gemma-7B" },
+        openai = { chat_agent = "ChatGPT4", command_agent = "CodeGPT4o" },
+        provider = "ollama",
+      }, state._state)
+    end)
   end)
 
   describe("save", function()
@@ -198,7 +223,7 @@ describe("State", function()
 
       assert
         .stub(require("parrot.file_utils").table_to_file)
-        .was_called_with(state._state, "/tmp/parrot_test_state.json")
+        .was_called_with(state._state, "/tmp/state.json")
     end)
   end)
 

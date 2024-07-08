@@ -65,6 +65,10 @@ function State:refresh(available_providers, available_provider_agents)
     self:load_agents(provider, "command_agent", available_provider_agents)
   end
   self._state.provider = self._state.provider or self.file_state.provider or available_providers[1]
+  -- if the previous provider is not unavailable, switch to default provider
+  if not utils.contains(available_providers, self._state.provider) then
+    self._state.provider = available_providers[1]
+  end
   self:save()
 end
 
