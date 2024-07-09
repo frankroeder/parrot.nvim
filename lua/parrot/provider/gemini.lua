@@ -24,7 +24,7 @@ end
 
 function Gemini:curl_params()
   return {
-    self.endpoint .. self._model .. ":streamGenerateContent",
+    self.endpoint .. self._model .. ":streamGenerateContent?alt=sse",
     "-H",
     "x-goog-api-key: " .. self.api_key,
     "-X",
