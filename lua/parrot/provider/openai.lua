@@ -35,7 +35,7 @@ end
 
 function OpenAI:set_model(_) end
 
-function OpenAI:adjust_payload(payload)
+function OpenAI:preprocess_payload(payload)
   -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")

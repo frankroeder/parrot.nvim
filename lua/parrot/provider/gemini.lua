@@ -32,7 +32,7 @@ function Gemini:curl_params()
   }
 end
 
-function Gemini:adjust_payload(payload)
+function Gemini:preprocess_payload(payload)
   payload.model = nil
   payload.stream = nil
   payload.temperature = nil

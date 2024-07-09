@@ -24,7 +24,7 @@ end
 
 function Mistral:set_model(_) end
 
-function Mistral:adjust_payload(payload)
+function Mistral:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end

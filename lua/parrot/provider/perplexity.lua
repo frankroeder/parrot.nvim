@@ -23,7 +23,7 @@ end
 
 function Perplexity:set_model(_) end
 
-function Perplexity:adjust_payload(payload)
+function Perplexity:preprocess_payload(payload)
   -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")

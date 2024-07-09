@@ -253,7 +253,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
   queries:cleanup(8, 60)
 
   local curl_params = vim.deepcopy(M.config.curl_params or {})
-  payload = provider:adjust_payload(payload)
+  payload = provider:preprocess_payload(payload)
   local args = {
     "--no-buffer",
     "--silent",
