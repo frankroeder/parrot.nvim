@@ -22,6 +22,12 @@ function Mistral:new(endpoint, api_key)
   }, self)
 end
 
+function Mistral:set_model(_) end
+
+function Mistral:adjust_payload(payload)
+  return payload
+end
+
 function Mistral:curl_params()
   return {
     self.endpoint,
@@ -43,6 +49,10 @@ function Mistral:verify()
 end
 
 function Mistral:preprocess_messages(messages)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return messages
 end
 

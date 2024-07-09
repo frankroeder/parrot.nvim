@@ -253,6 +253,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
   queries:cleanup(8, 60)
 
   local curl_params = vim.deepcopy(M.config.curl_params or {})
+  payload = provider:adjust_payload(payload)
   local args = {
     "--no-buffer",
     "--silent",
@@ -1021,19 +1022,19 @@ M.chat_respond = function(params)
   end
 
   messages = prov:preprocess_messages(messages)
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
 
   -- write assistant prompt
   local last_content_line = utils.last_content_line(buf)
   vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
+  local query_prov =
+    init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key)
+  query_prov:set_model(agent.model)
+
   -- call the model and write response
   M.query(
     buf,
-    init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key),
+    query_prov,
     utils.prepare_payload(messages, headers.model, agent.model),
     M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
     vim.schedule_wrap(function(qid)
@@ -1071,6 +1072,7 @@ M.chat_respond = function(params)
         if topic_prompt ~= "" then
           table.insert(messages, { role = "user", content = topic_prompt })
         end
+        messages = prov:preprocess_messages(messages)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)
@@ -1078,6 +1080,7 @@ M.chat_respond = function(params)
 
         local topic_prov = M.get_provider()
         topic_prov:check({ model = M.providers[topic_prov.name].topic_model })
+        topic_prov:set_model(M.providers[topic_prov.name].topic_model)
 
         -- call the model
         M.query(
@@ -1688,6 +1691,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
 
     -- call the model and write the response
     local agent = M.get_command_agent()
+    prov:set_model(agent.model)
     M.query(
       buf,
       prov,

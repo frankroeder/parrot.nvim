@@ -33,6 +33,12 @@ function OpenAI:new(endpoint, api_key)
   }, self)
 end
 
+function OpenAI:set_model(_) end
+
+function OpenAI:adjust_payload(payload)
+  return payload
+end
+
 function OpenAI:curl_params()
   return {
     self.endpoint,
@@ -61,10 +67,15 @@ function OpenAI:add_system_prompt(messages, sys_prompt)
   if sys_prompt ~= "" then
     table.insert(messages, { role = "system", content = sys_prompt })
   end
+  -- strip whitespace from ends of content
+  for _, message in ipairs(messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return messages
 end
 
 function OpenAI:process(line)
+  print("LINE", vim.inspect(line))
   if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
     line = vim.json.decode(line)
     return line.choices[1].delta.content
