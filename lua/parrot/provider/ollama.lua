@@ -13,8 +13,7 @@ function Ollama:new(endpoint, api_key)
   }, self)
 end
 
-function Ollama:set_model(_)
-end
+function Ollama:set_model(_) end
 
 function Ollama:adjust_payload(payload)
   return payload
@@ -29,6 +28,10 @@ function Ollama:verify()
 end
 
 function Ollama:preprocess_messages(messages)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return messages
 end
 

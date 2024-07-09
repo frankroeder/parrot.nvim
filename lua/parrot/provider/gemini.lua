@@ -13,7 +13,7 @@ function Gemini:new(endpoint, api_key)
     endpoint = endpoint,
     api_key = api_key,
     name = "gemini",
-    _model= nil,
+    _model = nil,
   }, self)
 end
 
@@ -42,21 +42,17 @@ function Gemini:adjust_payload(payload)
 
   for _, message in ipairs(payload.messages) do
     -- restrive system prompt from messages and inject it into the payload
+    -- remove this message
     if message.role == "system" then
-      payload.system_instruction = { parts = { text = message.content } }
-    else
-      local _role = ""
-      if message.role == "assistant" then
-        _role = "model"
-      else
-        _role = message.role
+      if message.parts and message.parts.text then
+        payload.system_instruction = { parts = { text = message.parts.text:gsub("^%s*(.-)%s*$", "%1") } }
       end
-      table.insert(new_messages, { parts = { { text = message.content } }, role = _role })
+    else
+      table.insert(new_messages, message)
     end
   end
-  payload.contents = new_messages
+  payload.contents = vim.deepcopy(new_messages)
   payload.messages = nil
-  -- print("NEW PAYLOAD", vim.inspect(payload))
   return payload
 end
 
@@ -73,19 +69,17 @@ function Gemini:verify()
 end
 
 function Gemini:preprocess_messages(messages)
-	-- local new_messages = {}
- --  for _, message in ipairs(messages) do
- --  	local _role = ""
-	-- 	if message.role == "assistant" then
-	-- 		_role = "model"
-	-- 	else
-	-- 		_role = message.role
-	-- 	end
-	-- 	table.insert(new_messages, { parts = { { text = message.text } }, role = _role })
-	-- end
-	-- print("messages", vim.inspect(new_messages))
-  -- return new_messages
-  return messages
+  local new_messages = {}
+  for _, message in ipairs(messages) do
+    local _role = ""
+    if message.role == "assistant" then
+      _role = "model"
+    else
+      _role = message.role
+    end
+    table.insert(new_messages, { parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } }, role = _role })
+  end
+  return new_messages
 end
 
 function Gemini:add_system_prompt(messages, _)

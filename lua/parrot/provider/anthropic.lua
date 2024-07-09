@@ -18,8 +18,7 @@ function Anthropic:new(endpoint, api_key)
   }, self)
 end
 
-function Anthropic:set_model(_)
-end
+function Anthropic:set_model(_) end
 
 function Anthropic:adjust_payload(payload)
   return payload
@@ -51,6 +50,11 @@ function Anthropic:preprocess_messages(messages)
   -- remove the first message that serves as the system prompt as anthropic
   -- expects the system prompt to be part of the curl request and not the messages
   table.remove(messages, 1)
+
+  -- strip whitespace from ends of content
+  for _, message in ipairs(messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return messages
 end
 
