@@ -13,12 +13,18 @@ function Gemini:new(endpoint, api_key)
     endpoint = endpoint,
     api_key = api_key,
     name = "gemini",
+    _model= "",
   }, self)
+end
+
+function Gemini:set_model(model)
+  local _model = type(model) == "string" and model or model.model
+  self._mode = _model
 end
 
 function Gemini:curl_params()
   return {
-    self.endpoint .. self._model .. ":streamGenerateContent?key=",
+    self.endpoint .. self._model .. ":streamGenerateContent",
     "-H",
     "x-goog-api-key: " .. self.api_key,
     "-X",
@@ -35,10 +41,11 @@ function Gemini:adjust_payload(payload)
   local new_messages = {}
 
   for _, message in ipairs(payload.messages) do
-    local _role = ""
+    -- restrive system prompt from messages and inject it into the payload
     if message.role == "system" then
       payload.system_instruction = { parts = { text = message.content } }
     else
+      local _role = ""
       if message.role == "assistant" then
         _role = "model"
       else
@@ -66,6 +73,18 @@ function Gemini:verify()
 end
 
 function Gemini:preprocess_messages(messages)
+	-- local new_messages = {}
+ --  for _, message in ipairs(messages) do
+ --  	local _role = ""
+	-- 	if message.role == "assistant" then
+	-- 		_role = "model"
+	-- 	else
+	-- 		_role = message.role
+	-- 	end
+	-- 	table.insert(new_messages, { parts = { { text = message.text } }, role = _role })
+	-- end
+	-- print("messages", vim.inspect(new_messages))
+  -- return new_messages
   return messages
 end
 
@@ -78,7 +97,7 @@ function Gemini:process(line)
   local pattern = '"text":%s*"(.-)"\'?'
   if line:match("tex") then
     -- print("LINE MATCH", vim.inspect(line))
-    match = line:match(pattern)
+    local match = line:match(pattern)
     -- print("RAW", match)
     if match then
       match = match:gsub("\\n", "\n")

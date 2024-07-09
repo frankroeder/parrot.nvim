@@ -21,6 +21,9 @@ function Perplexity:new(endpoint, api_key)
   }, self)
 end
 
+function Perplexity:set_model(_)
+end
+
 function Perplexity:adjust_payload(payload)
   return payload
 end

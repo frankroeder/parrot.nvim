@@ -22,6 +22,9 @@ function Mistral:new(endpoint, api_key)
   }, self)
 end
 
+function Mistral:set_model(_)
+end
+
 function Mistral:adjust_payload(payload)
   return payload
 end

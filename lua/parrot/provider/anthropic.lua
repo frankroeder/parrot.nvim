@@ -18,6 +18,9 @@ function Anthropic:new(endpoint, api_key)
   }, self)
 end
 
+function Anthropic:set_model(_)
+end
+
 function Anthropic:adjust_payload(payload)
   return payload
 end

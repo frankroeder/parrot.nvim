@@ -33,6 +33,9 @@ function OpenAI:new(endpoint, api_key)
   }, self)
 end
 
+function OpenAI:set_model(_)
+end
+
 function OpenAI:adjust_payload(payload)
   return payload
 end
@@ -69,6 +72,7 @@ function OpenAI:add_system_prompt(messages, sys_prompt)
 end
 
 function OpenAI:process(line)
+  print("LINE", vim.inspect(line))
   if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
     line = vim.json.decode(line)
     return line.choices[1].delta.content

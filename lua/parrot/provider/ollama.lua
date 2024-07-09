@@ -13,6 +13,9 @@ function Ollama:new(endpoint, api_key)
   }, self)
 end
 
+function Ollama:set_model(_)
+end
+
 function Ollama:adjust_payload(payload)
   return payload
 end
