@@ -1,5 +1,6 @@
 local config = require("parrot.config")
 local utils = require("parrot.utils")
+local cutils = require("parrot.config_utils")
 local futils = require("parrot.file_utils")
 local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
@@ -45,161 +46,55 @@ end
 --------------------------------------------------------------------------------
 -- Module helper functions and variables
 --------------------------------------------------------------------------------
+---
 
 -- setup function
 M._setup_called = false
----@param opts table | nil # table with options
-M.setup = function(opts)
+---@param user_opts table | nil # table with options
+M.setup = function(user_opts)
   M._setup_called = true
+
+  if type(user_opts) ~= "table" then
+    M.logger.error(string.format("setup() expects table, but got %s", type(user_opts)))
+    return
+  end
 
   math.randomseed(os.time())
 
-  -- make sure opts is a table
-  opts = opts or {}
-  if type(opts) ~= "table" then
-    M.logger.error(string.format("setup() expects table, but got %s:\n%s", type(opts), vim.inspect(opts)))
-    opts = {}
+  local default_opts = vim.deepcopy(config)
+  local valid_provider_names = vim.tbl_keys(default_opts.providers)
+
+  if not utils.has_valid_key(user_opts.providers, valid_provider_names) then
+    M.logger.error("Invalid provider configuration")
+    return false
   end
 
-  -- copy default config
-  M.config = vim.deepcopy(config)
+  M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
+  M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
+  local agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
+  M.agents = cutils.index_agents_by_name(agents)
+  M.hooks = M.config.hooks
 
-  -- merge nested tables
-  local mergeTables = { "hooks", "agents", "providers" }
-  local mergeAgentTables = { "chat", "command" }
-
-  for _, tbl in ipairs(mergeTables) do
-    -- copy default config into module
-    M[tbl] = M[tbl] or {}
-    ---@diagnostic disable-next-line: param-type-mismatch
-    for k, v in pairs(M.config[tbl]) do
-      if tbl == "hooks" or tbl == "providers" then
-        M[tbl][k] = v
-      elseif tbl == "agents" then
-        for _, _tbl in ipairs(mergeAgentTables) do
-          ---@diagnostic disable-next-line: param-type-mismatch
-          for _, _v in pairs(M.config[tbl][_tbl]) do
-            M[tbl][_tbl][_v.name] = _v
-          end
-        end
-      end
-    end
-    -- reset module config
-    M.config[tbl] = nil
-
-    -- read setup options and merge them with module
-    opts[tbl] = opts[tbl] or {}
-    for k, v in pairs(opts[tbl]) do
-      if tbl == "hooks" then
-        M[tbl][k] = v
-      elseif tbl == "providers" then
-        M[tbl][k] = M[tbl][k] or {}
-        for pk, pv in pairs(v) do
-          M[tbl][k][pk] = pv
-        end
-        if next(v) == nil then
-          M[tbl][k] = nil
-        end
-      elseif tbl == "agents" then
-        for _, _v in pairs(v) do
-          M[tbl][k][_v.name] = _v
-        end
-      end
-    end
-    opts[tbl] = nil
-  end
-
-  for k, v in pairs(opts) do
-    M.config[k] = v
-  end
-
-  -- make sure config director matching "*_dir" exist
+  -- Create directories for all config entries ending with "_dir"
   for k, v in pairs(M.config) do
-    if k:match("_dir$") and type(v) == "string" then
+    if type(v) == "string" and k:match("_dir$") then
       local dir = v:gsub("/$", "")
       M.config[k] = dir
-      if vim.fn.isdirectory(dir) == 0 then
-        vim.fn.mkdir(dir, "p")
-      end
+      vim.fn.mkdir(dir, "p")
     end
   end
 
-  local function is_valid_provider(name, provider)
-    if type(provider) ~= "table" then
-      M.logger.warning(string.format("Removing provider %s: not a table", name))
-      return false
-    end
-    if not provider.endpoint then
-      M.logger.warning(string.format("Removing provider %s: endpoint missing or empty", name))
-      return false
-    end
-    if provider.api_key == "" then
-      M.logger.warning(string.format("Removing provider %s: api_key missing or empty", name))
-      return false
-    end
-    return true
-  end
+  M._available_providers = vim.tbl_keys(M.providers)
+  M._available_provider_agents = vim.tbl_map(function()
+    return { chat = {}, command = {} }
+  end, M.providers)
 
-  local filtered_providers = {}
-  for name, provider in pairs(M.providers) do
-    if is_valid_provider(name, provider) then
-      filtered_providers[name] = provider
-    else
-      M.logger.warning(string.format("Removing provider %s: invalid configuration", name))
+  for type, agts in pairs(M.agents) do
+    for agt_name, agt in pairs(agts) do
+      table.insert(M._available_provider_agents[agt.provider][type], agt_name)
     end
   end
-  M.providers = filtered_providers
 
-  local filter_valid_agents = function(agents, atype)
-    for name, agent in pairs(agents) do
-      if type(agent) ~= "table" then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. " because it is not a table")
-        agents[name] = nil
-      elseif not agent.provider then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", provider missing")
-        agents[name] = nil
-      elseif M.providers[agent.provider] == nil then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", invalid provider")
-        agents[name] = nil
-      elseif not agent.model then
-        M.logger.warning("Removing " .. atype .. " agent " .. name .. ", model missing")
-        agents[name] = nil
-      end
-    end
-    return agents
-  end
-
-  M.agents.chat = filter_valid_agents(M.agents.chat, "chat")
-  M.agents.command = filter_valid_agents(M.agents.command, "command")
-
-  M._chat_agents = {}
-  M._command_agents = {}
-  M._available_providers = {}
-  M._available_provider_agents = {}
-
-  for name, _ in pairs(M.agents.command) do
-    table.insert(M._command_agents, name)
-  end
-
-  for name, _ in pairs(M.agents.chat) do
-    table.insert(M._chat_agents, name)
-  end
-
-  for name, _ in pairs(M.providers) do
-    table.insert(M._available_providers, name)
-    M._available_provider_agents[name] = { chat = {}, command = {} }
-  end
-
-  for agt_name, agt in pairs(M.agents.chat) do
-    table.insert(M._available_provider_agents[agt.provider].chat, agt_name)
-  end
-
-  for agt_name, agt in pairs(M.agents.command) do
-    table.insert(M._available_provider_agents[agt.provider].command, agt_name)
-  end
-
-  table.sort(M._chat_agents)
-  table.sort(M._command_agents)
   table.sort(M._available_providers)
   table.sort(M._available_provider_agents)
 
@@ -212,7 +107,7 @@ M.setup = function(opts)
   for hook, _ in pairs(M.hooks) do
     vim.api.nvim_create_user_command(M.config.cmd_prefix .. hook, function(params)
       M.call_hook(hook, params)
-    end, { nargs = "?", range = true, desc = "GPT Prompt plugin" })
+    end, { nargs = "?", range = true, desc = "Parrot LLM plugin" })
   end
 
   local completions = {
@@ -230,7 +125,7 @@ M.setup = function(opts)
       end, {
         nargs = "?",
         range = true,
-        desc = "GPT Prompt plugin",
+        desc = "Parrot LLM plugin",
         complete = function()
           if completions[cmd] then
             return completions[cmd]
@@ -645,13 +540,13 @@ M.prep_chat = function(buf, file_name)
       command = "ChatRespond",
       modes = M.config.chat_shortcut_respond.modes,
       shortcut = M.config.chat_shortcut_respond.shortcut,
-      comment = "GPT prompt Chat Respond",
+      comment = "Parrot Chat Respond",
     },
     {
       command = "ChatNew",
       modes = M.config.chat_shortcut_new.modes,
       shortcut = M.config.chat_shortcut_new.shortcut,
-      comment = "GPT prompt Chat New",
+      comment = "Parrot Chat New",
     },
   }
   for _, rc in ipairs(range_commands) do
@@ -671,10 +566,10 @@ M.prep_chat = function(buf, file_name)
   end
 
   local ds = M.config.chat_shortcut_delete
-  utils.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "GPT prompt Chat Delete")
+  utils.set_keymap({ buf }, ds.modes, ds.shortcut, M.cmd.ChatDelete, "Parrot Chat Delete")
 
   local ss = M.config.chat_shortcut_stop
-  utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "GPT prompt Chat Stop")
+  utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "Parrot Chat Stop")
 
   -- conceal parameters in model header so it's not distracting
   if M.config.chat_conceal_model_params then
@@ -1177,6 +1072,7 @@ M.chat_respond = function(params)
         if topic_prompt ~= "" then
           table.insert(messages, { role = "user", content = topic_prompt })
         end
+        messages = prov:preprocess_messages(messages)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)

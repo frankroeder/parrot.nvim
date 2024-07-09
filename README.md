@@ -68,7 +68,7 @@ Let the parrot fix your bugs.
 ```lua
 {
   "frankroeder/parrot.nvim",
-  tag = "v0.3.2",
+  tag = "v0.3.3",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   config = function()
     require("parrot").setup {
@@ -93,6 +93,7 @@ Let the parrot fix your bugs.
         gemini = {
           api_key = os.getenv "GEMINI_API_KEY",
         },
+        ollama = {} -- provide an empty list to make provider available
       },
     }
   end,

@@ -77,7 +77,9 @@ function Gemini:preprocess_messages(messages)
     else
       _role = message.role
     end
-    table.insert(new_messages, { parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } }, role = _role })
+    if message.content then
+      table.insert(new_messages, { parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } }, role = _role })
+    end
   end
   return new_messages
 end
