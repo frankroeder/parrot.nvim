@@ -64,8 +64,6 @@ local config = {
   chat_user_prefix = "🗨:",
   -- explicitly confirm deletion of a chat file
   chat_confirm_delete = true,
-  -- conceal model parameters in chat
-  chat_conceal_model_params = true,
   -- local shortcuts bound to the chat buffer
   -- (be careful to choose something which will work across specified modes)
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },

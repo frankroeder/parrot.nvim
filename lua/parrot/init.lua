@@ -570,16 +570,6 @@ M.prep_chat = function(buf, file_name)
   local ss = M.config.chat_shortcut_stop
   utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "Parrot Chat Stop")
 
-  -- conceal parameters in model header so it's not distracting
-  if M.config.chat_conceal_model_params then
-    vim.opt_local.conceallevel = 2
-    vim.opt_local.concealcursor = ""
-    vim.fn.matchadd("Conceal", [[^- model: .*model.:.[^"]*\zs".*\ze]], 10, -1, { conceal = "…" })
-    vim.fn.matchadd("Conceal", [[^- model: \zs.*model.:.\ze.*]], 10, -1, { conceal = "…" })
-    vim.fn.matchadd("Conceal", [[^- role: .\{64,64\}\zs.*\ze]], 10, -1, { conceal = "…" })
-    vim.fn.matchadd("Conceal", [[^- role: .[^\\]*\zs\\.*\ze]], 10, -1, { conceal = "…" })
-  end
-
   -- make last.md a symlink to the last opened chat file
   local last = M.config.chat_dir .. "/last.md"
   if file_name ~= last then
