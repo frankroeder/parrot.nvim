@@ -13,13 +13,13 @@ function Gemini:new(endpoint, api_key)
     endpoint = endpoint,
     api_key = api_key,
     name = "gemini",
-    _model= "",
+    _model= nil,
   }, self)
 end
 
 function Gemini:set_model(model)
   local _model = type(model) == "string" and model or model.model
-  self._mode = _model
+  self._model = _model
 end
 
 function Gemini:curl_params()

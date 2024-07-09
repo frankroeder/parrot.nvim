@@ -406,7 +406,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
     args = curl_params,
     on_exit = function(j, return_val)
       for _, result in ipairs(j:result()) do
-        -- print("RESULT", result)
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
@@ -432,8 +431,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(j.pid)
     end,
     on_stdout = function(j, data)
-    	-- print("OUT", vim.inspect(data))
-    	-- print("OUT", vim.inspect(j:result()))
       local chunk = process_lines(data)
       if chunk then
         buffer = buffer .. chunk
@@ -449,7 +446,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
       end
     end,
     on_stderr = function(j, data)
-    	-- print("wERR", vim.inspect(data))
       M.logger.error("Error: " .. vim.inspect(data))
       if j ~= nil then
         M.logger.error(j:result())
