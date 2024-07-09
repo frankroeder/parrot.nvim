@@ -18,6 +18,10 @@ function Anthropic:new(endpoint, api_key)
   }, self)
 end
 
+function Anthropic:adjust_payload(payload)
+  return payload
+end
+
 function Anthropic:curl_params()
   return {
     self.endpoint,

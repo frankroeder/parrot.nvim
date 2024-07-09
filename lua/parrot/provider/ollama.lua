@@ -13,6 +13,10 @@ function Ollama:new(endpoint, api_key)
   }, self)
 end
 
+function Ollama:adjust_payload(payload)
+  return payload
+end
+
 function Ollama:curl_params()
   return { self.endpoint }
 end

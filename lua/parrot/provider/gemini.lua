@@ -16,14 +16,41 @@ function Gemini:new(endpoint, api_key)
   }, self)
 end
 
--- TODO: Is okey?
 function Gemini:curl_params()
   return {
-    self.endpoint .. self.model .. ":generateContent?key=" .. self.api_key,
+    self.endpoint .. self._model .. ":streamGenerateContent?key=",
     "-H",
+    "x-goog-api-key: " .. self.api_key,
     "-X",
     "POST",
   }
+end
+
+function Gemini:adjust_payload(payload)
+  payload.model = nil
+  payload.stream = nil
+  payload.temperature = nil
+  payload.top_p = nil
+
+  local new_messages = {}
+
+  for _, message in ipairs(payload.messages) do
+    local _role = ""
+    if message.role == "system" then
+      payload.system_instruction = { parts = { text = message.content } }
+    else
+      if message.role == "assistant" then
+        _role = "model"
+      else
+        _role = message.role
+      end
+      table.insert(new_messages, { parts = { { text = message.content } }, role = _role })
+    end
+  end
+  payload.contents = new_messages
+  payload.messages = nil
+  -- print("NEW PAYLOAD", vim.inspect(payload))
+  return payload
 end
 
 function Gemini:verify()
@@ -38,7 +65,6 @@ function Gemini:verify()
   end
 end
 
--- FIX: From here
 function Gemini:preprocess_messages(messages)
   return messages
 end
@@ -48,18 +74,25 @@ function Gemini:add_system_prompt(messages, _)
 end
 
 function Gemini:process(line)
-  if line:match("content_block_delta") and line:match("text_delta") then
-    local decoded_line = vim.json.decode(line)
-    if decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
-      return decoded_line.delta.text
+  -- print("LINE", vim.inspect(line))
+  local pattern = '"text":%s*"(.-)"\'?'
+  if line:match("tex") then
+    -- print("LINE MATCH", vim.inspect(line))
+    match = line:match(pattern)
+    -- print("RAW", match)
+    if match then
+      match = match:gsub("\\n", "\n")
+      match = match:gsub('\\"', '"')
+      match = match:gsub("\\'", "'")
+      match = match:gsub("\\\\", "\\")
+      return match
     end
   end
 end
 
-function Anthropic:check(agent)
+function Gemini:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model
   return available_model_set[model]
 end
 
-return Anthropic
-
+return Gemini

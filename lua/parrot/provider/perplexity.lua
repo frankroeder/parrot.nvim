@@ -21,6 +21,10 @@ function Perplexity:new(endpoint, api_key)
   }, self)
 end
 
+function Perplexity:adjust_payload(payload)
+  return payload
+end
+
 function Perplexity:curl_params()
   return {
     self.endpoint,

@@ -95,7 +95,6 @@ local gemini_chat_agents = {
   },
 }
 
-
 local pplx_chat_agents = {
   {
     name = "Llama3-Sonar-Small-32k-Chat",
@@ -280,7 +279,6 @@ local gemini_command_agents = {
     provider = "gemini",
   },
 }
-
 
 local pplx_command_agents = {
   {

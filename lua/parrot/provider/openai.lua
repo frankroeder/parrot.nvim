@@ -33,6 +33,10 @@ function OpenAI:new(endpoint, api_key)
   }, self)
 end
 
+function OpenAI:adjust_payload(payload)
+  return payload
+end
+
 function OpenAI:curl_params()
   return {
     self.endpoint,

@@ -22,6 +22,10 @@ function Mistral:new(endpoint, api_key)
   }, self)
 end
 
+function Mistral:adjust_payload(payload)
+  return payload
+end
+
 function Mistral:curl_params()
   return {
     self.endpoint,
