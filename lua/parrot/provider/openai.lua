@@ -36,6 +36,10 @@ end
 function OpenAI:set_model(_) end
 
 function OpenAI:adjust_payload(payload)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return payload
 end
 
@@ -59,17 +63,9 @@ function OpenAI:verify()
   end
 end
 
-function OpenAI:preprocess_messages(messages)
-  return messages
-end
-
 function OpenAI:add_system_prompt(messages, sys_prompt)
   if sys_prompt ~= "" then
     table.insert(messages, { role = "system", content = sys_prompt })
-  end
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
   return messages
 end

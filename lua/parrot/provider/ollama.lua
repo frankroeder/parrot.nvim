@@ -16,6 +16,9 @@ end
 function Ollama:set_model(_) end
 
 function Ollama:adjust_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return payload
 end
 
@@ -25,14 +28,6 @@ end
 
 function Ollama:verify()
   return true
-end
-
-function Ollama:preprocess_messages(messages)
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
-  return messages
 end
 
 function Ollama:add_system_prompt(messages, sys_prompt)

@@ -24,6 +24,10 @@ end
 function Perplexity:set_model(_) end
 
 function Perplexity:adjust_payload(payload)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return payload
 end
 
@@ -46,14 +50,6 @@ function Perplexity:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Perplexity:preprocess_messages(messages)
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
-  return messages
 end
 
 function Perplexity:add_system_prompt(messages, sys_prompt)

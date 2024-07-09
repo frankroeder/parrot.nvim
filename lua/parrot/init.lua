@@ -1021,8 +1021,6 @@ M.chat_respond = function(params)
     messages[1] = { role = "system", content = content }
   end
 
-  messages = prov:preprocess_messages(messages)
-
   -- write assistant prompt
   local last_content_line = utils.last_content_line(buf)
   vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
@@ -1072,7 +1070,6 @@ M.chat_respond = function(params)
         if topic_prompt ~= "" then
           table.insert(messages, { role = "user", content = topic_prompt })
         end
-        messages = prov:preprocess_messages(messages)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)

@@ -21,6 +21,12 @@ end
 function Anthropic:set_model(_) end
 
 function Anthropic:adjust_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  -- remove the first message that serves as the system prompt as anthropic
+  -- expects the system prompt to be part of the curl request and not the messages
+  table.remove(payload.messages, 1)
   return payload
 end
 
@@ -44,18 +50,6 @@ function Anthropic:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Anthropic:preprocess_messages(messages)
-  -- remove the first message that serves as the system prompt as anthropic
-  -- expects the system prompt to be part of the curl request and not the messages
-  table.remove(messages, 1)
-
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
-  return messages
 end
 
 function Anthropic:add_system_prompt(messages, _)

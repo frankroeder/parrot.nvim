@@ -48,7 +48,15 @@ function Gemini:adjust_payload(payload)
         payload.system_instruction = { parts = { text = message.parts.text:gsub("^%s*(.-)%s*$", "%1") } }
       end
     else
-      table.insert(new_messages, message)
+      local _role = ""
+      if message.role == "assistant" then
+        _role = "model"
+      else
+        _role = message.role
+      end
+      if message.content then
+        table.insert(new_messages, { parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } }, role = _role })
+      end
     end
   end
   payload.contents = vim.deepcopy(new_messages)
@@ -66,22 +74,6 @@ function Gemini:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Gemini:preprocess_messages(messages)
-  local new_messages = {}
-  for _, message in ipairs(messages) do
-    local _role = ""
-    if message.role == "assistant" then
-      _role = "model"
-    else
-      _role = message.role
-    end
-    if message.content then
-      table.insert(new_messages, { parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } }, role = _role })
-    end
-  end
-  return new_messages
 end
 
 function Gemini:add_system_prompt(messages, _)

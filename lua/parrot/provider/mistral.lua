@@ -25,6 +25,9 @@ end
 function Mistral:set_model(_) end
 
 function Mistral:adjust_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
   return payload
 end
 
@@ -46,14 +49,6 @@ function Mistral:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Mistral:preprocess_messages(messages)
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
-  return messages
 end
 
 function Mistral:add_system_prompt(messages, sys_prompt)
