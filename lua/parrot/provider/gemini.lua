@@ -89,18 +89,17 @@ function Gemini:add_system_prompt(messages, _)
 end
 
 function Gemini:process(line)
-  -- print("LINE", vim.inspect(line))
-  local pattern = '"text":%s*"(.-)"\'?'
-  if line:match("tex") then
-    -- print("LINE MATCH", vim.inspect(line))
-    local match = line:match(pattern)
-    -- print("RAW", match)
-    if match then
-      match = match:gsub("\\n", "\n")
-      match = match:gsub('\\"', '"')
-      match = match:gsub("\\'", "'")
-      match = match:gsub("\\\\", "\\")
-      return match
+  local pattern = '"text":'
+  if line:match(pattern) then
+    local content = vim.json.decode(line)
+    if content.candidates then
+      local candidate = content.candidates[1]
+      if candidate and candidate.content and candidate.content.parts then
+        local part = candidate.content.parts[1]
+        if part and part.text then
+          return part.text
+        end
+      end
     end
   end
 end
