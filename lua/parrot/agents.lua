@@ -83,13 +83,13 @@ local openai_chat_agents = {
 local gemini_chat_agents = {
   {
     name = "Gemini-1.5-Flash-Chat",
-    model = { model = "gemini-1.5-flash", temperature = 1.1, top_p = 1 },
+    model = { model = "gemini-1.5-flash", temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 4096 },
     system_prompt = system_chat_prompt,
     provider = "gemini",
   },
   {
     name = "Gemini-1.5-Pro-Chat",
-    model = { model = "gemini-1.5-pro", temperature = 1.1, top_p = 1 },
+    model = { model = "gemini-1.5-pro", temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 4096 },
     system_prompt = system_chat_prompt,
     provider = "gemini",
   },
@@ -268,13 +268,13 @@ local openai_command_agents = {
 local gemini_command_agents = {
   {
     name = "Gemini-1.5-Flash",
-    model = { model = "gemini-1.5-flash", temperature = 1.1, top_p = 1 },
+    model = { model = "gemini-1.5-flash", temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 4096 },
     system_prompt = system_code_prompt,
     provider = "gemini",
   },
   {
     name = "Gemini-1.5-Pro",
-    model = { model = "gemini-1.5-pro", temperature = 1.1, top_p = 1 },
+    model = { model = "gemini-1.5-pro", temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 4096 },
     system_prompt = system_code_prompt,
     provider = "gemini",
   },
