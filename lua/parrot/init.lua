@@ -1692,7 +1692,6 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     -- call the model and write the response
     local agent = M.get_command_agent()
     prov:set_model(agent.model)
-    messages = prov:preprocess_messages(messages)
 
     M.query(
       buf,
