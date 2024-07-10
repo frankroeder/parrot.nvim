@@ -301,6 +301,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
     args = curl_params,
     on_exit = function(j, return_val)
       for _, result in ipairs(j:result()) do
+        -- print("EXIT", vim.inspect(result))
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
@@ -326,6 +327,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(j.pid)
     end,
     on_stdout = function(j, data)
+      -- print("DATA", vim.inspect(data))
       local chunk = process_lines(data)
       if chunk then
         buffer = buffer .. chunk
@@ -341,6 +343,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       end
     end,
     on_stderr = function(j, data)
+      -- print("ERROR", vim.inspect(data))
       M.logger.error("Error: " .. vim.inspect(data))
       if j ~= nil then
         M.logger.error(j:result())
@@ -1689,6 +1692,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     -- call the model and write the response
     local agent = M.get_command_agent()
     prov:set_model(agent.model)
+    messages = prov:preprocess_messages(messages)
+
     M.query(
       buf,
       prov,
