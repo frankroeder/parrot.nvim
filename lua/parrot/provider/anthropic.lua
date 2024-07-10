@@ -24,13 +24,13 @@ function Anthropic:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-	if payload.messages[1].role == "system" then
-		local system_prompt = payload.messages[1].content
-		-- remove the first message that serves as the system prompt as anthropic
-		-- expects the system prompt to be part of the curl request and not the messages
-		table.remove(payload.messages, 1)
-		payload.system = system_prompt
-	end
+  if payload.messages[1].role == "system" then
+    local system_prompt = payload.messages[1].content
+    -- remove the first message that serves as the system prompt as anthropic
+    -- expects the system prompt to be part of the curl request and not the messages
+    table.remove(payload.messages, 1)
+    payload.system = system_prompt
+  end
   return payload
 end
 

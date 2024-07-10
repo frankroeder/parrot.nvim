@@ -33,10 +33,22 @@ function Gemini:curl_params()
 end
 
 function Gemini:preprocess_payload(payload)
+  payload.generationConfig = {
+    stopSequences = payload.stopSequences or nil,
+    maxOutputTokens = payload.maxOutputTokens or nil,
+    temperature = payload.temperature or nil,
+    topP = payload.topP or nil,
+    topK = payload.topK or nil,
+  }
   payload.model = nil
   payload.stream = nil
   payload.temperature = nil
   payload.top_p = nil
+
+  payload.maxOutputTokens = nil
+  payload.topK = nil
+  payload.topP = nil
+  payload.stopSequences = nil
 
   local new_messages = {}
 

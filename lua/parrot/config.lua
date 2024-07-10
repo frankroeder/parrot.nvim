@@ -23,7 +23,7 @@ local config = {
       api_key = "",
       endpoint = "https://generativelanguage.googleapis.com/v1beta/models/",
       topic_prompt = topic_prompt,
-      topic_model = "gemini-1.5-flash",
+      topic_model = { model = "gemini-1.5-flash", maxOutputTokens = 64 },
     },
     ollama = {
       endpoint = "http://localhost:11434/api/chat",
