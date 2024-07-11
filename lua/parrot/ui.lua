@@ -216,7 +216,7 @@ M.input = function(opts, on_confirm)
   opts = (opts and not vim.tbl_isempty(opts)) and opts or vim.empty_dict()
 
   local prompt = opts.prompt or "Enter text here... "
-  local hint = "(confirm with CTRL-W_q or CTRL-C)"
+  local hint = [[confirm with: CTRL-W_q or CTRL-C (all modes) | Esc (normal mode)]]
 
   -- Create a new buffer
   local buf = vim.api.nvim_create_buf(false, true)
@@ -259,6 +259,8 @@ M.input = function(opts, on_confirm)
 
   vim.api.nvim_buf_set_keymap(buf, "i", "<C-c>", "<Esc>:q<CR>", { noremap = true, silent = true })
   vim.api.nvim_buf_set_keymap(buf, "n", "<C-c>", ":q<CR>", { noremap = true, silent = true })
+  vim.api.nvim_buf_set_keymap(buf, "n", "q", ":q<CR>", { noremap = true, silent = true })
+  vim.api.nvim_buf_set_keymap(buf, "n", "<Esc>", ":q<CR>", { noremap = true, silent = true })
 end
 
 return M
