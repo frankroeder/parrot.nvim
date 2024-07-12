@@ -105,4 +105,67 @@ describe("utils", function()
       assert.is_false(utils.contains(table, 6))
     end)
   end)
+
+  describe("filter_payload_parameters", function()
+    it("should filter payload parameters correctly", function()
+      local valid_parameters = {
+        ["contents"] = true,
+        ["system_instruction"] = true,
+        ["generationConfig"] = {
+          ["stopSequences"] = true,
+          ["temperature"] = true,
+          ["maxOutputTokens"] = true,
+          ["topP"] = true,
+          ["topK"] = true,
+        },
+      }
+
+      local old_payload = {
+        contents = {
+          {
+            parts = {
+              {
+                text = "Hello World",
+              },
+            },
+            role = "user",
+          },
+        },
+        maxOutputTokens = 8192,
+        messages = {
+          {
+            content = "Hello World",
+            role = "user",
+          },
+        },
+        model = "gemini-1.5-flash",
+        stream = true,
+        temperature = 0.8,
+        topK = 10,
+        topP = 1,
+      }
+
+      local expected_new_payload = {
+        contents = {
+          {
+            parts = {
+              {
+                text = "Hello World",
+              },
+            },
+            role = "user",
+          },
+        },
+        generationConfig = {
+          maxOutputTokens = 8192,
+          temperature = 0.8,
+          topK = 10,
+          topP = 1,
+        },
+      }
+
+      local new_payload = utils.filter_payload_parameters(valid_parameters, old_payload)
+      assert.are.same(expected_new_payload, new_payload)
+    end)
+  end)
 end)

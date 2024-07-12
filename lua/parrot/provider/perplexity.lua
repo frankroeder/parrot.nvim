@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Perplexity = {}
 Perplexity.__index = Perplexity
@@ -11,6 +12,22 @@ local available_model_set = {
   ["llama-3-sonar-small-32k-online"] = true,
   ["llama-3-sonar-large-32k-chat"] = true,
   ["llama-3-sonar-large-32k-online"] = true,
+}
+
+-- https://docs.perplexity.ai/reference/post_chat_completions
+local available_api_parameters = {
+  -- required
+  ["messages"] = true,
+  ["model"] = true,
+  -- optional
+  ["max_tokens"] = true,
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["return_citations"] = true,
+  ["top_k"] = true,
+  ["stream"] = true,
+  ["presence_penalty"] = true,
+  ["frequency_penalty"] = true,
 }
 
 function Perplexity:new(endpoint, api_key)
@@ -28,7 +45,7 @@ function Perplexity:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-  return payload
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Perplexity:curl_params()

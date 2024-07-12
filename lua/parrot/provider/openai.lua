@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local OpenAI = {}
 OpenAI.__index = OpenAI
@@ -25,6 +26,27 @@ local available_model_set = {
   ["gpt-3.5-turbo"] = true,
 }
 
+-- https://platform.openai.com/docs/api-reference/chat/create
+local available_api_parameters = {
+  -- required
+  ["messages"] = true,
+  ["model"] = true,
+  -- optional
+  ["frequency_penalty"] = true,
+  ["logit_bias"] = true,
+  ["logprobs"] = true,
+  ["top_logprobs"] = true,
+  ["max_tokens"] = true,
+  ["presence_penalty"] = true,
+  ["seed"] = true,
+  ["stop"] = true,
+  ["stream"] = true,
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["tools"] = true,
+  ["tool_choice"] = true,
+}
+
 function OpenAI:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
@@ -40,7 +62,7 @@ function OpenAI:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-  return payload
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function OpenAI:curl_params()

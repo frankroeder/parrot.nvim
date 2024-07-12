@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Mistral = {}
 Mistral.__index = Mistral
@@ -12,6 +13,20 @@ local available_model_set = {
   ["open-mistral-7b"] = true,
   ["open-mixtral-8x7b"] = true,
   ["open-mixtral-8x22b"] = true,
+}
+
+-- https://docs.mistral.ai/api/#operation/createChatCompletion
+local available_api_parameters = {
+  -- required
+  ["model"] = true,
+  ["messages"] = true,
+  -- optional
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["max_tokens"] = true,
+  ["stream"] = true,
+  ["safe_prompt"] = true,
+  ["random_seed"] = true,
 }
 
 function Mistral:new(endpoint, api_key)
@@ -28,7 +43,7 @@ function Mistral:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-  return payload
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Mistral:curl_params()

@@ -318,4 +318,21 @@ M.contains = function(table, val)
   return false
 end
 
+M.filter_payload_parameters = function(valid_parameters, payload)
+  local new_payload = {}
+  for key, value in pairs(valid_parameters) do
+    if type(value) == "table" then
+      if new_payload[key] == nil then
+        new_payload[key] = {}
+      end
+      for tkey, _ in pairs(value) do
+        new_payload[key][tkey] = payload[tkey] -- or nil
+      end
+    else
+      new_payload[key] = payload[key] -- or nil
+    end
+  end
+  return new_payload
+end
+
 return M

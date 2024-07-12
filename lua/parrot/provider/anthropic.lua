@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Anthropic = {}
 Anthropic.__index = Anthropic
@@ -8,6 +9,24 @@ local available_model_set = {
   ["claude-3-opus-20240229"] = true,
   ["claude-3-sonnet-20240229"] = true,
   ["claude-3-haiku-20240307"] = true,
+}
+
+-- https://docs.anthropic.com/en/api/messages
+local available_api_parameters = {
+  -- required
+  ["model"] = true,
+  ["messages"] = true,
+  -- optional
+  ["max_tokens"] = true,
+  ["metadata"] = true,
+  ["stop_sequences"] = true,
+  ["stream"] = true,
+  ["system"] = true,
+  ["temperature"] = true,
+  ["tool_choice"] = true,
+  ["tools"] = true,
+  ["top_k"] = true,
+  ["top_p"] = true,
 }
 
 function Anthropic:new(endpoint, api_key)
@@ -31,7 +50,7 @@ function Anthropic:preprocess_payload(payload)
     table.remove(payload.messages, 1)
     payload.system = system_prompt
   end
-  return payload
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Anthropic:curl_params()
