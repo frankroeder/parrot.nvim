@@ -221,9 +221,7 @@ describe("State", function()
 
       state:save()
 
-      assert
-        .stub(require("parrot.file_utils").table_to_file)
-        .was_called_with(state._state, "/tmp/state.json")
+      assert.stub(require("parrot.file_utils").table_to_file).was_called_with(state._state, "/tmp/state.json")
     end)
   end)
 

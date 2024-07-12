@@ -28,6 +28,7 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
     + [OpenAI API](https://platform.openai.com/)
     + [Mistral API](https://docs.mistral.ai/api/)
+    + [Gemini API](https://ai.google.dev/gemini-api/docs)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
 - Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
 - Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI
@@ -71,6 +72,7 @@ Let the parrot fix your bugs.
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   config = function()
     require("parrot").setup {
+      -- Providers must be explicitly added to make them available.
       providers = {
         pplx = {
           api_key = os.getenv "PERPLEXITY_API_KEY",
@@ -88,6 +90,9 @@ Let the parrot fix your bugs.
         },
         mistral = {
           api_key = os.getenv "MISTRAL_API_KEY",
+        },
+        gemini = {
+          api_key = os.getenv "GEMINI_API_KEY",
         },
         ollama = {} -- provide an empty list to make provider available
       },

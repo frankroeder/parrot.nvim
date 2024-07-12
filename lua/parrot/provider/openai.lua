@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local OpenAI = {}
 OpenAI.__index = OpenAI
@@ -25,12 +26,43 @@ local available_model_set = {
   ["gpt-3.5-turbo"] = true,
 }
 
+-- https://platform.openai.com/docs/api-reference/chat/create
+local available_api_parameters = {
+  -- required
+  ["messages"] = true,
+  ["model"] = true,
+  -- optional
+  ["frequency_penalty"] = true,
+  ["logit_bias"] = true,
+  ["logprobs"] = true,
+  ["top_logprobs"] = true,
+  ["max_tokens"] = true,
+  ["presence_penalty"] = true,
+  ["seed"] = true,
+  ["stop"] = true,
+  ["stream"] = true,
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["tools"] = true,
+  ["tool_choice"] = true,
+}
+
 function OpenAI:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
     name = "openai",
   }, self)
+end
+
+function OpenAI:set_model(_) end
+
+function OpenAI:preprocess_payload(payload)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function OpenAI:curl_params()
@@ -51,10 +83,6 @@ function OpenAI:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function OpenAI:preprocess_messages(messages)
-  return messages
 end
 
 function OpenAI:add_system_prompt(messages, sys_prompt)

@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Perplexity = {}
 Perplexity.__index = Perplexity
@@ -13,12 +14,38 @@ local available_model_set = {
   ["llama-3-sonar-large-32k-online"] = true,
 }
 
+-- https://docs.perplexity.ai/reference/post_chat_completions
+local available_api_parameters = {
+  -- required
+  ["messages"] = true,
+  ["model"] = true,
+  -- optional
+  ["max_tokens"] = true,
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["return_citations"] = true,
+  ["top_k"] = true,
+  ["stream"] = true,
+  ["presence_penalty"] = true,
+  ["frequency_penalty"] = true,
+}
+
 function Perplexity:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
     name = "pplx",
   }, self)
+end
+
+function Perplexity:set_model(_) end
+
+function Perplexity:preprocess_payload(payload)
+  -- strip whitespace from ends of content
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Perplexity:curl_params()
@@ -40,10 +67,6 @@ function Perplexity:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Perplexity:preprocess_messages(messages)
-  return messages
 end
 
 function Perplexity:add_system_prompt(messages, sys_prompt)

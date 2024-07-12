@@ -1,5 +1,33 @@
 local logger = require("parrot.logger")
 local Job = require("plenary.job")
+local utils = require("parrot.utils")
+
+-- https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+local available_api_parameters = {
+  -- required
+  ["model"] = true,
+  ["messages"] = true,
+  -- optional
+  ["mirostat"] = true,
+  ["mirostat_tau"] = true,
+  ["mirostat_tau"] = true,
+  ["num_ctx"] = true,
+  ["repeat_last_n"] = true,
+  ["repeat_penalty"] = true,
+  ["temperature"] = true,
+  ["seed"] = true,
+  ["stop"] = true,
+  ["tfs_z"] = true,
+  ["num_predict"] = true,
+  ["top_k"] = true,
+  ["top_p"] = true,
+  -- optional (advanced)
+  ["format"] = true,
+  ["system"] = true,
+  ["stream"] = true,
+  ["raw"] = true,
+  ["keep_alive"] = true,
+}
 
 local Ollama = {}
 Ollama.__index = Ollama
@@ -13,16 +41,21 @@ function Ollama:new(endpoint, api_key)
   }, self)
 end
 
+function Ollama:set_model(_) end
+
+function Ollama:preprocess_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  return utils.filter_payload_parameters(available_api_parameters, payload)
+end
+
 function Ollama:curl_params()
   return { self.endpoint }
 end
 
 function Ollama:verify()
   return true
-end
-
-function Ollama:preprocess_messages(messages)
-  return messages
 end
 
 function Ollama:add_system_prompt(messages, sys_prompt)

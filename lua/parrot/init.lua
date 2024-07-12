@@ -253,6 +253,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
   queries:cleanup(8, 60)
 
   local curl_params = vim.deepcopy(M.config.curl_params or {})
+  payload = provider:preprocess_payload(payload)
   local args = {
     "--no-buffer",
     "--silent",
@@ -300,6 +301,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
     args = curl_params,
     on_exit = function(j, return_val)
       for _, result in ipairs(j:result()) do
+        -- print("EXIT", vim.inspect(result))
         if type(result) == "string" then
           local success, error_msg = pcall(vim.json.decode, result)
           if success then
@@ -325,6 +327,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(j.pid)
     end,
     on_stdout = function(j, data)
+      -- print("DATA", vim.inspect(data))
       local chunk = process_lines(data)
       if chunk then
         buffer = buffer .. chunk
@@ -340,6 +343,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       end
     end,
     on_stderr = function(j, data)
+      -- print("ERROR", vim.inspect(data))
       M.logger.error("Error: " .. vim.inspect(data))
       if j ~= nil then
         M.logger.error(j:result())
@@ -1010,20 +1014,18 @@ M.chat_respond = function(params)
     messages[1] = { role = "system", content = content }
   end
 
-  messages = prov:preprocess_messages(messages)
-  -- strip whitespace from ends of content
-  for _, message in ipairs(messages) do
-    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-  end
-
   -- write assistant prompt
   local last_content_line = utils.last_content_line(buf)
   vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
 
+  local query_prov =
+    init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key)
+  query_prov:set_model(agent.model)
+
   -- call the model and write response
   M.query(
     buf,
-    init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key),
+    query_prov,
     utils.prepare_payload(messages, headers.model, agent.model),
     M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
     vim.schedule_wrap(function(qid)
@@ -1068,6 +1070,7 @@ M.chat_respond = function(params)
 
         local topic_prov = M.get_provider()
         topic_prov:check({ model = M.providers[topic_prov.name].topic_model })
+        topic_prov:set_model(M.providers[topic_prov.name].topic_model)
 
         -- call the model
         M.query(
@@ -1678,6 +1681,8 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
 
     -- call the model and write the response
     local agent = M.get_command_agent()
+    prov:set_model(agent.model)
+
     M.query(
       buf,
       prov,

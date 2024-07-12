@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Anthropic = {}
 Anthropic.__index = Anthropic
@@ -10,12 +11,46 @@ local available_model_set = {
   ["claude-3-haiku-20240307"] = true,
 }
 
+-- https://docs.anthropic.com/en/api/messages
+local available_api_parameters = {
+  -- required
+  ["model"] = true,
+  ["messages"] = true,
+  -- optional
+  ["max_tokens"] = true,
+  ["metadata"] = true,
+  ["stop_sequences"] = true,
+  ["stream"] = true,
+  ["system"] = true,
+  ["temperature"] = true,
+  ["tool_choice"] = true,
+  ["tools"] = true,
+  ["top_k"] = true,
+  ["top_p"] = true,
+}
+
 function Anthropic:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
     name = "anthropic",
   }, self)
+end
+
+function Anthropic:set_model(_) end
+
+function Anthropic:preprocess_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  if payload.messages[1].role == "system" then
+    local system_prompt = payload.messages[1].content
+    -- remove the first message that serves as the system prompt as anthropic
+    -- expects the system prompt to be part of the curl request and not the messages
+    table.remove(payload.messages, 1)
+    payload.system = system_prompt
+  end
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Anthropic:curl_params()
@@ -38,13 +73,6 @@ function Anthropic:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Anthropic:preprocess_messages(messages)
-  -- remove the first message that serves as the system prompt as anthropic
-  -- expects the system prompt to be part of the curl request and not the messages
-  table.remove(messages, 1)
-  return messages
 end
 
 function Anthropic:add_system_prompt(messages, _)

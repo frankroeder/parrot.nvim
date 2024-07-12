@@ -80,6 +80,21 @@ local openai_chat_agents = {
   },
 }
 
+local gemini_chat_agents = {
+  {
+    name = "Gemini-1.5-Flash-Chat",
+    model = { model = "gemini-1.5-flash", temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+    system_prompt = system_chat_prompt,
+    provider = "gemini",
+  },
+  {
+    name = "Gemini-1.5-Pro-Chat",
+    model = { model = "gemini-1.5-pro", temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+    system_prompt = system_chat_prompt,
+    provider = "gemini",
+  },
+}
+
 local pplx_chat_agents = {
   {
     name = "Llama3-Sonar-Small-32k-Chat",
@@ -116,26 +131,26 @@ local pplx_chat_agents = {
 local anthropic_chat_agents = {
   {
     name = "Claude-3.5-Sonnet-Chat",
-    model = { model = "claude-3-5-sonnet-20240620", max_tokens = 4096, system = system_chat_prompt },
-    system_prompt = "",
+    model = { model = "claude-3-5-sonnet-20240620", max_tokens = 4096 },
+    system_prompt = system_chat_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Opus-Chat",
-    model = { model = "claude-3-opus-20240229", max_tokens = 4096, system = system_chat_prompt },
-    system_prompt = "",
+    model = { model = "claude-3-opus-20240229", max_tokens = 4096 },
+    system_prompt = system_chat_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Sonnet-Chat",
-    model = { model = "claude-3-sonnet-20240229", max_tokens = 4096, system = system_chat_prompt },
-    system_prompt = "",
+    model = { model = "claude-3-sonnet-20240229", max_tokens = 4096 },
+    system_prompt = system_chat_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Haiku-Chat",
-    model = { model = "claude-3-haiku-20240307", max_tokens = 4096, system = system_chat_prompt },
-    system_prompt = "",
+    model = { model = "claude-3-haiku-20240307", max_tokens = 4096 },
+    system_prompt = system_chat_prompt,
     provider = "anthropic",
   },
 }
@@ -250,6 +265,21 @@ local openai_command_agents = {
   },
 }
 
+local gemini_command_agents = {
+  {
+    name = "Gemini-1.5-Flash",
+    model = { model = "gemini-1.5-flash", temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+    system_prompt = system_code_prompt,
+    provider = "gemini",
+  },
+  {
+    name = "Gemini-1.5-Pro",
+    model = { model = "gemini-1.5-pro", temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+    system_prompt = system_code_prompt,
+    provider = "gemini",
+  },
+}
+
 local pplx_command_agents = {
   {
     name = "Llama3-Sonar-Small-32k--Online",
@@ -284,22 +314,26 @@ local pplx_command_agents = {
 local anthropic_command_agents = {
   {
     name = "Claude-3.5-Sonnet",
-    model = { model = "claude-3-5-sonnet-20240620", max_tokens = 4096, system = system_code_prompt },
+    model = { model = "claude-3-5-sonnet-20240620", max_tokens = 4096 },
+    system_prompt = system_code_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Opus",
-    model = { model = "claude-3-opus-20240229", max_tokens = 4096, system = system_code_prompt },
+    model = { model = "claude-3-opus-20240229", max_tokens = 4096 },
+    system_prompt = system_code_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Sonnet",
-    model = { model = "claude-3-sonnet-20240229", max_tokens = 4096, system = system_code_prompt },
+    model = { model = "claude-3-sonnet-20240229", max_tokens = 4096 },
+    system_prompt = system_code_prompt,
     provider = "anthropic",
   },
   {
     name = "Claude-3-Haiku",
-    model = { model = "claude-3-haiku-20240307", max_tokens = 4096, system = system_code_prompt },
+    model = { model = "claude-3-haiku-20240307", max_tokens = 4096 },
+    system_prompt = system_code_prompt,
     provider = "anthropic",
   },
 }
@@ -363,6 +397,9 @@ end
 for _, agent in ipairs(openai_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
+for _, agent in ipairs(gemini_chat_agents) do
+  table.insert(M.chat_agents, agent)
+end
 for _, agent in ipairs(pplx_chat_agents) do
   table.insert(M.chat_agents, agent)
 end
@@ -378,6 +415,9 @@ for _, agent in ipairs(ollama_command_agents) do
   table.insert(M.command_agents, agent)
 end
 for _, agent in ipairs(openai_command_agents) do
+  table.insert(M.command_agents, agent)
+end
+for _, agent in ipairs(gemini_command_agents) do
   table.insert(M.command_agents, agent)
 end
 for _, agent in ipairs(pplx_command_agents) do

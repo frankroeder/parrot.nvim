@@ -1,4 +1,5 @@
 local logger = require("parrot.logger")
+local utils = require("parrot.utils")
 
 local Mistral = {}
 Mistral.__index = Mistral
@@ -14,12 +15,35 @@ local available_model_set = {
   ["open-mixtral-8x22b"] = true,
 }
 
+-- https://docs.mistral.ai/api/#operation/createChatCompletion
+local available_api_parameters = {
+  -- required
+  ["model"] = true,
+  ["messages"] = true,
+  -- optional
+  ["temperature"] = true,
+  ["top_p"] = true,
+  ["max_tokens"] = true,
+  ["stream"] = true,
+  ["safe_prompt"] = true,
+  ["random_seed"] = true,
+}
+
 function Mistral:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
     name = "mistral",
   }, self)
+end
+
+function Mistral:set_model(_) end
+
+function Mistral:preprocess_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  return utils.filter_payload_parameters(available_api_parameters, payload)
 end
 
 function Mistral:curl_params()
@@ -40,10 +64,6 @@ function Mistral:verify()
     logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
-end
-
-function Mistral:preprocess_messages(messages)
-  return messages
 end
 
 function Mistral:add_system_prompt(messages, sys_prompt)
