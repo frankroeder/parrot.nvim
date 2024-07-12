@@ -72,6 +72,7 @@ Let the parrot fix your bugs.
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   config = function()
     require("parrot").setup {
+      -- Providers must be explicitly added to make them available.
       providers = {
         pplx = {
           api_key = os.getenv "PERPLEXITY_API_KEY",
