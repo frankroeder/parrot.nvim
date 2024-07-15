@@ -43,6 +43,22 @@ end
 
 function Ollama:set_model(_) end
 
+function Ollama:parse_result(res)
+  if res == nil then
+    return
+  end
+  if type(res) == "table" then
+    res = table.concat(res, " ")
+  end
+  if type(res) == "string" then
+    local success, parsed = pcall(vim.json.decode, res)
+    if success and parsed.error then
+      logger.error("Ollama - code: " .. parsed.error)
+      return
+    end
+  end
+end
+
 function Ollama:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")

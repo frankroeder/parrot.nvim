@@ -57,6 +57,24 @@ end
 
 function OpenAI:set_model(_) end
 
+function OpenAI:parse_result(res)
+  if res == nil then
+    return
+  end
+  if type(res) == "table" then
+    res = table.concat(res, " ")
+  end
+  if type(res) == "string" then
+    local success, parsed = pcall(vim.json.decode, res)
+    if success and parsed.error and parsed.error.message then
+      logger.error(
+        "OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
+      )
+      return
+    end
+  end
+end
+
 function OpenAI:preprocess_payload(payload)
   -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do

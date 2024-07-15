@@ -300,20 +300,9 @@ M.query = function(buf, provider, payload, handler, on_exit)
     command = "curl",
     args = curl_params,
     on_exit = function(j, return_val)
-      for _, result in ipairs(j:result()) do
-        -- print("EXIT", vim.inspect(result))
-        if type(result) == "string" then
-          local success, error_msg = pcall(vim.json.decode, result)
-          if success then
-            if error_msg["error"] ~= nil then
-              M.logger.error(error_msg["error"]["message"])
-            end
-          elseif j.signal ~= 0 and string.find(result, "error") or string.find(result, "401") then
-            -- TODO: Improve error handling --
-            M.logger.error(result)
-          end
-        end
-      end
+      -- print("EXIT", vim.inspect(j:result()))
+      -- print("EXIT RETURN", vim.inspect(return_val))
+      provider:parse_result(j:result())
       if j.handle and not j.handle:is_closing() then
         j.handle:close()
       end

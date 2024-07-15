@@ -39,6 +39,22 @@ end
 
 function Mistral:set_model(_) end
 
+function Mistral:parse_result(res)
+  if res == nil then
+    return
+  end
+  if type(res) == "table" then
+    res = table.concat(res, " ")
+  end
+  if type(res) == "string" then
+    local success, parsed = pcall(vim.json.decode, res)
+    if success and parsed.message then
+      logger.error("Mistral - message: " .. parsed.message)
+      return
+    end
+  end
+end
+
 function Mistral:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")

@@ -40,6 +40,20 @@ end
 
 function Perplexity:set_model(_) end
 
+function Perplexity:parse_result(res)
+  if res == nil then
+    return
+  end
+  if type(res) == "table" then
+    res = table.concat(res, " ")
+  end
+  local parsed = res:match("<h1>(.-)</h1>")
+  if parsed then
+    logger.error("Perplexity - message: " .. parsed)
+    return
+  end
+end
+
 function Perplexity:preprocess_payload(payload)
   -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
