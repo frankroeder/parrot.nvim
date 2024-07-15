@@ -42,6 +42,7 @@ describe("file_utils", function()
 
   describe("find_git_root", function()
     it("should find git root directory", function()
+      local current_dir = vim.fn.getcwd()
       local result = file_utils.find_git_root()
       assert.are.equal(current_dir, result)
     end)
