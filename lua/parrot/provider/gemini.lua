@@ -85,10 +85,6 @@ function Gemini:verify()
   end
 end
 
-function Gemini:add_system_prompt(messages, _)
-  return messages
-end
-
 function Gemini:process(line)
   local pattern = '"text":'
   if line:match(pattern) then

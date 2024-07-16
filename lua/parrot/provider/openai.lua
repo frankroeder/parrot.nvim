@@ -85,13 +85,6 @@ function OpenAI:verify()
   end
 end
 
-function OpenAI:add_system_prompt(messages, sys_prompt)
-  if sys_prompt ~= "" then
-    table.insert(messages, { role = "system", content = sys_prompt })
-  end
-  return messages
-end
-
 function OpenAI:process(line)
   if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
     line = vim.json.decode(line)

@@ -1578,7 +1578,10 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
       return
     end
-    messages = prov:add_system_prompt(messages, sys_prompt)
+
+    if sys_prompt ~= "" then
+      table.insert(messages, { role = "system", content = sys_prompt })
+    end
 
     local repo_instructions = futils.find_repo_instructions()
     if repo_instructions ~= "" and sys_prompt ~= "" then

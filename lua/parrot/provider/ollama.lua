@@ -58,13 +58,6 @@ function Ollama:verify()
   return true
 end
 
-function Ollama:add_system_prompt(messages, sys_prompt)
-  if sys_prompt ~= "" then
-    table.insert(messages, { role = "system", content = sys_prompt })
-  end
-  return messages
-end
-
 function Ollama:process(line)
   if line:match("message") and line:match("content") then
     line = vim.json.decode(line)

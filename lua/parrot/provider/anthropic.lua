@@ -75,10 +75,6 @@ function Anthropic:verify()
   end
 end
 
-function Anthropic:add_system_prompt(messages, _)
-  return messages
-end
-
 function Anthropic:process(line)
   if line:match("content_block_delta") and line:match("text_delta") then
     local decoded_line = vim.json.decode(line)
