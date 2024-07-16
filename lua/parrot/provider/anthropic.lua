@@ -39,21 +39,7 @@ end
 
 function Anthropic:set_model(_) end
 
-function Anthropic:parse_result(res)
-  if res == nil then
-    return
-  end
-  if type(res) == "table" then
-    res = table.concat(res, " ")
-  end
-  if type(res) == "string" then
-    local success, parsed = pcall(vim.json.decode, res)
-    if success and parsed.error and parsed.error.message then
-      logger.error("Anthropic - message:" .. parsed.error.message .. " type:" .. parsed.error.type)
-      return
-    end
-  end
-end
+function Anthropic:parse_result(res) end
 
 function Anthropic:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
@@ -95,16 +81,22 @@ function Anthropic:add_system_prompt(messages, _)
   return messages
 end
 
-function Anthropic:process(response)
-  if response:match("content_block_delta") and response:match("text_delta") then
-		local success, content = pcall(vim.json.decode, response)
-		if not success then
-			logger.debug("Could not process response " .. response)
-		end
-    if content.delta and content.delta.type == "text_delta" and content.delta.text then
-      return content.delta.text
+function Anthropic:process_stdout(response)
+	if response:match("content_block_delta") and response:match("text_delta") then
+    local decoded_line = vim.json.decode(response)
+    if decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
+      return decoded_line.delta.text
     end
   end
+	-- print("RESPONSE PROCESS", vim.inspect(response))
+ --  if response:match("content_block_delta") and response:match("text_delta") then
+	-- 	if response.error and response.error.message then
+	-- 		logger.error("Anthropic - message:" .. response.error.message .. " type:" .. response.error.type)
+	-- 		return
+	-- 	elseif response.delta and response.delta.type == "text_delta" and response.delta.text then
+	-- 		return response.delta.text
+	-- 	end
+	-- end
 end
 
 function Anthropic:check(agent)

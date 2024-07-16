@@ -292,23 +292,34 @@ M.query = function(buf, provider, payload, handler, on_exit)
     command = "curl",
     args = curl_params,
     on_exit = function(response, exit_code)
+    	print("EXIT RESP", vim.inspect(response:result()))
       if exit_code ~= 0 then
         M.logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
         on_exit(qid)
       end
 
-      local result = table.concat(response:result(), "\n")
-      if type(result) == "string" then
-        local success, json_result = pcall(vim.json.decode, result)
-        if success then
-          if json_result.error and json_result.error.message then
-            M.logger.error(json_result.error.message)
-          end
-        else
-          -- M.logger.error("Raw response result " .. vim.inspect(result))
-        end
-      end
-      print("RESPONSE", vim.inspect(response))
+      -- local response_data = response:result()
+      -- -- print("RAW RESP", vim.inspect(response_data))
+      -- -- response_data = table.concat(response_data, " ")
+      -- response_data = response_data[1]
+      -- -- print("RESP_DATA", vim.inspect(response_data))
+      -- if response_data then
+      -- 	local content_match = response_data:gsub("^data: ", "") or response_data
+      -- 	-- print("CONTENT MATCH", vim.inspect(content_match))
+      -- 	if type(content_match) == "string" then
+      -- 		local success, parsed_content = pcall(vim.json.decode, content_match)
+      -- 		-- print("PARSED CONTENT", vim.inspect(parsed_content))
+      -- 		if parsed_content then
+      -- 			local content = provider:process(parsed_content)
+      -- 			-- print("CONTENT", vim.inspect(content))
+      -- 			if content then
+      -- 				qt.response = qt.response .. content
+      -- 				buffer = buffer .. content
+      -- 				handler(qid, content)
+      -- 			end
+      -- 		end
+      -- 	end
+      -- end
 
       if response.handle and not response.handle:is_closing() then
         response.handle:close()
@@ -324,11 +335,48 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-      M.logger.debug("Query stdout " .. vim.inspect(data))
-      local chunk = process_lines(data)
-      if chunk then
-        buffer = buffer .. chunk
+    	print("STDOUT RESP", vim.inspect(data))
+      local qt = queries:get(qid)
+      if not qt then
+        return
       end
+
+      local lines = vim.split(data, "\n")
+      -- for line in result:gmatch("[^\n]+") do
+      for _, line in ipairs(lines) do
+        local raw_json = string.gsub(line, "^data:", "")
+        local content = provider:process_stdout(raw_json)
+        if content then
+          qt.response = qt.response .. content
+          buffer = buffer .. content
+          handler(qid, content)
+        end
+      end
+      --   local qt = queries:get(qid)
+      --   if not qt then
+      --     return
+      --   end
+      --
+      --   if data and data ~= "" then
+      --     local content_match = data:gsub("^data: ", "")
+      --     if content_match then
+      -- 	local success, parsed_content = pcall(vim.json.decode, content_match)
+      -- 	if not success then
+      -- 		M.logger.error("Unable to parse " .. vim.inspect(content_match))
+      -- 		M.logger.error("WITH to parse " .. vim.inspect(data))
+      -- 	end
+      -- 	if parsed_content then
+      -- 		local content = provider:process(parsed_content)
+      -- 		if content then
+      -- 			qt.response = qt.response .. content
+      -- 			buffer = buffer .. content
+      -- 			handler(qid, content)
+      -- 		end
+      -- 	end
+      -- else
+      -- 		M.logger.error("No content match " .. vim.inspect(data))
+      -- end
+      --   end
     end,
   })
   job:start()
