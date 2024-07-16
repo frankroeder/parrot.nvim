@@ -40,7 +40,7 @@ end
 
 function Perplexity:set_model(_) end
 
-function Perplexity:parse_result(res)
+function Perplexity:process_onexit(res)
   if res == nil then
     return
   end
