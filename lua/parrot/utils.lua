@@ -334,5 +334,33 @@ M.filter_payload_parameters = function(valid_parameters, payload)
   end
   return new_payload
 end
+-- M.filter_payload_parameters = function(valid_parameters, payload)
+--   print("DEBUG: valid_parameters =", vim.inspect(valid_parameters))
+--   print("DEBUG: payload =", vim.inspect(payload))
+--
+--   if type(valid_parameters) ~= "table" or type(payload) ~= "table" then
+--     print("ERROR: Invalid input types")
+--     return nil
+--   end
+--
+--   local new_payload = {}
+--   for key, value in pairs(payload) do
+--     if valid_parameters[key] then
+--       new_payload[key] = value
+--     end
+--   end
+--
+--   print("DEBUG: new_payload =", vim.inspect(new_payload))
+--   return new_payload
+-- end
+
+M.parse_raw_response = function(response)
+	if response ~= nil then
+		if type(response) == "table" then
+			response = table.concat(response, " ")
+		end
+		return response
+	end
+end
 
 return M

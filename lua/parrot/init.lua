@@ -272,54 +272,19 @@ M.query = function(buf, provider, payload, handler, on_exit)
     table.insert(curl_params, parg)
   end
 
-  local function process_lines(response)
-    local qt = queries:get(qid)
-    if not qt then
-      return
-    end
-    local content_match = response:gsub("^data: ", "")
-    local content = provider:process(content_match)
-    if content ~= nil then
-      qt.response = qt.response .. content
-      handler(qid, content)
-      return content
-    end
-  end
-
   local buffer = ""
-
   local job = Job:new({
     command = "curl",
     args = curl_params,
     on_exit = function(response, exit_code)
-    	print("EXIT RESP", vim.inspect(response:result()))
+    	-- print("EXIT RESP", vim.inspect(response:result()))
       if exit_code ~= 0 then
         M.logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
         on_exit(qid)
       end
-
-      -- local response_data = response:result()
-      -- -- print("RAW RESP", vim.inspect(response_data))
-      -- -- response_data = table.concat(response_data, " ")
-      -- response_data = response_data[1]
-      -- -- print("RESP_DATA", vim.inspect(response_data))
-      -- if response_data then
-      -- 	local content_match = response_data:gsub("^data: ", "") or response_data
-      -- 	-- print("CONTENT MATCH", vim.inspect(content_match))
-      -- 	if type(content_match) == "string" then
-      -- 		local success, parsed_content = pcall(vim.json.decode, content_match)
-      -- 		-- print("PARSED CONTENT", vim.inspect(parsed_content))
-      -- 		if parsed_content then
-      -- 			local content = provider:process(parsed_content)
-      -- 			-- print("CONTENT", vim.inspect(content))
-      -- 			if content then
-      -- 				qt.response = qt.response .. content
-      -- 				buffer = buffer .. content
-      -- 				handler(qid, content)
-      -- 			end
-      -- 		end
-      -- 	end
-      -- end
+			local result = response:result()
+			result = utils.parse_raw_response(result)
+			provider:process_onexit(result)
 
       if response.handle and not response.handle:is_closing() then
         response.handle:close()
@@ -335,7 +300,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-    	print("STDOUT RESP", vim.inspect(data))
+    	-- print("STDOUT RESP", vim.inspect(data))
       local qt = queries:get(qid)
       if not qt then
         return
@@ -352,31 +317,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
           handler(qid, content)
         end
       end
-      --   local qt = queries:get(qid)
-      --   if not qt then
-      --     return
-      --   end
-      --
-      --   if data and data ~= "" then
-      --     local content_match = data:gsub("^data: ", "")
-      --     if content_match then
-      -- 	local success, parsed_content = pcall(vim.json.decode, content_match)
-      -- 	if not success then
-      -- 		M.logger.error("Unable to parse " .. vim.inspect(content_match))
-      -- 		M.logger.error("WITH to parse " .. vim.inspect(data))
-      -- 	end
-      -- 	if parsed_content then
-      -- 		local content = provider:process(parsed_content)
-      -- 		if content then
-      -- 			qt.response = qt.response .. content
-      -- 			buffer = buffer .. content
-      -- 			handler(qid, content)
-      -- 		end
-      -- 	end
-      -- else
-      -- 		M.logger.error("No content match " .. vim.inspect(data))
-      -- end
-      --   end
     end,
   })
   job:start()
@@ -1607,7 +1547,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
       return
     end
-    messages = prov:add_system_prompt(messages, sys_prompt)
+    -- messages = prov:add_system_prompt(messages, sys_prompt)
+
+		if sys_prompt ~= "" then
+			table.insert(messages, { role = "system", content = sys_prompt })
+		end
 
     local repo_instructions = futils.find_repo_instructions()
     if repo_instructions ~= "" and sys_prompt ~= "" then

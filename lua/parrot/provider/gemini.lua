@@ -46,29 +46,6 @@ function Gemini:curl_params()
   }
 end
 
-function Gemini:process_onexit(res)
-  if res == nil then
-    return
-  end
-  if type(res) == "table" then
-    res = table.concat(res, " ")
-  end
-  if type(res) == "string" then
-    local success, parsed = pcall(vim.json.decode, res)
-    if success and parsed.error and parsed.error.message then
-      logger.error(
-        "GEMINI - code: "
-          .. parsed.error.code
-          .. " message:"
-          .. parsed.error.message
-          .. " status:"
-          .. parsed.error.status
-      )
-      return
-    end
-  end
-end
-
 function Gemini:preprocess_payload(payload)
   local new_messages = {}
   for _, message in ipairs(payload.messages) do
@@ -108,10 +85,6 @@ function Gemini:verify()
   end
 end
 
-function Gemini:add_system_prompt(messages, _)
-  return messages
-end
-
 function Gemini:process_stdout(response)
 	local pattern = '"text":'
   if response:match(pattern) then
@@ -127,6 +100,22 @@ function Gemini:process_stdout(response)
     end
   end
 end
+
+function Gemini:process_onexit(res)
+	local success, parsed = pcall(vim.json.decode, res)
+	if success and parsed.error and parsed.error.message then
+		logger.error(
+			"GEMINI - code: "
+				.. parsed.error.code
+				.. " message:"
+				.. parsed.error.message
+				.. " status:"
+				.. parsed.error.status
+		)
+		return
+	end
+end
+
 
 function Gemini:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

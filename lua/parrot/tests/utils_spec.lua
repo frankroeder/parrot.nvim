@@ -168,4 +168,105 @@ describe("utils", function()
       assert.are.same(expected_new_payload, new_payload)
     end)
   end)
+
+  describe("parse_raw_response", function()
+    -- Perplexity API error
+    it("should handle HTML error response", function()
+      local input = {
+        "<html>",
+        "<head><title>401 Authorization Required</title></head>",
+        "<body>",
+        "<center><h1>401 Authorization Required</h1></center>",
+        "<hr><center>openresty/1.25.3.1</center>",
+        "</body>",
+        "</html>",
+      }
+      local expected =
+        "<html> <head><title>401 Authorization Required</title></head> <body> <center><h1>401 Authorization Required</h1></center> <hr><center>openresty/1.25.3.1</center> </body> </html>"
+      assert.are.equal(expected, utils.parse_raw_response(input))
+    end)
+
+    -- Anthropic API error
+    it("should handle authentication error JSON", function()
+      local input = { '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' }
+      local expected = { type = "error", error = { type = "authentication_error", message = "invalid x-api-key" } }
+      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    end)
+
+    -- Gemini API error
+    it("should handle API key error JSON", function()
+      local input = {
+        "{",
+        '  "error": {',
+        '    "code": 400,',
+        '    "message": "API key not valid. Please pass a valid API key.",',
+        '    "status": "INVALID_ARGUMENT",',
+        '    "details": [',
+        "      {",
+        '        "@type": "type.googleapis.com/google.rpc.ErrorInfo",',
+        '        "reason": "API_KEY_INVALID",',
+        '        "domain": "googleapis.com",',
+        '        "metadata": {',
+        '          "service": "generativelanguage.googleapis.com"',
+        "        }",
+        "      }",
+        "    ]",
+        "  }",
+        "}",
+      }
+      local expected = {
+        error = {
+          code = 400,
+          message = "API key not valid. Please pass a valid API key.",
+          status = "INVALID_ARGUMENT",
+          details = {
+            {
+              ["@type"] = "type.googleapis.com/google.rpc.ErrorInfo",
+              reason = "API_KEY_INVALID",
+              domain = "googleapis.com",
+              metadata = {
+                service = "generativelanguage.googleapis.com",
+              },
+            },
+          },
+        },
+      }
+      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    end)
+
+    -- OpenAI API error
+    it("should handle unauthorized error JSON", function()
+      local input = {
+        "{",
+        '    "error": {',
+        '        "message": "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",',
+        '        "type": "invalid_request_error",',
+        '        "param": null,',
+        '        "code": "invalid_api_key"',
+        "    }",
+        "}",
+      }
+      local expected = { error = {
+      	message = "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",
+      	type = "invalid_request_error",
+      	param = vim.NIL,
+      	code = "invalid_api_key"
+      }}
+      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    end)
+
+    -- Mistral API error
+    it("should handle unauthorized error JSON", function()
+      local input = { "{", '  "message":"Unauthorized",', '  "request_id":"e113373b0349704893b58356e033606e"', "}" }
+      local expected = { message = "Unauthorized", request_id = "e113373b0349704893b58356e033606e" }
+      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    end)
+
+    -- Ollama API error
+    it("should handle model not found error JSON", function()
+      local input = { '{"error":"model \'llama5:latest\' not found, try pulling it first"}' }
+      local expected = { error = "model 'llama5:latest' not found, try pulling it first" }
+      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    end)
+  end)
 end)

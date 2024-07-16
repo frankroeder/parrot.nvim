@@ -57,24 +57,6 @@ end
 
 function OpenAI:set_model(_) end
 
-function OpenAI:process_onexit(res)
-  if res == nil then
-    return
-  end
-  if type(res) == "table" then
-    res = table.concat(res, " ")
-  end
-  if type(res) == "string" then
-    local success, parsed = pcall(vim.json.decode, res)
-    if success and parsed.error and parsed.error.message then
-      logger.error(
-        "OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
-      )
-      return
-    end
-  end
-end
-
 function OpenAI:preprocess_payload(payload)
   -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
@@ -103,14 +85,8 @@ function OpenAI:verify()
   end
 end
 
-function OpenAI:add_system_prompt(messages, sys_prompt)
-  if sys_prompt ~= "" then
-    table.insert(messages, { role = "system", content = sys_prompt })
-  end
-  return messages
-end
-
 function OpenAI:process_stdout(response)
+	print("RESPONSE", vim.inspect(response))
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
 		local success, content = pcall(vim.json.decode, response)
 		if not success then
@@ -119,6 +95,17 @@ function OpenAI:process_stdout(response)
     return content.choices[1].delta.content
   end
 end
+
+function OpenAI:process_onexit(res)
+	local success, parsed = pcall(vim.json.decode, res)
+	if success and parsed.error and parsed.error.message then
+		logger.error(
+			"OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
+		)
+		return
+	end
+end
+
 
 function OpenAI:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model
