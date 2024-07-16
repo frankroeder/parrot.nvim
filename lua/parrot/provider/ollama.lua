@@ -65,11 +65,14 @@ function Ollama:add_system_prompt(messages, sys_prompt)
   return messages
 end
 
-function Ollama:process(line)
-  if line:match("message") and line:match("content") then
-    line = vim.json.decode(line)
-    if line.message and line.message.content then
-      return line.message.content
+function Ollama:process(response)
+  if response:match("message") and response:match("content") then
+		local success, content = pcall(vim.json.decode, response)
+		if not success then
+			logger.debug("Could not process response " .. response)
+		end
+    if content.message and content.message.content then
+      return content.message.content
     end
   end
 end

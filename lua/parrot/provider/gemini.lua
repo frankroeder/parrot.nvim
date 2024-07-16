@@ -89,20 +89,20 @@ function Gemini:add_system_prompt(messages, _)
   return messages
 end
 
-function Gemini:process(line)
-  local pattern = '"text":'
-  if line:match(pattern) then
-    local content = vim.json.decode(line)
-    if content.candidates then
-      local candidate = content.candidates[1]
-      if candidate and candidate.content and candidate.content.parts then
-        local part = candidate.content.parts[1]
-        if part and part.text then
-          return part.text
-        end
-      end
-    end
-  end
+function Gemini:process(response)
+	local success, content = pcall(vim.json.decode, response)
+	if not success then
+		logger.debug("Could not process response " .. response)
+	end
+	if content.candidates then
+		local candidate = content.candidates[1]
+		if candidate and candidate.content and candidate.content.parts then
+			local part = candidate.content.parts[1]
+			if part and part.text then
+				return part.text
+			end
+		end
+	end
 end
 
 function Gemini:check(agent)

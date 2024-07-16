@@ -79,11 +79,14 @@ function Anthropic:add_system_prompt(messages, _)
   return messages
 end
 
-function Anthropic:process(line)
-  if line:match("content_block_delta") and line:match("text_delta") then
-    local decoded_line = vim.json.decode(line)
-    if decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
-      return decoded_line.delta.text
+function Anthropic:process(response)
+  if response:match("content_block_delta") and response:match("text_delta") then
+		local success, content = pcall(vim.json.decode, response)
+		if not success then
+			logger.debug("Could not process response " .. response)
+		end
+    if content.delta and content.delta.type == "text_delta" and content.delta.text then
+      return content.delta.text
     end
   end
 end

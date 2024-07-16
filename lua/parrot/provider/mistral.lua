@@ -73,10 +73,13 @@ function Mistral:add_system_prompt(messages, sys_prompt)
   return messages
 end
 
-function Mistral:process(line)
-  if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
-    line = vim.json.decode(line)
-    return line.choices[1].delta.content
+function Mistral:process(response)
+  if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
+		local success, content = pcall(vim.json.decode, response)
+		if not success then
+			logger.debug("Could not process response " .. response)
+		end
+    return content.choices[1].delta.content
   end
 end
 
