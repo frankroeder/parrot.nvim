@@ -39,7 +39,7 @@ end
 
 function Mistral:set_model(_) end
 
-function Mistral:parse_result(res)
+function Mistral:process_onexit(res)
   if res == nil then
     return
   end

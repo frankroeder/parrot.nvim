@@ -57,7 +57,7 @@ end
 
 function OpenAI:set_model(_) end
 
-function OpenAI:parse_result(res)
+function OpenAI:process_onexit(res)
   if res == nil then
     return
   end

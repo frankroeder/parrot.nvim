@@ -46,7 +46,7 @@ function Gemini:curl_params()
   }
 end
 
-function Gemini:parse_result(res)
+function Gemini:process_onexit(res)
   if res == nil then
     return
   end

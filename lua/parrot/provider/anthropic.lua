@@ -39,7 +39,7 @@ end
 
 function Anthropic:set_model(_) end
 
-function Anthropic:parse_result(res)
+function Anthropic:process_onexit(res)
   if res == nil then
     return
   end

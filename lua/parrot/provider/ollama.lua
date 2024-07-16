@@ -43,7 +43,7 @@ end
 
 function Ollama:set_model(_) end
 
-function Ollama:parse_result(res)
+function Ollama:process_onexit(res)
   if res == nil then
     return
   end
