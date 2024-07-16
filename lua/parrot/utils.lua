@@ -355,12 +355,12 @@ end
 -- end
 
 M.parse_raw_response = function(response)
-	if response ~= nil then
-		if type(response) == "table" then
-			response = table.concat(response, " ")
-		end
-		return response
-	end
+  if response ~= nil then
+    if type(response) == "table" then
+      response = table.concat(response, " ")
+    end
+    return response
+  end
 end
 
 return M

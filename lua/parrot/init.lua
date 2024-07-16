@@ -277,14 +277,14 @@ M.query = function(buf, provider, payload, handler, on_exit)
     command = "curl",
     args = curl_params,
     on_exit = function(response, exit_code)
-    	-- print("EXIT RESP", vim.inspect(response:result()))
+      -- print("EXIT RESP", vim.inspect(response:result()))
       if exit_code ~= 0 then
         M.logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
         on_exit(qid)
       end
-			local result = response:result()
-			result = utils.parse_raw_response(result)
-			provider:process_onexit(result)
+      local result = response:result()
+      result = utils.parse_raw_response(result)
+      provider:process_onexit(result)
 
       if response.handle and not response.handle:is_closing() then
         response.handle:close()
@@ -300,7 +300,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-    	-- print("STDOUT RESP", vim.inspect(data))
+      -- print("STDOUT RESP", vim.inspect(data))
       local qt = queries:get(qid)
       if not qt then
         return
@@ -1549,9 +1549,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     end
     -- messages = prov:add_system_prompt(messages, sys_prompt)
 
-		if sys_prompt ~= "" then
-			table.insert(messages, { role = "system", content = sys_prompt })
-		end
+    if sys_prompt ~= "" then
+      table.insert(messages, { role = "system", content = sys_prompt })
+    end
 
     local repo_instructions = futils.find_repo_instructions()
     if repo_instructions ~= "" and sys_prompt ~= "" then

@@ -68,22 +68,20 @@ end
 
 function Mistral:process_stdout(response)
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
-		local success, content = pcall(vim.json.decode, response)
-		if not success then
-			logger.debug("Could not process response " .. response)
-		end
-    return content.choices[1].delta.content
+    local success, content = pcall(vim.json.decode, response)
+    if success and content.choices then
+      return content.choices[1].delta.content
+    end
   end
 end
 
 function Mistral:process_onexit(res)
-	local success, parsed = pcall(vim.json.decode, res)
-	if success and parsed.message then
-		logger.error("Mistral - message: " .. parsed.message)
-		return
-	end
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.message then
+    logger.error("Mistral - message: " .. parsed.message)
+    return
+  end
 end
-
 
 function Mistral:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

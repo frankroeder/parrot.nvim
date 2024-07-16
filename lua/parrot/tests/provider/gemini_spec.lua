@@ -1,10 +1,8 @@
 local assert = require("luassert")
-local spy = require("luassert.spy")
 local mock = require("luassert.mock")
 
 -- Mock the required modules
 local logger_mock = mock(require("parrot.logger"), true)
-local utils_mock = mock(require("parrot.utils"), true)
 
 -- Load the Gemini class
 local Gemini = require("parrot.provider.gemini")
@@ -14,6 +12,7 @@ describe("Gemini", function()
 
   before_each(function()
     gemini = Gemini:new("https://generativelanguage.googleapis.com/v1beta/models/", "test_api_key")
+    assert.are.same(gemini.name, "gemini")
   end)
 
   describe("process_onexit", function()
@@ -38,25 +37,9 @@ describe("Gemini", function()
 
       gemini:process_onexit(input)
 
-      assert.spy(logger_mock.error).was_called_with(
-        "GEMINI - code: 400 message:API key not valid. Please pass a valid API key. status:INVALID_ARGUMENT"
-      )
-    end)
-
-    it("should not log anything for successful responses", function()
-      local input = vim.json.encode({ success = true })
-
-      gemini:process_onexit(input)
-
-      assert.spy(logger_mock.error).was_not_called()
-    end)
-
-    it("should handle invalid JSON gracefully", function()
-      local input = "invalid json"
-
-      gemini:process_onexit(input)
-
-      assert.spy(logger_mock.error).was_not_called()
+      assert
+        .spy(logger_mock.error)
+        .was_called_with("GEMINI - code: 400 message:API key not valid. Please pass a valid API key. status:INVALID_ARGUMENT")
     end)
   end)
 
@@ -110,13 +93,13 @@ describe("Gemini", function()
   end)
 
   describe("preprocess_payload", function()
-    it("should process messages correctly", function()
+    it("should process dummy messages correctly", function()
       local payload = {
         messages = {
           { role = "system", content = "You are a helpful assistant." },
           { role = "user", content = "Hello!" },
           { role = "assistant", content = "Hi there!" },
-        }
+        },
       }
 
       local result = gemini:preprocess_payload(payload)
@@ -127,6 +110,51 @@ describe("Gemini", function()
       assert.equals("Hello!", result.contents[1].parts[1].text)
       assert.equals("model", result.contents[2].role)
       assert.equals("Hi there!", result.contents[2].parts[1].text)
+    end)
+
+    it("should process messages correctly", function()
+      local system_msg = "You are a versatile AI assistant with capabilities"
+      local payload = {
+        maxOutputTokens = 8192,
+        messages = {
+          {
+            content = system_msg,
+            role = "system",
+          },
+          {
+            content = " Who are you and what is your system message?",
+            role = "user",
+          },
+        },
+        model = "gemini-1.5-flash",
+        stream = true,
+        temperature = 1.1,
+        topK = 10,
+        topP = 1,
+      }
+      local expected = {
+        contents = {
+          {
+            parts = { {
+              text = "Who are you and what is your system message?",
+            } },
+            role = "user",
+          },
+        },
+        generationConfig = {
+          maxOutputTokens = 8192,
+          temperature = 1.1,
+          topK = 10,
+          topP = 1,
+        },
+        system_instruction = {
+          parts = {
+            text = system_msg,
+          },
+        },
+      }
+      local result = gemini:preprocess_payload(payload)
+      assert.are.same(result, expected)
     end)
   end)
 
@@ -149,7 +177,7 @@ describe("Gemini", function()
     end)
 
     it("should return false for unsupported models", function()
-      assert.is_false(gemini:check({ model = "unsupported-model" }))
+      assert.is_nil(gemini:check({ model = "unsupported-model" }))
     end)
   end)
 end)

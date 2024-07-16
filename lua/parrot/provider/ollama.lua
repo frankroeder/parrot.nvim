@@ -60,24 +60,20 @@ end
 
 function Ollama:process_stdout(response)
   if response:match("message") and response:match("content") then
-		local success, content = pcall(vim.json.decode, response)
-		if not success then
-			logger.debug("Could not process response " .. response)
-		end
-    if content.message and content.message.content then
+    local success, content = pcall(vim.json.decode, response)
+    if success and content.message and content.message.content then
       return content.message.content
     end
   end
 end
 
 function Ollama:process_onexit(res)
-	local success, parsed = pcall(vim.json.decode, res)
-	if success and parsed.error then
-		logger.error("Ollama - code: " .. parsed.error)
-		return
-	end
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.error then
+    logger.error("Ollama - code: " .. parsed.error)
+    return
+  end
 end
-
 
 function Ollama:check(agent)
   if not self.ollama_installed then

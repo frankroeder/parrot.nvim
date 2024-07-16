@@ -1,10 +1,8 @@
 local assert = require("luassert")
-local spy = require("luassert.spy")
 local mock = require("luassert.mock")
 
 -- Mock the required modules
 local logger_mock = mock(require("parrot.logger"), true)
-local utils_mock = mock(require("parrot.utils"), true)
 
 -- Load the Anthropic class
 local Anthropic = require("lua.parrot.provider.anthropic")
@@ -17,6 +15,7 @@ describe("Anthropic", function()
     assert.are.same(anthropic.name, "anthropic")
   end)
 
+  -- TODO: preprocess_payload output is nil --
   -- describe("preprocess_payload", function()
   --   it("should handle payload with system message correctly", function()
   --     local input = {
@@ -93,6 +92,21 @@ describe("Anthropic", function()
       local result = anthropic:process_stdout(input)
 
       assert.is_nil(result)
+    end)
+
+    it("should fail to decode", function()
+      local input = "{ content_block_delta text_delta }"
+
+      local result = anthropic:process_stdout(input)
+
+      assert.is_nil(result)
+    end)
+
+    describe("check", function()
+      it("check should return true for available models", function()
+        assert.is_true(anthropic:check({ model = "claude-3-opus-20240229" }))
+        assert.is_nil(anthropic:check({ model = "claude-instant-v1" }))
+      end)
     end)
   end)
 end)

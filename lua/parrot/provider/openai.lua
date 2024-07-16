@@ -86,26 +86,24 @@ function OpenAI:verify()
 end
 
 function OpenAI:process_stdout(response)
-	print("RESPONSE", vim.inspect(response))
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
-		local success, content = pcall(vim.json.decode, response)
-		if not success then
-			logger.debug("Could not process response " .. response)
-		end
+    local success, content = pcall(vim.json.decode, response)
+    if not success then
+      logger.debug("Could not process response " .. response)
+    end
     return content.choices[1].delta.content
   end
 end
 
 function OpenAI:process_onexit(res)
-	local success, parsed = pcall(vim.json.decode, res)
-	if success and parsed.error and parsed.error.message then
-		logger.error(
-			"OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
-		)
-		return
-	end
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.error and parsed.error.message then
+    logger.error(
+      "OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
+    )
+    return
+  end
 end
-
 
 function OpenAI:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

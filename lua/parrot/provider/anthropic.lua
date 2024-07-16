@@ -76,22 +76,21 @@ function Anthropic:verify()
 end
 
 function Anthropic:process_stdout(response)
-	if response:match("content_block_delta") and response:match("text_delta") then
-    local decoded_line = vim.json.decode(response)
-    if decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
+  if response:match("content_block_delta") and response:match("text_delta") then
+    local success, decoded_line = pcall(vim.json.decode, response)
+    if success and decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
       return decoded_line.delta.text
     end
   end
 end
 
 function Anthropic:process_onexit(res)
-	local success, parsed = pcall(vim.json.decode, res)
-	if success and parsed.error and parsed.error.message then
-		logger.error("Anthropic - message:" .. parsed.error.message .. " type:" .. parsed.error.type)
-		return
-	end
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.error and parsed.error.message then
+    logger.error("Anthropic - message:" .. parsed.error.message .. " type:" .. parsed.error.type)
+    return
+  end
 end
-
 
 function Anthropic:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

@@ -71,10 +71,10 @@ end
 
 function Perplexity:process_stdout(response)
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
-		local success, content = pcall(vim.json.decode, response)
-		if not success then
-			logger.debug("Could not process response " .. response)
-		end
+    local success, content = pcall(vim.json.decode, response)
+    if not success then
+      logger.debug("Could not process response " .. response)
+    end
     return content.choices[1].delta.content
   end
 end
@@ -86,7 +86,6 @@ function Perplexity:process_onexit(res)
     return
   end
 end
-
 
 function Perplexity:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

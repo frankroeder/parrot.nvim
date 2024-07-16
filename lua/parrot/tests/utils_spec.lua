@@ -246,12 +246,14 @@ describe("utils", function()
         "    }",
         "}",
       }
-      local expected = { error = {
-      	message = "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",
-      	type = "invalid_request_error",
-      	param = vim.NIL,
-      	code = "invalid_api_key"
-      }}
+      local expected = {
+        error = {
+          message = "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",
+          type = "invalid_request_error",
+          param = vim.NIL,
+          code = "invalid_api_key",
+        },
+      }
       assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
     end)
 

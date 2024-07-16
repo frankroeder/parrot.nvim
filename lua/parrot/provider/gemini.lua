@@ -70,7 +70,8 @@ function Gemini:preprocess_payload(payload)
     end
   end
   payload.contents = vim.deepcopy(new_messages)
-  return utils.filter_payload_parameters(available_api_parameters, payload)
+  local afer = utils.filter_payload_parameters(available_api_parameters, payload)
+  return afer
 end
 
 function Gemini:verify()
@@ -86,10 +87,10 @@ function Gemini:verify()
 end
 
 function Gemini:process_stdout(response)
-	local pattern = '"text":'
+  local pattern = '"text":'
   if response:match(pattern) then
-    local content = vim.json.decode(response)
-    if content.candidates then
+    local success, content = pcall(vim.json.decode, response)
+    if success and content.candidates then
       local candidate = content.candidates[1]
       if candidate and candidate.content and candidate.content.parts then
         local part = candidate.content.parts[1]
@@ -102,20 +103,14 @@ function Gemini:process_stdout(response)
 end
 
 function Gemini:process_onexit(res)
-	local success, parsed = pcall(vim.json.decode, res)
-	if success and parsed.error and parsed.error.message then
-		logger.error(
-			"GEMINI - code: "
-				.. parsed.error.code
-				.. " message:"
-				.. parsed.error.message
-				.. " status:"
-				.. parsed.error.status
-		)
-		return
-	end
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.error and parsed.error.message then
+    logger.error(
+      "GEMINI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " status:" .. parsed.error.status
+    )
+    return
+  end
 end
-
 
 function Gemini:check(agent)
   local model = type(agent.model) == "string" and agent.model or agent.model.model

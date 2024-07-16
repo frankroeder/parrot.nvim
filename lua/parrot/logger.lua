@@ -33,7 +33,7 @@ end
 
 ---@param msg string # plain message
 M.debug = function(msg)
-	return
+  return
   -- if os.getenv("DEBUG_PARROT") ~= nil then
   --   M._log(msg, "Debug", true)
   -- end
