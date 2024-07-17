@@ -16,7 +16,11 @@ local function log(msg, kind)
     write_to_logfile(msg, kind)
   end
   if kind ~= "Debug" then
-    print(string.format("%s: [%s] %s", M._plugin_name, kind, msg))
+    vim.schedule(function()
+      vim.api.nvim_echo({
+        { M._plugin_name .. ": " .. msg .. "\n", kind },
+      }, true, {})
+    end)
   end
 end
 
