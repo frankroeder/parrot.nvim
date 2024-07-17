@@ -69,10 +69,21 @@ function Perplexity:verify()
   end
 end
 
-function Perplexity:process(line)
-  if line:match("chat%.completion%.chunk") or line:match("chat%.completion") then
-    line = vim.json.decode(line)
-    return line.choices[1].delta.content
+function Perplexity:process_stdout(response)
+  if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
+    local success, content = pcall(vim.json.decode, response)
+    if success and content.choices then
+      return content.choices[1].delta.content
+    else
+      logger.debug("Could not process response " .. response)
+    end
+  end
+end
+
+function Perplexity:process_onexit(res)
+  local parsed = res:match("<h1>(.-)</h1>")
+  if parsed then
+    logger.error("Perplexity - message: " .. parsed)
   end
 end
 

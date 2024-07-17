@@ -58,12 +58,22 @@ function Ollama:verify()
   return true
 end
 
-function Ollama:process(line)
-  if line:match("message") and line:match("content") then
-    line = vim.json.decode(line)
-    if line.message and line.message.content then
-      return line.message.content
+function Ollama:process_stdout(response)
+  if response:match("message") and response:match("content") then
+    local success, content = pcall(vim.json.decode, response)
+    if success and content.message and content.message.content then
+      return content.message.content
+    else
+      logger.debug("Could not process response " .. response)
     end
+  end
+end
+
+function Ollama:process_onexit(res)
+  local success, parsed = pcall(vim.json.decode, res)
+  if success and parsed.error then
+    logger.error("Ollama - code: " .. parsed.error)
+    return
   end
 end
 
@@ -100,7 +110,7 @@ function Ollama:check(agent)
           logger.info("Download finished with exit code: " .. return_val)
         end,
         on_stderr = function(j, data)
-          print("Downloading, please wait: " .. data)
+          logger.info("Downloading, please wait: " .. data)
           if j ~= nil then
             logger.error(vim.inspect(j:result()))
           end

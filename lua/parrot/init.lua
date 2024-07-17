@@ -242,7 +242,6 @@ M.query = function(buf, provider, payload, handler, on_exit)
     payload = payload,
     handler = handler,
     on_exit = on_exit,
-    raw_response = "",
     response = "",
     first_line = -1,
     last_line = -1,
@@ -273,50 +272,24 @@ M.query = function(buf, provider, payload, handler, on_exit)
     table.insert(curl_params, parg)
   end
 
-  local function process_lines(lines_chunk)
-    local qt = queries:get(qid)
-    if not qt then
-      return
-    end
-
-    local lines = vim.split(lines_chunk, "\n")
-    for _, line in ipairs(lines) do
-      if line ~= "" and line ~= nil then
-        qt.raw_response = qt.raw_response .. line .. "\n"
-      end
-      line = line:gsub("^data: ", "")
-      local content = provider:process(line)
-      if content ~= nil then
-        qt.response = qt.response .. content
-        handler(qid, content)
-        return content
-      end
-    end
-  end
-
   local buffer = ""
-
   local job = Job:new({
     command = "curl",
     args = curl_params,
-    on_exit = function(j, return_val)
-      for _, result in ipairs(j:result()) do
-        -- print("EXIT", vim.inspect(result))
-        if type(result) == "string" then
-          local success, error_msg = pcall(vim.json.decode, result)
-          if success then
-            if error_msg["error"] ~= nil then
-              M.logger.error(error_msg["error"]["message"])
-            end
-          elseif j.signal ~= 0 and string.find(result, "error") or string.find(result, "401") then
-            -- TODO: Improve error handling --
-            M.logger.error(result)
-          end
-        end
+    on_exit = function(response, exit_code)
+      M.logger.debug("on_exit: " .. vim.inspect(response:result()))
+      if exit_code ~= 0 then
+        M.logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
+        on_exit(qid)
       end
-      if j.handle and not j.handle:is_closing() then
-        j.handle:close()
+      local result = response:result()
+      result = utils.parse_raw_response(result)
+      provider:process_onexit(result)
+
+      if response.handle and not response.handle:is_closing() then
+        response.handle:close()
       end
+
       on_exit(qid)
       local qt = queries:get(qid)
       if qt.ns_id and qt.buf then
@@ -324,29 +297,24 @@ M.query = function(buf, provider, payload, handler, on_exit)
           vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
         end)
       end
-      pool:remove(j.pid)
+      pool:remove(response.pid)
     end,
-    on_stdout = function(j, data)
-      -- print("DATA", vim.inspect(data))
-      local chunk = process_lines(data)
-      if chunk then
-        buffer = buffer .. chunk
-        local last_newline_pos = buffer:find("\n[^\n]*$")
-        if last_newline_pos then
-          local complete_lines = buffer:sub(1, last_newline_pos - 1)
-          buffer = buffer:sub(last_newline_pos + 1)
-          process_lines(complete_lines)
+    on_stdout = function(_, data)
+      M.logger.debug("on_stdout: " .. vim.inspect(data))
+      local qt = queries:get(qid)
+      if not qt then
+        return
+      end
+
+      local lines = vim.split(data, "\n")
+      for _, line in ipairs(lines) do
+        local raw_json = string.gsub(line, "^data:", "")
+        local content = provider:process_stdout(raw_json)
+        if content then
+          qt.response = qt.response .. content
+          buffer = buffer .. content
+          handler(qid, content)
         end
-      end
-      if #buffer > 0 then
-        process_lines(buffer)
-      end
-    end,
-    on_stderr = function(j, data)
-      -- print("ERROR", vim.inspect(data))
-      M.logger.error("Error: " .. vim.inspect(data))
-      if j ~= nil then
-        M.logger.error(j:result())
       end
     end,
   })

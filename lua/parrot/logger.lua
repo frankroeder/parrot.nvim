@@ -31,4 +31,11 @@ M.info = function(msg)
   M._log(msg, "Normal", true)
 end
 
+---@param msg string # plain message
+M.debug = function(msg)
+  if os.getenv("DEBUG_PARROT") then
+    M._log(msg, "Debug", true)
+  end
+end
+
 return M
