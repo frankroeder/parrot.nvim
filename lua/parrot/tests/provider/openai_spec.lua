@@ -137,12 +137,6 @@ describe("OpenAI", function()
       assert.is_false(openai:verify())
       assert.spy(logger_mock.error).was_called()
     end)
-
-    it("should return false and log an error for an unresolved API key", function()
-      openai.api_key = { unresolved = true }
-      assert.is_false(openai:verify())
-      assert.spy(logger_mock.error).was_called()
-    end)
   end)
 
   describe("check", function()

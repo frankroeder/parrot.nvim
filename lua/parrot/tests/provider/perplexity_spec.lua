@@ -104,12 +104,6 @@ describe("Perplexity", function()
       assert.is_false(perplexity:verify())
       assert.spy(logger_mock.error).was_called()
     end)
-
-    it("should return false and log an error for an unresolved API key", function()
-      perplexity.api_key = { unresolved = true }
-      assert.is_false(perplexity:verify())
-      assert.spy(logger_mock.error).was_called()
-    end)
   end)
 
   describe("check", function()

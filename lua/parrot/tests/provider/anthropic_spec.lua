@@ -47,6 +47,18 @@ describe("Anthropic", function()
   --   end)
   -- end)
 
+  describe("verify", function()
+    it("should return true for a valid API key", function()
+      assert.is_true(anthropic:verify())
+    end)
+
+    it("should return false and log an error for an invalid API key", function()
+      anthropic.api_key = ""
+      assert.is_false(anthropic:verify())
+      assert.spy(logger_mock.error).was_called()
+    end)
+  end)
+
   describe("process_onexit", function()
     it("should log an error message when there's an API error", function()
       local input = vim.json.encode({

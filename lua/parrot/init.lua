@@ -151,23 +151,6 @@ M.setup = function(user_opts)
       M.logger.error(name .. " is not installed, run :checkhealth parrot")
     end
   end
-
-  for prov_name, val in pairs(M.providers) do
-    if type(val.api_key) == "table" then
-      local command = table.concat(val.api_key, " ")
-      local handle = io.popen(command)
-      if handle then
-        M.providers[prov_name].api_key = handle:read("*a"):gsub("%s+", "")
-      else
-        M.providers[prov_name].api_key = nil
-      end
-      handle:close()
-      local prov = init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
-      if not prov:verify() then
-        M.logger.error("Error verifying api key of " .. prov_name)
-      end
-    end
-  end
 end
 
 -- creates prompt commands for each target
@@ -867,10 +850,6 @@ M.chat_respond = function(params)
   local agent_name = agent.name
   local agent_provider = agent.provider
   local prov = M.get_provider()
-
-  if not prov:verify() then
-    return
-  end
 
   if not pool:unique_for_buffer(buf) then
     M.logger.warning("Another parrot process is already running for this buffer.")

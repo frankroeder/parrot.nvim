@@ -76,8 +76,15 @@ end
 
 function Gemini:verify()
   if type(self.api_key) == "table" then
-    logger.error("api_key is still an unresolved command: " .. vim.inspect(self.api_key))
-    return false
+    local command = table.concat(self.api_key, " ")
+    local handle = io.popen(command)
+    if handle then
+      self.api_key = handle:read("*a"):gsub("%s+", "")
+    else
+      logger.error("Error verifying api key of " .. self.name)
+    end
+    handle:close()
+    return true
   elseif self.api_key and string.match(self.api_key, "%S") then
     return true
   else
