@@ -110,7 +110,7 @@ function Ollama:check(agent)
           logger.info("Download finished with exit code: " .. return_val)
         end,
         on_stderr = function(j, data)
-          logger.info("Downloading, please wait: " .. data)
+          print("Downloading, please wait: " .. data)
           if j ~= nil then
             logger.error(vim.inspect(j:result()))
           end

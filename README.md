@@ -70,6 +70,7 @@ Let the parrot fix your bugs.
   "frankroeder/parrot.nvim",
   tag = "v0.3.6",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
+  -- optionally include "rcarriga/nvim-notify" for beautiful notifications
   config = function()
     require("parrot").setup {
       -- Providers must be explicitly added to make them available.
