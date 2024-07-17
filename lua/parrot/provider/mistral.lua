@@ -81,7 +81,6 @@ function Mistral:process_onexit(res)
   local success, parsed = pcall(vim.json.decode, res)
   if success and parsed.message then
     logger.error("Mistral - message: " .. parsed.message)
-    return
   end
 end
 

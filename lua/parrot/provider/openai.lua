@@ -102,7 +102,6 @@ function OpenAI:process_onexit(res)
     logger.error(
       "OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
     )
-    return
   end
 end
 

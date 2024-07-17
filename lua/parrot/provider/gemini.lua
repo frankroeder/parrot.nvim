@@ -110,7 +110,6 @@ function Gemini:process_onexit(res)
     logger.error(
       "GEMINI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " status:" .. parsed.error.status
     )
-    return
   end
 end
 

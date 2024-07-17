@@ -90,7 +90,6 @@ function Anthropic:process_onexit(res)
   local success, parsed = pcall(vim.json.decode, res)
   if success and parsed.error and parsed.error.message then
     logger.error("Anthropic - message:" .. parsed.error.message .. " type:" .. parsed.error.type)
-    return
   end
 end
 

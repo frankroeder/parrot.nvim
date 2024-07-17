@@ -84,7 +84,6 @@ function Perplexity:process_onexit(res)
   local parsed = res:match("<h1>(.-)</h1>")
   if parsed then
     logger.error("Perplexity - message: " .. parsed)
-    return
   end
 end
 
