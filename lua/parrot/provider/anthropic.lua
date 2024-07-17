@@ -80,6 +80,8 @@ function Anthropic:process_stdout(response)
     local success, decoded_line = pcall(vim.json.decode, response)
     if success and decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
       return decoded_line.delta.text
+    else
+      logger.debug("Could not process response " .. response)
     end
   end
 end

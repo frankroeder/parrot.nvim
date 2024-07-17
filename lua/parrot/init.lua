@@ -277,7 +277,7 @@ M.query = function(buf, provider, payload, handler, on_exit)
     command = "curl",
     args = curl_params,
     on_exit = function(response, exit_code)
-      -- print("EXIT RESP", vim.inspect(response:result()))
+      M.logger.debug("on_exit: " .. vim.inspect(response:result()))
       if exit_code ~= 0 then
         M.logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
         on_exit(qid)
@@ -300,14 +300,13 @@ M.query = function(buf, provider, payload, handler, on_exit)
       pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-      -- print("STDOUT RESP", vim.inspect(data))
+      M.logger.debug("on_stdout: " .. vim.inspect(data))
       local qt = queries:get(qid)
       if not qt then
         return
       end
 
       local lines = vim.split(data, "\n")
-      -- for line in result:gmatch("[^\n]+") do
       for _, line in ipairs(lines) do
         local raw_json = string.gsub(line, "^data:", "")
         local content = provider:process_stdout(raw_json)
@@ -1547,7 +1546,6 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
       return
     end
-    -- messages = prov:add_system_prompt(messages, sys_prompt)
 
     if sys_prompt ~= "" then
       table.insert(messages, { role = "system", content = sys_prompt })

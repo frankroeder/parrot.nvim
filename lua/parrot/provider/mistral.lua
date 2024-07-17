@@ -71,6 +71,8 @@ function Mistral:process_stdout(response)
     local success, content = pcall(vim.json.decode, response)
     if success and content.choices then
       return content.choices[1].delta.content
+    else
+      logger.debug("Could not process response " .. response)
     end
   end
 end

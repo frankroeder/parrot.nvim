@@ -63,6 +63,8 @@ function Ollama:process_stdout(response)
     local success, content = pcall(vim.json.decode, response)
     if success and content.message and content.message.content then
       return content.message.content
+    else
+      logger.debug("Could not process response " .. response)
     end
   end
 end
@@ -108,7 +110,7 @@ function Ollama:check(agent)
           logger.info("Download finished with exit code: " .. return_val)
         end,
         on_stderr = function(j, data)
-          print("Downloading, please wait: " .. data)
+          logger.info("Downloading, please wait: " .. data)
           if j ~= nil then
             logger.error(vim.inspect(j:result()))
           end

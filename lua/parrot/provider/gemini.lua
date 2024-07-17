@@ -98,6 +98,8 @@ function Gemini:process_stdout(response)
           return part.text
         end
       end
+    else
+      logger.debug("Could not process response " .. response)
     end
   end
 end

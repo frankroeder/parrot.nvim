@@ -88,10 +88,11 @@ end
 function OpenAI:process_stdout(response)
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
     local success, content = pcall(vim.json.decode, response)
-    if not success then
+    if success and content.choices then
+      return content.choices[1].delta.content
+    else
       logger.debug("Could not process response " .. response)
     end
-    return content.choices[1].delta.content
   end
 end
 
