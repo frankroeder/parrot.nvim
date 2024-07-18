@@ -51,8 +51,9 @@ local config = {
       topic_model = "mistral-medium-latest",
     },
   },
-  spinner_type = "dots",
-  -- prefix for all commands
+  -- Type of spinner animation to display while loading
+  -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
+  spinner_type = "star",
   cmd_prefix = "Prt",
   -- optional curl parameters (for proxy, etc.)
   -- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
