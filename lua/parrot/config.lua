@@ -17,7 +17,7 @@ local config = {
       api_key = "",
       endpoint = "https://api.openai.com/v1/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "gpt-3.5-turbo",
+      topic_model = "gpt-4o-mini",
     },
     gemini = {
       api_key = "",
