@@ -143,8 +143,109 @@ The following commands are available within the chat files.
 
 ## Configuration
 
-### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
-https://github.com/frankroeder/dotfiles/blob/04e52865128622e2f12095cbbf55d592b8b7658b/nvim/lua/plugins/parrot.lua
+### Options
+
+```lua
+{
+    -- The provider definitions with endpoints, api keys and models used for chat summarization
+    providers = ...
+
+    -- the prefix used for all commands
+    cmd_prefix = "Prt",
+
+    -- optional parameters for curl
+    curl_params = {},
+
+    -- The directory to store persisted state information like the
+    -- current provider and the selected agents
+    state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
+
+    -- Defintion of the agents (similar to GPTs) for the chats and the inline hooks
+    agents = {
+        chat = ...,
+        command = ...,
+    },
+
+    -- The directory to store the chats (searched with PrtChatFinder)
+    chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
+
+    -- Chat user prompt prefix
+    chat_user_prefix = "🗨:",
+
+    -- Explicitly confirm deletion of a chat file
+    chat_confirm_delete = true,
+
+    -- Local chat buffer shortcuts
+    chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
+    chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
+    chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
+    chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
+
+    -- Option to move the chat to the end of the file after finished respond
+    chat_free_cursor = false,
+
+     -- use prompt buftype for chats (:h prompt-buffer)
+    chat_prompt_buf_type = false,
+
+    -- Default target for  PrtChatToggle, PrtChatNew, PrtContext and the chats opened from the ChatFinder
+    -- values: popup / split / vsplit / tabnew
+    toggle_target = "vsplit",
+
+    -- The interactive user input appearing when can be "native" for
+    -- vim.ui.input or "buffer" to query the input within a native nvim buffer
+    -- (see video demonstrations below)
+    user_input_ui = "native",
+
+    -- Popup window layout
+    -- border: "single", "double", "rounded", "solid", "shadow", "none"
+    style_popup_border = "single",
+
+    -- margins are number of characters or lines
+    style_popup_margin_bottom = 8,
+    style_popup_margin_left = 1,
+    style_popup_margin_right = 2,
+    style_popup_margin_top = 2,
+    style_popup_max_width = 160
+
+    -- Prompt used for interactive LLM calls like PrtRewrite where {{agent}} is
+    -- a placeholder for the agent name
+    command_prompt_prefix_template = "🤖 {{agent}} ~ ",
+
+    -- auto select command response (easier chaining of commands)
+    -- if false it also frees up the buffer cursor for further editing elsewhere
+    command_auto_select_response = true,
+
+    -- fzf_lua options for PrtAgent and PrtChatFinder when plugin is installed
+    fzf_lua_opts = {
+        ["--ansi"] = true,
+        ["--sort"] = "",
+        ["--info"] = "inline",
+        ["--layout"] = "reverse",
+        ["--preview-window"] = "nohidden:right:75%",
+    },
+}
+```
+
+#### Demonstrations
+
+<details>
+<summary>With `user_input_ui = "native"`, use `vim.ui.input` as slim input interface.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/014ad6ad-6367-41d1-ac57-229563540061" width="100%">
+</div>
+</details>
+
+<details>
+<summary>With `user_input_ui = "buffer"`, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/3390a4c1-cb60-4f2a-8bd9-0f47f6ec6e55" width="100%">
+</div>
+</details>
+
+
+### Refer to my personal lazy.nvim setup for custom hooks and key bindings.
+
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
 
 ### Adding a new agents
 
