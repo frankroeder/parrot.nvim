@@ -71,9 +71,12 @@ M.setup = function(user_opts)
 
   M.config = vim.tbl_deep_extend("force", default_opts, user_opts)
   M.providers = cutils.merge_providers(default_opts.providers, user_opts.providers)
+  M.config.providers = nil
   local agents = cutils.merge_agents(default_opts.agents or {}, user_opts.agents or {}, M.providers)
   M.agents = cutils.index_agents_by_name(agents)
+  M.config.agents = nil
   M.hooks = M.config.hooks
+  M.config.hooks = nil
 
   -- Create directories for all config entries ending with "_dir"
   for k, v in pairs(M.config) do
