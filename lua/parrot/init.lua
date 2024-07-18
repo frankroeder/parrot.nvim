@@ -10,6 +10,7 @@ local pft = require("plenary.filetype")
 local scan = require("plenary.scandir")
 local init_provider = require("parrot.provider").init_provider
 local Job = require("plenary.job")
+local Spinner = require("parrot.spinner")
 
 local M = {
   _plugin_name = "parrot.nvim",
@@ -972,6 +973,8 @@ M.chat_respond = function(params)
     init_provider(agent.provider, M.providers[agent.provider].endpoint, M.providers[agent.provider].api_key)
   query_prov:set_model(agent.model)
 
+  local spinner = Spinner:new(M.config.spinner_type)
+  spinner:start("Calling API...")
   -- call the model and write response
   M.query(
     buf,
@@ -979,6 +982,7 @@ M.chat_respond = function(params)
     utils.prepare_payload(messages, headers.model, agent.model),
     M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
     vim.schedule_wrap(function(qid)
+      spinner:stop()
       local qt = queries:get(qid)
       if not qt then
         return
@@ -1022,6 +1026,8 @@ M.chat_respond = function(params)
         topic_prov:check({ model = M.providers[topic_prov.name].topic_model })
         topic_prov:set_model(M.providers[topic_prov.name].topic_model)
 
+        local topic_spinner = Spinner:new(M.config.spinner_type)
+        topic_spinner:start("Summarizing...")
         -- call the model
         M.query(
           nil,
@@ -1029,6 +1035,7 @@ M.chat_respond = function(params)
           utils.prepare_payload(messages, M.providers[topic_prov.name].topic_model, nil),
           topic_handler,
           vim.schedule_wrap(function()
+            topic_spinner:stop()
             -- get topic from invisible buffer
             local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
             -- close invisible buffer

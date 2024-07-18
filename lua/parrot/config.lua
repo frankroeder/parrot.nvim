@@ -51,6 +51,7 @@ local config = {
       topic_model = "mistral-medium-latest",
     },
   },
+  spinner_type = "dots",
   -- prefix for all commands
   cmd_prefix = "Prt",
   -- optional curl parameters (for proxy, etc.)
