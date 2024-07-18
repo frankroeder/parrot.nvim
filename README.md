@@ -144,7 +144,7 @@ The following commands are available within the chat files.
 ## Configuration
 
 ### For now, refer to my personal lazy.nvim setup for custom hooks and key bindings.
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+https://github.com/frankroeder/dotfiles/blob/04e52865128622e2f12095cbbf55d592b8b7658b/nvim/lua/plugins/parrot.lua
 
 ### Adding a new agents
 
