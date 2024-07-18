@@ -337,9 +337,25 @@ require("parrot").setup {
 }
 ```
 
+## Roadmap
 
-## Known Issues
+- Add status line integration/ notifications for summary of tokens used or money spent
+- Improve the documentation
+- Create a tutorial video
+- Reduce overall code complexity and improve robustness
 
-- In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
+## Contribution
+Anyone is welcome to contribute to this project! If you have any ideas,
+suggestions, or bug reports, please feel free to open an issue.
 
-more to come ...
+## FAQ
+
+- I am getting errors realted to the state.
+    > In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
+- The completion is not working and I am getting errors.
+    > Make sure you have enough API credits
+
+## Related Projects
+
+- [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
+- [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
