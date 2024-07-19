@@ -249,7 +249,7 @@ The following commands are available within the chat files.
 </details>
 
 <details>
-<summary>The spinner is useful indicator for providers that take longer to respond.</summary>
+<summary>The spinner is a useful indicator for providers that take longer to respond.</summary>
 <div align="left">
     <img src="https://github.com/user-attachments/assets/39828992-ad2c-4010-be66-e3a03038a980" width="100%">
 </div>
