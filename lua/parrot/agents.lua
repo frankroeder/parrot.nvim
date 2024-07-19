@@ -78,6 +78,12 @@ local openai_chat_agents = {
     system_prompt = system_chat_prompt,
     provider = "openai",
   },
+  {
+    name = "ChatGPT4o-Mini",
+    model = { model = "gpt-4o-mini", temperature = 1.1, top_p = 1 },
+    system_prompt = system_chat_prompt,
+    provider = "openai",
+  },
 }
 
 local gemini_chat_agents = {
@@ -260,6 +266,12 @@ local openai_command_agents = {
   {
     name = "CodeGPT3.5",
     model = { model = "gpt-3.5-turbo", temperature = 1.1, top_p = 1 },
+    system_prompt = system_code_prompt,
+    provider = "openai",
+  },
+  {
+    name = "CodeGPT4o-Mini",
+    model = { model = "gpt-4o-mini", temperature = 1.1, top_p = 1 },
     system_prompt = system_code_prompt,
     provider = "openai",
   },

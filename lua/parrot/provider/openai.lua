@@ -5,25 +5,23 @@ local OpenAI = {}
 OpenAI.__index = OpenAI
 
 local available_model_set = {
-  ["gpt-4o"] = true,
-  ["gpt-4o-2024-05-13"] = true,
-  ["gpt-4-turbo-2024-04-09"] = true,
-  ["gpt-4-0613"] = true,
-  ["gpt-4-turbo"] = true,
-  ["gpt-4"] = true,
-  ["gpt-4-1106-vision-preview"] = true,
-  ["gpt-4-1106-preview"] = true,
-  ["gpt-3.5-turbo-16k"] = true,
-  ["gpt-3.5-turbo-0613"] = true,
-  ["gpt-3.5-turbo-0301"] = true,
-  ["gpt-3.5-turbo-instruct-0914"] = true,
-  ["gpt-3.5-turbo-instruct"] = true,
-  ["gpt-4-0125-preview"] = true,
-  ["gpt-3.5-turbo-16k-0613"] = true,
-  ["gpt-4-turbo-preview"] = true,
+  ["gpt-3.5-turbo"] = true,
   ["gpt-3.5-turbo-0125"] = true,
   ["gpt-3.5-turbo-1106"] = true,
-  ["gpt-3.5-turbo"] = true,
+  ["gpt-3.5-turbo-16k"] = true,
+  ["gpt-3.5-turbo-instruct"] = true,
+  ["gpt-3.5-turbo-instruct-0914"] = true,
+  ["gpt-4"] = true,
+  ["gpt-4-0125-preview"] = true,
+  ["gpt-4-0613"] = true,
+  ["gpt-4-1106-preview"] = true,
+  ["gpt-4-turbo"] = true,
+  ["gpt-4-turbo-2024-04-09"] = true,
+  ["gpt-4-turbo-preview"] = true,
+  ["gpt-4o"] = true,
+  ["gpt-4o-2024-05-13"] = true,
+  ["gpt-4o-mini"] = true,
+  ["gpt-4o-mini-2024-07-18"] = true
 }
 
 -- https://platform.openai.com/docs/api-reference/chat/create

@@ -17,7 +17,7 @@ local config = {
       api_key = "",
       endpoint = "https://api.openai.com/v1/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "gpt-3.5-turbo",
+      topic_model = "gpt-4o-mini",
     },
     gemini = {
       api_key = "",
@@ -55,59 +55,31 @@ local config = {
   -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
   spinner_type = "star",
   cmd_prefix = "Prt",
-  -- optional curl parameters (for proxy, etc.)
-  -- curl_params = { "--proxy", "http://X.X.X.X:XXXX" }
   curl_params = {},
-
-  -- directory for persisting state dynamically changed by user (like model or persona)
   state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
-
   agents = {
     chat = agents.chat_agents,
     command = agents.command_agents,
   },
-  -- directory for storing chat files
   chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
-  -- chat user prompt prefix
   chat_user_prefix = "🗨:",
-  -- explicitly confirm deletion of a chat file
   chat_confirm_delete = true,
-  -- local shortcuts bound to the chat buffer
-  -- (be careful to choose something which will work across specified modes)
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
   chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
   chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
-  -- if true, finished ChatResponder won't move the cursor to the end of the buffer
   chat_free_cursor = false,
-  -- use prompt buftype for chats (:h prompt-buffer)
   chat_prompt_buf_type = false,
-
-  -- how to display PrtChatToggle, PrtContext and the chats opened from the ChatFinder
-  -- values: popup / split / vsplit / tabnew
   toggle_target = "vsplit",
-
-  -- interactive user input
-  -- can be "native" or "buffer"
   user_input_ui = "native",
-
-  -- styling for popup
-  -- border can be "single", "double", "rounded", "solid", "shadow", "none"
   style_popup_border = "single",
-  -- margins are number of characters or lines
   style_popup_margin_bottom = 8,
   style_popup_margin_left = 1,
   style_popup_margin_right = 2,
   style_popup_margin_top = 2,
   style_popup_max_width = 160,
-
-  -- command config and templates below are used by commands like PrtRewrite, PrtEnew, etc.
-  -- command prompt prefix for asking user for input (supports {{agent}} template variable)
   command_prompt_prefix_template = "🤖 {{agent}} ~ ",
-  -- auto select command response (easier chaining of commands)
-  -- if false it also frees up the buffer cursor for further editing elsewhere
   command_auto_select_response = true,
-  -- additional options for the optional dependency fzf_lua
   fzf_lua_opts = {
     ["--ansi"] = true,
     ["--sort"] = "",
