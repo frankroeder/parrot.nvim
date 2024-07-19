@@ -366,7 +366,7 @@ suggestions, or bug reports, please feel free to open an issue.
 - I am getting errors realted to the state.
     > In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
 - The completion is not working and I am getting errors.
-    > Make sure you have enough API credits
+    > Make sure you have enough API credits and check the log file `/tmp/parrot.nvim.log` for errors 
 
 ## Related Projects
 
