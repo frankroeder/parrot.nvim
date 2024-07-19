@@ -223,6 +223,12 @@ The following commands are available within the chat files.
         ["--layout"] = "reverse",
         ["--preview-window"] = "nohidden:right:75%",
     },
+
+    -- Enables the spinner animation during loading
+    enable_spinner = true,
+    -- Type of spinner animation to display while loading
+    -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
+    spinner_type = "star",
 }
 ```
 
@@ -239,6 +245,13 @@ The following commands are available within the chat files.
 <summary>With `user_input_ui = "buffer"`, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
 <div align="left">
     <img src="https://github.com/user-attachments/assets/3390a4c1-cb60-4f2a-8bd9-0f47f6ec6e55" width="100%">
+</div>
+</details>
+
+<details>
+<summary>The spinner is useful indicator for providers that take longer to respond.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/39828992-ad2c-4010-be66-e3a03038a980" width="100%">
 </div>
 </details>
 

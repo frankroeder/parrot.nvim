@@ -21,7 +21,7 @@ local available_model_set = {
   ["gpt-4o"] = true,
   ["gpt-4o-2024-05-13"] = true,
   ["gpt-4o-mini"] = true,
-  ["gpt-4o-mini-2024-07-18"] = true
+  ["gpt-4o-mini-2024-07-18"] = true,
 }
 
 -- https://platform.openai.com/docs/api-reference/chat/create

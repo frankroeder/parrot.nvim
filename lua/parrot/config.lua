@@ -51,9 +51,6 @@ local config = {
       topic_model = "mistral-medium-latest",
     },
   },
-  -- Type of spinner animation to display while loading
-  -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
-  spinner_type = "star",
   cmd_prefix = "Prt",
   curl_params = {},
   state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
@@ -87,6 +84,8 @@ local config = {
     ["--layout"] = "reverse",
     ["--preview-window"] = "nohidden:right:75%",
   },
+  enable_spinner = true,
+  spinner_type = "dots",
   -- templates
   chat_template = [[
   # topic: ?
