@@ -224,7 +224,7 @@ The following commands are available within the chat files.
         ["--preview-window"] = "nohidden:right:75%",
     },
 
-    -- Enables the spinner animation during loading
+    -- Enables the query spinner animation 
     enable_spinner = true,
     -- Type of spinner animation to display while loading
     -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
