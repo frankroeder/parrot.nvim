@@ -57,6 +57,12 @@ local ollama_chat_agents = {
     system_prompt = system_chat_prompt,
     provider = "ollama",
   },
+  {
+    name = "Llama3.1-8B",
+    model = { model = "llama3.1:8b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+    system_prompt = system_chat_prompt,
+    provider = "ollama",
+  },
 }
 
 local openai_chat_agents = {
@@ -245,6 +251,12 @@ local ollama_command_agents = {
   {
     name = "Gemma-7B",
     model = { model = "gemma:7b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+    system_prompt = system_code_prompt,
+    provider = "ollama",
+  },
+  {
+    name = "Llama3.1-8B",
+    model = { model = "llama3.1:8b", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
     system_prompt = system_code_prompt,
     provider = "ollama",
   },
