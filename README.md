@@ -372,3 +372,7 @@ suggestions, or bug reports, please feel free to open an issue.
 
 - [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
 - [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=frankroeder/parrot.nvim&type=Date)](https://star-history.com/#frankroeder/parrot.nvim&Date)
