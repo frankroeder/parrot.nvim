@@ -4,7 +4,7 @@
 
 This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate [stochastic parrot](https://en.wikipedia.org/wiki/Stochastic_parrot) to support your text editing inside Neovim.
 
-[Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration)
+[Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
 
 <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
 
@@ -55,6 +55,33 @@ Let the parrot fix your bugs.
 <div align="left">
     <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/a77fa8b2-9714-42da-bafe-645b540931ab" width="100%">
 </div>
+
+---
+
+<details>
+<summary>Rewrite a visual selection with `PrtRewrite`.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/624f265a-1f5a-41b2-a015-2631700d0d23" width="100%">
+</div>
+</details>
+
+---
+
+<details>
+<summary>Append code with the visual selection as context with `PrtAppend`.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/9798759d-cb47-48a5-bcf1-3969377dbaa2" width="100%">
+</div>
+</details>
+
+---
+
+<details>
+<summary>Add comments to a function with `PrtPrepend`.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/7a4f20a0-baff-413a-9ff1-62df9f53ae28" width="100%">
+</div>
+</details>
 
 ## Getting Started
 
@@ -129,6 +156,9 @@ The following commands can be triggered with visual selections.
 | `PrtChatNew <target>`    | paste visual selection into new chat (defaults to `toggle_target`) |
 | `PrtChatToggle <target>` | paste visual selection into new chat (defaults to `toggle_target`) |
 | `PrtImplement`           | implements selected comment/instruction                            |
+| `PrtRewrite`             | Rewrites the visual selection based on a provided prompt           |
+| `PrtAppend`              | Appends text to the visual selection based on a provided prompt    |
+| `PrtPrepend`             | Prepends text to the visual selection based on a provided prompt   |
 
 ### Chat
 The following commands are available within the chat files.
@@ -357,16 +387,14 @@ require("parrot").setup {
 - Create a tutorial video
 - Reduce overall code complexity and improve robustness
 
-## Contribution
-Anyone is welcome to contribute to this project! If you have any ideas,
-suggestions, or bug reports, please feel free to open an issue.
-
 ## FAQ
 
 - I am getting errors realted to the state.
     > In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
 - The completion is not working and I am getting errors.
     > Make sure you have enough API credits and check the log file `/tmp/parrot.nvim.log` for errors 
+- I have found a bug, have a feature suggestion or a general idea to improve this project. 
+    > Anyone is welcome to contribute to this project! If you have any ideas, suggestions, or bug reports, please feel free to open an issue.
 
 ## Related Projects
 
