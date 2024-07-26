@@ -529,11 +529,9 @@ M.prep_chat = function(buf, file_name)
   local ss = M.config.chat_shortcut_stop
   utils.set_keymap({ buf }, ss.modes, ss.shortcut, M.cmd.Stop, "Parrot Chat Stop")
 
-  -- make last.md a symlink to the last opened chat file
-  local last = M.config.chat_dir .. "/last.md"
-  if file_name ~= last then
-    os.execute("ln -sf " .. file_name .. " " .. last)
-  end
+  -- remember last opened chat file
+  Pstate:set_last_chat(file_name)
+  Pstate:refresh(M._available_providers, M._available_provider_agents)
 end
 
 M.prep_context = function(buf, file_name)
@@ -764,12 +762,9 @@ M.cmd.ChatToggle = function(params)
 
   -- if the range is 2, we want to create a new chat file with the selection
   if params.range ~= 2 then
-    -- check if last.md chat file exists and open it
-    local last = M.config.chat_dir .. "/last.md"
-    if vim.fn.filereadable(last) == 1 then
-      -- resolve symlink
-      last = vim.fn.resolve(last)
-      M.open_buf(last, M.resolve_buf_target(params), M._toggle_kind.chat, true)
+    local last_chat_file = Pstate:get_last_chat()
+    if last_chat_file and vim.fn.filereadable(last_chat_file) == 1 then
+      M.open_buf(last_chat_file, M.resolve_buf_target(params), M._toggle_kind.chat, true)
       return
     end
   end
@@ -787,10 +782,8 @@ M.cmd.ChatPaste = function(params)
   -- get current buffer
   local cbuf = vim.api.nvim_get_current_buf()
 
-  local last = M.config.chat_dir .. "/last.md"
-
-  -- make new chat if last doesn't exist
-  if vim.fn.filereadable(last) ~= 1 then
+  local last_chat_file = Pstate:get_last_chat()
+  if last_chat_file and vim.fn.filereadable(last_chat_file) ~= 1 then
     -- skip rest since new chat will handle snippet on it's own
     M.cmd.ChatNew(params)
     return
@@ -802,8 +795,7 @@ M.cmd.ChatPaste = function(params)
   end
   local target = M.resolve_buf_target(params)
 
-  last = vim.fn.resolve(last)
-  local buf = utils.get_buffer(last)
+  local buf = utils.get_buffer(last_chat_file)
   local win_found = false
   if buf then
     for _, w in ipairs(vim.api.nvim_list_wins()) do
@@ -815,7 +807,7 @@ M.cmd.ChatPaste = function(params)
       end
     end
   end
-  buf = win_found and buf or M.open_buf(last, target, M._toggle_kind.chat, true)
+  buf = win_found and buf or M.open_buf(last_chat_file, target, M._toggle_kind.chat, true)
 
   utils.append_selection(params, cbuf, buf, utils.trim(M.config.template_selection))
   utils.feedkeys("G", "xn")

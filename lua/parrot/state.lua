@@ -65,7 +65,8 @@ function State:refresh(available_providers, available_provider_agents)
     self:load_agents(provider, "command_agent", available_provider_agents)
   end
   self._state.provider = self._state.provider or self.file_state.provider or available_providers[1]
-  -- if the previous provider is not unavailable, switch to default provider
+  self._state.last_chat = self._state.last_chat or self.file_state.last_chat or nil
+  -- if the previous provider is unavailable, switch to default provider
   if not utils.contains(available_providers, self._state.provider) then
     self._state.provider = available_providers[1]
   end
@@ -107,6 +108,16 @@ function State:get_agent(provider, atype)
   elseif atype == "command" then
     return self._state[provider].command_agent
   end
+end
+
+---@param chat_file_path string
+function State:set_last_chat(chat_file_path)
+  self._state.last_chat = chat_file_path
+end
+
+---@return string | nil # returns the last opened chat file path
+function State:get_last_chat()
+  return self._state.last_chat
 end
 
 return State
