@@ -197,8 +197,7 @@ The following commands are available within the chat files.
     },
 
     -- The directory to store the chats (searched with PrtChatFinder)
-    chat_dir = vim.loop.fs_realpath(vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",),
-
+    chat_dir = vim.loop.fs_realpath(vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats"),
     -- Chat user prompt prefix
     chat_user_prefix = "🗨:",
 
