@@ -1645,6 +1645,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     local agent = M.get_command_agent()
     prov:set_model(agent.model)
 
+    local spinner = nil
+    if M.config.enable_spinner then
+      spinner = Spinner:new(M.config.spinner_type)
+      spinner:start("calling API...")
+    end
     M.query(
       buf,
       prov,
@@ -1652,6 +1657,9 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
       handler,
       vim.schedule_wrap(function(qid)
         on_exit(qid)
+        if M.config.enable_spinner and spinner then
+          spinner:stop()
+        end
         vim.cmd("doautocmd User PrtDone")
       end)
     )
