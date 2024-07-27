@@ -79,6 +79,16 @@ M.setup = function(user_opts)
   M.hooks = M.config.hooks
   M.config.hooks = nil
 
+  -- resolve symlinks
+  local stat = vim.loop.fs_lstat(M.config.chat_dir)
+  if stat and stat.type == "link" then
+    M.config.chat_dir = vim.fn.resolve(M.config.chat_dir)
+  end
+  local stat = vim.loop.fs_lstat(M.config.state_dir)
+  if stat and stat.type == "link" then
+    M.config.state_dir = vim.fn.resolve(M.config.state_dir)
+  end
+
   -- Create directories for all config entries ending with "_dir"
   for k, v in pairs(M.config) do
     if type(v) == "string" and k:match("_dir$") then
