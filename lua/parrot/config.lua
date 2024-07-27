@@ -58,7 +58,7 @@ local config = {
     chat = agents.chat_agents,
     command = agents.command_agents,
   },
-  chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
+  chat_dir = vim.loop.fs_realpath(vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats"),
   chat_user_prefix = "🗨:",
   chat_confirm_delete = true,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
