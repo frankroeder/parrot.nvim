@@ -286,8 +286,18 @@ The following commands are available within the chat files.
 </details>
 
 
-### Refer to my personal lazy.nvim setup for custom hooks and key bindings.
+### Key Bindings
 
+This plugin provides the following default key mappings:
+
+| Keymap       | Description                                                 |
+|--------------|-------------------------------------------------------------|
+| `<C-g>c`     | Opens a new chat via `PrtChatNew`                           |
+| `<C-g><C-g>` | Trigger the API to generate a response via `PrtChatRespond` |
+| `<C-g>s`     | Stop the current text generation via `PrtStop`              |
+| `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
+
+Refer to my personal lazy.nvim setup for further hooks and key bindings:
 https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
 
 ### Adding a new agents
