@@ -54,10 +54,7 @@ local config = {
   cmd_prefix = "Prt",
   curl_params = {},
   state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
-  agents = {
-    chat = agents.chat_agents,
-    command = agents.command_agents,
-  },
+  agents = agents,
   chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
   chat_user_prefix = "🗨:",
   chat_confirm_delete = true,
@@ -139,7 +136,6 @@ local config = {
 	]],
   template_command = "{{command}}",
 
-  -- example hook functions (see Extend functionality section in the README)
   hooks = {
     Info = function(plugin, params)
       local bufnr = vim.api.nvim_create_buf(false, true)
