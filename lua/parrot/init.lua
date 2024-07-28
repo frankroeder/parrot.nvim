@@ -195,7 +195,7 @@ M.prepare_commands = function()
           template = M.config.template_prepend
         end
       end
-      M.Prompt(params, target, agent.cmd_prefix, agent.model, utils.trim(template), agent.system_prompt, agent.provider)
+      M.Prompt(params, target, agent, agent.cmd_prefix, utils.trim(template))
     end
 
     M.cmd[command] = function(params)
@@ -875,7 +875,7 @@ M.chat_respond = function(params)
     return
   end
 
-  -- headers are fields before first ---
+  -- headers are fields before first message ---
   local headers = {}
   local header_end = nil
   local line_idx = 0
@@ -911,19 +911,6 @@ M.chat_respond = function(params)
   if params.range == 2 then
     start_index = math.max(start_index, params.line1)
     end_index = math.min(end_index, params.line2)
-  end
-
-  -- if model contains { } then it is a json string otherwise it is a model name
-  if headers.model and headers.model:match("{.*}") then
-    -- unescape underscores before decoding json
-    headers.model = headers.model:gsub("\\_", "_")
-    headers.model = vim.json.decode(headers.model)
-  end
-
-  if headers.model and type(headers.model) == "table" then
-    agent_name = headers.model.model
-  elseif headers.model and headers.model:match("%S") then
-    agent_name = headers.model
   end
 
   if headers.role and headers.role:match("%S") then
@@ -984,7 +971,7 @@ M.chat_respond = function(params)
   M.query(
     buf,
     query_prov,
-    utils.prepare_payload(messages, headers.model, agent.model),
+    utils.prepare_payload(messages, agent.model),
     M.create_handler(buf, win, utils.last_content_line(buf), true, "", not M.config.chat_free_cursor),
     vim.schedule_wrap(function(qid)
       if M.config.enable_spinner and spinner then
@@ -1042,7 +1029,7 @@ M.chat_respond = function(params)
         M.query(
           nil,
           topic_prov,
-          utils.prepare_payload(messages, M.providers[topic_prov.name].topic_model, nil),
+          utils.prepare_payload(messages, M.providers[topic_prov.name].topic_model),
           topic_handler,
           vim.schedule_wrap(function()
             if M.config.enable_spinner and topic_spinner then
@@ -1379,7 +1366,7 @@ M.cmd.Context = function(params)
   utils.feedkeys("G", "xn")
 end
 
-M.Prompt = function(params, target, prompt, model, template, system_template, agent_provider)
+M.Prompt = function(params, target, agent, prompt, template)
   -- enew, new, vnew, tabnew should be resolved into table
   if type(target) == "function" then
     target = target()
@@ -1540,11 +1527,11 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
     local filename = vim.api.nvim_buf_get_name(buf)
-    local sys_prompt = utils.template_render(system_template, command, selection, filetype, filename)
+    local sys_prompt = utils.template_render(agent.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
     local prov = M.get_provider()
-    if prov.name ~= agent_provider then
-      M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent_provider)
+    if prov.name ~= agent.provider then
+      M.logger.error("Mismatch of agent and current provider " .. prov.name .. " and " .. agent.provider)
       return
     end
 
@@ -1652,7 +1639,6 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     end
 
     -- call the model and write the response
-    local agent = M.get_command_agent()
     prov:set_model(agent.model)
 
     local spinner = nil
@@ -1663,7 +1649,7 @@ M.Prompt = function(params, target, prompt, model, template, system_template, ag
     M.query(
       buf,
       prov,
-      utils.prepare_payload(messages, model, agent.model),
+      utils.prepare_payload(messages, agent.model),
       handler,
       vim.schedule_wrap(function(qid)
         on_exit(qid)

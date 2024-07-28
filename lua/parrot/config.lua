@@ -166,16 +166,7 @@ local config = {
 			]]
       local agent = parrot.get_command_agent()
       parrot.logger.info("Implementing selection with agent: " .. agent.name)
-
-      parrot.Prompt(
-        params,
-        parrot.ui.Target.rewrite,
-        nil, -- command will run directly without any prompting for user input
-        agent.model,
-        template,
-        agent.system_prompt,
-        agent.provider
-      )
+      parrot.Prompt(params, parrot.ui.Target.rewrite, agent, nil, template)
     end,
     -- PrtAsk simply asks a question that should be answered shortly and precisely.
     Ask = function(parrot, params)
@@ -189,7 +180,7 @@ local config = {
 			]]
       local agent = parrot.get_command_agent()
       parrot.logger.info("Asking agent: " .. vim.inspect(agent.name))
-      parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
+      parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
     end,
   },
 }

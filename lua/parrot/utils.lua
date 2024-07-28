@@ -214,9 +214,7 @@ end
 
 ---@param messages table
 ---@param model string | table | nil
----@param default_model string | table
-M.prepare_payload = function(messages, model, default_model)
-  model = model or default_model
+M.prepare_payload = function(messages, model)
   local model_req = {
     messages = messages,
     stream = true,
