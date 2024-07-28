@@ -44,12 +44,6 @@ M.cmd.Stop = function(signal)
   pool = Pool:new()
 end
 
---------------------------------------------------------------------------------
--- Module helper functions and variables
---------------------------------------------------------------------------------
----
-
--- setup function
 M._setup_called = false
 ---@param user_opts table | nil # table with options
 M.setup = function(user_opts)
@@ -710,12 +704,13 @@ end
 ---@param params table # table with args
 ---@param toggle boolean # whether chat is toggled
 ---@return number # buffer number
-M.new_chat = function(params, toggle)
+M.new_chat = function(params, toggle, chat_prompt)
   M._toggle_close(M._toggle_kind.popup)
 
   -- prepare filename
   local time = os.date("%Y-%m-%d.%H-%M-%S")
   local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+  local cbuf = vim.api.nvim_get_current_buf()
   -- make sure stamp is 3 digits
   while #stamp < 3 do
     stamp = "0" .. stamp
@@ -723,12 +718,13 @@ M.new_chat = function(params, toggle)
   time = time .. "." .. stamp
   local filename = M.config.chat_dir .. "/" .. time .. ".md"
   local template = string.format(utils.trim(M.config.chat_template), M.config.chat_user_prefix)
-
-  -- escape underscores (for markdown)
-  template = template:gsub("_", "\\_")
-
-  local cbuf = vim.api.nvim_get_current_buf()
-
+  if chat_prompt then
+    template = template .. utils.trim(chat_prompt)
+    local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf))
+    local fname = vim.api.nvim_buf_get_name(cbuf)
+    local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
+    template = utils.template_render(template, "", "", filetype, fname, filecontent)
+  end
   -- strip leading and trailing newlines
   template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
@@ -745,17 +741,17 @@ M.new_chat = function(params, toggle)
 end
 
 ---@return number # buffer number
-M.cmd.ChatNew = function(params)
+M.cmd.ChatNew = function(params, chat_prompt)
   -- if chat toggle is open, close it and start a new one
   if M._toggle_close(M._toggle_kind.chat) then
     params.args = params.args or ""
     if params.args == "" then
       params.args = M.config.toggle_target
     end
-    return M.new_chat(params, true)
+    return M.new_chat(params, true, chat_prompt)
   end
 
-  return M.new_chat(params, false)
+  return M.new_chat(params, false, chat_prompt)
 end
 
 M.cmd.ChatToggle = function(params)
@@ -1652,10 +1648,10 @@ M.Prompt = function(params, target, agent, prompt, template)
       utils.prepare_payload(messages, agent.model),
       handler,
       vim.schedule_wrap(function(qid)
-        on_exit(qid)
         if M.config.enable_spinner and spinner then
           spinner:stop()
         end
+        on_exit(qid)
         vim.cmd("doautocmd User PrtDone")
       end)
     )

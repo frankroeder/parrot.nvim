@@ -17,12 +17,12 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 I started this repository because a perplexity subscription provides $5 of API credits every month for free.
 Instead of letting them go to waste, I modified my favorite GPT plugin, [gp.nvim](https://github.com/Robitx/gp.nvim), to meet my needs - a new Neovim plugin was born! 🔥
 
-Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://github.com/frankroeder/parrot.nvim) prioritizes a seamless out-of-the-box experience by simplifying functionality and focusing solely on text generation, excluding the integration of DALLE and Whisper.
+Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://github.com/frankroeder/parrot.nvim) prioritizes a seamless out-of-the-box experience by simplifying functionality and focusing solely on text generation, excluding the integration of DALL-E and Whisper.
 
 ## Features
 
 - Persistent conversations as markdown files stored within the Neovim standard path or a user-defined location
-- Custom hooks for inline text editing with predefined prompts
+- Custom hooks for inline text editing and to start chats with predefined prompts
 - Support for multiple providers:
     + [Anthropic API](https://www.anthropic.com/api)
     + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
@@ -31,8 +31,8 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + [Gemini API](https://ai.google.dev/gemini-api/docs)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
 - Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
-- Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI
-- Provide repository-specific instructions with a `.parrot.md` file using the command `PrtContext`
+- Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI (lazy evaluation)
+- Provide repository-specific instructions with a `.parrot.md` file with the command `PrtContext`
 - **No** autocompletion and **no** hidden requests in the background to analyze your files
 
 ## Demo
@@ -136,40 +136,42 @@ These commands are included in the default setup.
 Additional useful commands are implemented through hooks (see my example configuration).
 
 ### General
-| Command                   | Description                                  |
-| ------------------        | -------------------------------------------- |
-| `PrtNew`                  | open a new chat                              |
-| `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf) |
-| `PrtAgent <agent>`        | switch the agent (empty arg triggers fzf)    |
-| `PrtChatToggle <target>`  | toggle chat window                           |
-| `PrtInfo`                 | print plugin config                          |
-| `PrtContext`              | edits the local context file                 |
-| `PrtAsk`                  | ask the selected agent a single question     |
-| `PrtChatFinder`           | fuzzy search chat files using fzf            |
-| `PrtChatPaste <target>`   | paste visual selection into the latest chat  |
+| Command                   | Description                                   |
+| ------------------------- | ----------------------------------------------|
+| `PrtChatNew <target>`     | open a new chat                               |
+| `PrtChatToggle <target>`  | toggle chat (open last chat or new one)       |
+| `PrtChatPaste <target>`   | paste visual selection into the latest chat   |
+| `PrtInfo`                 | print plugin config                           |
+| `PrtContext <target>`     | edits the local context file                  |
+| `PrtChatFinder`           | fuzzy search chat files using fzf             |
+| `PrtChatDelete`           | delete the current chat file                  |
+| `PrtChatRespond`          | trigger chat respond (in chat file)           |
+| `PrtStop`                 | interrupt ongoing respond                     |
+| `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf)  |
+| `PrtAgent <agent>`        | switch the agent (empty arg triggers fzf)     |
+|  __Interactive__          | |
+| `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
+| `PrtAppend`               | Append text to the visual selection based on a provided prompt    |
+| `PrtPrepend`              | Prepend text to the visual selection based on a provided prompt   |
+| `PrtNew`                  | Prompt the agent to respond in new window     |
+| `PrtEnew`                 | Prompt the agent to respond in a new buffer   |
+| `PrtVnew`                 | Prompt the agent to respond in a vsplit       |
+| `PrtTabnew`               | Prompt the agent to respond in a new tab      |
+|  __Example Hooks__        | |
+| `PrtImplement`            | implements/translates the visual selection comment into code |
+| `PrtAsk`                  | Ask the agent a question                      |
 
-### Interactive
-The following commands can be triggered with visual selections.
+With `<target>`, we indicate the command to open the chat within one of the following target locations (defaults to `toggle_target`):
 
-| Command                  | Description                                                        |
-| ------------------------ | ------------------------------------------------------------------ |
-| `PrtChatNew <target>`    | paste visual selection into new chat (defaults to `toggle_target`) |
-| `PrtChatToggle <target>` | paste visual selection into new chat (defaults to `toggle_target`) |
-| `PrtImplement`           | implements selected comment/instruction                            |
-| `PrtRewrite`             | Rewrites the visual selection based on a provided prompt           |
-| `PrtAppend`              | Appends text to the visual selection based on a provided prompt    |
-| `PrtPrepend`             | Prepends text to the visual selection based on a provided prompt   |
+- `popup`: open a popup window which can be configured via the options provided below
+- `split`: open the chat in a horizontal split
+- `vsplit`: open the chat in a vertical split
+- `tabnew`: open the chat in a new tab
 
-### Chat
-The following commands are available within the chat files.
-
-| Command          | Description                                          |
-| ---------------- | ---------------------------------------------------- |
-| `PrtChatDelete`  | delete the present chat file (requires confirmation) |
-| `PrtChatRespond` | trigger chat respond                                 |
-| `PrtAsk`         | ask the selected agent a single question             |
-| `PrtStop`        | interrupt ongoing respond                            |
-
+All chat commands (`PrtChatNew, PrtChatToggle`) and custom hooks support the
+visual selection to appear in the chat when triggered.
+Interactive commands require the user to make use of the [template placeholders](#template-placeholders)
+to consider a visual selection within an API request.
 
 ## Configuration
 
@@ -323,30 +325,52 @@ require("parrot").setup {
 ```
 ### Adding a new command
 
+#### Ask a single-turn question and receive the answer in a popup window
+
 ```lua
 require("parrot").setup {
     -- ...
     hooks = {
-      -- PrtAsk simply ask a question that should be answered short and precisely.
       Ask = function(parrot, params)
-            local template = [[
-            In light of your existing knowledge base, please generate a response that
-            is succinct and directly addresses the question posed. Prioritize accuracy
-            and relevance in your answer, drawing upon the most recent information
-            available to you. Aim to deliver your response in a concise manner,
-            focusing on the essence of the inquiry.
-            Question: {{command}}
-            ]]
-            local agent = parrot.get_command_agent()
-            parrot.logger.info("Asking agent: " .. agent.name)
-            parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
+        local template = [[
+          In light of your existing knowledge base, please generate a response that
+          is succinct and directly addresses the question posed. Prioritize accuracy
+          and relevance in your answer, drawing upon the most recent information
+          available to you. Aim to deliver your response in a concise manner,
+          focusing on the essence of the inquiry.
+          Question: {{command}}
+        ]]
+        local agent = parrot.get_command_agent()
+        parrot.logger.info("Asking agent: " .. agent.name)
+        parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
       end,
     }
     -- ...
 }
 ```
 
-### Utilizing Template Placeholders
+#### Start a chat with a predefined chat prompt to check your spelling.
+
+```lua
+require("parrot").setup {
+    -- ...
+    hooks = {
+      SpellCheck = function(prt, params)
+        local chat_prompt = [[
+          Your task is to take the text provided and rewrite it into a clear,
+          grammatically correct version while preserving the original meaning
+          as closely as possible. Correct any spelling mistakes, punctuation
+          errors, verb tense issues, word choice problems, and other
+          grammatical mistakes.
+        ]]
+        prt.cmd.ChatNew(params, chat_prompt)
+      end,
+    }
+    -- ...
+}
+```
+
+### Template Placeholders
 
 Users can utilize the following placeholders in their templates to inject
 specific content into the user messages:
@@ -390,6 +414,34 @@ require("parrot").setup {
 }
 ```
 
+The placeholders `{{filetype}}` and  `{{filecontent}}` can also be used in the `chat_prompt` when
+creating custom hooks calling `prt.cmd.ChatNew(params, chat_prompt)` to directly inject the whole file content.
+
+```lua
+require("parrot").setup {
+    -- ...
+      CodeConsultant = function(prt, params)
+        local chat_prompt = [[
+          Your task is to analyze the provided {{filetype}} code and suggest
+          improvements to optimize its performance. Identify areas where the
+          code can be made more efficient, faster, or less resource-intensive.
+          Provide specific suggestions for optimization, along with explanations
+          of how these changes can enhance the code's performance. The optimized
+          code should maintain the same functionality as the original code while
+          demonstrating improved efficiency.
+
+          Here is the code
+          ```{{filetype}}
+          {{filecontent}}
+          ```
+				]]
+        prt.cmd.ChatNew(params, chat_prompt)
+      end,
+    }
+    -- ...
+}
+```
+
 ## Roadmap
 
 - Add status line integration/ notifications for summary of tokens used or money spent
@@ -399,12 +451,12 @@ require("parrot").setup {
 
 ## FAQ
 
-- I am getting errors realted to the state.
-    > In case of a corrupted state, simply remove the file `~/.local/share/nvim/parrot/persisted/state.json`
-- The completion is not working and I am getting errors.
-    > Make sure you have enough API credits and check the log file `/tmp/parrot.nvim.log` for errors 
-- I have found a bug, have a feature suggestion or a general idea to improve this project. 
-    > Anyone is welcome to contribute to this project! If you have any ideas, suggestions, or bug reports, please feel free to open an issue.
+- I am encountering errors related to the state.
+    > If the state is corrupted, simply delete the file `~/.local/share/nvim/parrot/persisted/state.json`.
+- The completion feature is not functioning, and I am receiving errors.
+    > Ensure that you have an adequate amount of API credits and examine the log file `/tmp/parrot.nvim.log` for any errors.
+- I have discovered a bug, have a feature suggestion, or possess a general idea to enhance this project.
+    > Everyone is invited to contribute to this project! If you have any suggestions, ideas, or bug reports, please feel free to submit an issue.
 
 ## Related Projects
 
