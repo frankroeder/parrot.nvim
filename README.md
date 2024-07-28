@@ -339,7 +339,7 @@ require("parrot").setup {
             ]]
             local agent = parrot.get_command_agent()
             parrot.logger.info("Asking agent: " .. agent.name)
-            parrot.Prompt(params, parrot.ui.Target.popup, "🤖 Ask ~ ", agent.model, template, "", agent.provider)
+            parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
       end,
     }
     -- ...
@@ -383,7 +383,7 @@ require("parrot").setup {
           Respond just with the snippet of code that should be inserted.
           ]]
     	  local agent = prt.get_command_agent()
-    	  prt.Prompt(params, prt.ui.Target.append, nil, agent.model, template, agent.system_prompt, agent.provider)
+    	  prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
     	end,
     }
     -- ...

@@ -170,21 +170,6 @@ M.template_replace = function(template, key, value)
   return template
 end
 
----@param template string | nil # template string
----@param key_value_pairs table # table with key value pairs
----@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
-M.template_render = function(template, key_value_pairs)
-  if template == nil then
-    return nil
-  end
-
-  for key, value in pairs(key_value_pairs) do
-    template = M.template_replace(template, key, value)
-  end
-
-  return template
-end
-
 M.open_input_buffer = function(on_confirm)
   -- Create a new buffer
   local buf = vim.api.nvim_create_buf(false, true)

@@ -21,24 +21,6 @@ describe("ui", function()
     end)
   end)
 
-  describe("template_render", function()
-    it("should render multiple key-value pairs", function()
-      local template = "{{greeting}} {{name}}! You are {{age}} years old."
-      local key_value_pairs = {
-        ["{{greeting}}"] = "Hello",
-        ["{{name}}"] = "Alice",
-        ["{{age}}"] = "30",
-      }
-      local result = ui.template_render(template, key_value_pairs)
-      assert.are.equal("Hello Alice! You are 30 years old.", result)
-    end)
-
-    it("should return nil if template is nil", function()
-      local result = ui.template_render(nil, {})
-      assert.is_nil(result)
-    end)
-  end)
-
   describe("create_popup", function()
     it("should create a popup window", function()
       local buf, win, close, resize = ui.create_popup(nil, "Test Popup", function()
