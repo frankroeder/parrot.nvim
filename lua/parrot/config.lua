@@ -152,6 +152,9 @@ local config = {
       vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
       vim.api.nvim_win_set_buf(0, bufnr)
     end,
+    Log = function(parrot, params)
+      vim.cmd("edit " .. vim.fn.fnameescape(parrot.logger._logfile))
+    end,
     -- PrtImplement rewrites the provided selection/range based on comments in it
     Implement = function(parrot, params)
       local template = [[

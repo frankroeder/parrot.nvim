@@ -8,8 +8,24 @@ if pcall(require, "notify") then
 end
 
 local function write_to_logfile(msg, kind)
-  local logfile = io.open(M._logfile, "a")
+  local logfile_path = M._logfile
+  local max_lines = 10000
+
+  local function limit_logfile_lines()
+    local lines = {}
+    for line in io.lines(logfile_path) do
+      table.insert(lines, line)
+      if #lines > max_lines then
+        table.remove(lines, 1)
+      end
+    end
+    return table.concat(lines, "\n")
+  end
+
+  local logfile = io.open(logfile_path, "w+")
   if logfile then
+    local limited_log = limit_logfile_lines()
+    logfile:write(limited_log)
     logfile:write(string.format("[%s] %s: [%s] %s\n", os.date("%Y-%m-%d %H:%M:%S"), M._plugin_name, kind, msg))
     logfile:close()
   end
