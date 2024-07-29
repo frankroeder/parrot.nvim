@@ -170,29 +170,6 @@ M.template_replace = function(template, key, value)
   return template
 end
 
-M.open_input_buffer = function(on_confirm)
-  -- Create a new buffer
-  local buf = vim.api.nvim_create_buf(false, true)
-
-  -- Open the buffer in a split window above
-  vim.api.nvim_command("aboveleft split")
-  local win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(win, buf)
-
-  -- Set buffer options
-  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
-  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
-
-  -- Set up autocmd to capture buffer content on close
-  vim.api.nvim_create_autocmd("BufWinLeave", {
-    buffer = buf,
-    callback = function()
-      local content = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      on_confirm(table.concat(content, "\n"))
-    end,
-  })
-end
-
 M.input = function(opts, on_confirm)
   vim.validate({
     opts = { opts, "table", true },
@@ -226,7 +203,7 @@ M.input = function(opts, on_confirm)
   vim.cmd("normal! o")
   vim.cmd("startinsert")
 
-  -- Set up an autocommand to capture when the window is closed
+  -- Set up an autocommand to capture buffer content when the window is closed
   vim.api.nvim_create_autocmd({ "WinClosed", "BufLeave" }, {
     buffer = buf,
     callback = function()

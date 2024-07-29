@@ -15,16 +15,17 @@ local Spinner = require("parrot.spinner")
 local M = {
   _plugin_name = "parrot.nvim",
   providers = {},
-  agents = { -- table of agents
+  agents = {
     chat = {},
     command = {},
   },
-  cmd = {}, -- default command functions
-  config = {}, -- config variables
-  hooks = {}, -- user defined command functions
+  cmd = {},
+  config = {},
+  hooks = {},
   logger = require("parrot.logger"),
   ui = ui,
 }
+
 local pool = Pool:new()
 local queries = Queries:new()
 
@@ -717,14 +718,23 @@ M.new_chat = function(params, toggle, chat_prompt)
   end
   time = time .. "." .. stamp
   local filename = M.config.chat_dir .. "/" .. time .. ".md"
-  local template = string.format(utils.trim(M.config.chat_template), M.config.chat_user_prefix)
+
   if chat_prompt then
-    template = template .. utils.trim(chat_prompt)
     local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf))
     local fname = vim.api.nvim_buf_get_name(cbuf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
-    template = utils.template_render(template, "", "", filetype, fname, filecontent)
+    chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent)
+    chat_prompt = "- system: " .. utils.trim(chat_prompt):gsub("\n", " ") .. "\n"
+  else
+    chat_prompt = ""
   end
+
+  local template = utils.template_render_from_list(utils.trim(M.config.chat_template), {
+    ["{{user}}"] = M.config.chat_user_prefix,
+    ["{{optional}}"] = chat_prompt,
+  })
+  -- escape underscores (for markdown)
+  template = template:gsub("_", "\\_")
   -- strip leading and trailing newlines
   template = template:gsub("^%s*(.-)%s*$", "%1") .. "\n"
 
@@ -909,9 +919,9 @@ M.chat_respond = function(params)
     end_index = math.min(end_index, params.line2)
   end
 
-  if headers.role and headers.role:match("%S") then
+  if headers.system and headers.system:match("%S") then
     ---@diagnostic disable-next-line: cast-local-type
-    agent_name = agent_name .. " & custom role"
+    agent_name = agent_name .. " & custom system prompt"
   end
 
   local agent_prefix = "🦜:"
@@ -939,8 +949,8 @@ M.chat_respond = function(params)
 
   -- replace first empty message with system prompt
   content = ""
-  if headers.role and headers.role:match("%S") then
-    content = headers.role
+  if headers.system and headers.system:match("%S") then
+    content = headers.system
   else
     content = agent.system_prompt
   end
@@ -1271,11 +1281,11 @@ end
 
 ---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_command_agent = function()
-  local template = M.config.command_prompt_prefix_template
   local prov = M.get_provider()
+  local name = Pstate:get_agent(prov.name, "command")
+  local template = M.config.command_prompt_prefix_template
   local cmd_prefix =
     utils.template_render_from_list(template, { ["{{agent}}"] = Pstate:get_agent(prov.name, "command") })
-  local name = Pstate:get_agent(prov.name, "command")
   local model = M.agents.command[name].model
   local system_prompt = M.agents.command[name].system_prompt
   return {
@@ -1289,10 +1299,10 @@ end
 
 ---@return table # { cmd_prefix, name, model, system_prompt, provider }
 M.get_chat_agent = function()
-  local template = M.config.command_prompt_prefix_template
   local prov = M.get_provider()
-  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = Pstate:get_agent(prov.name, "chat") })
   local name = Pstate:get_agent(prov.name, "chat")
+  local template = M.config.command_prompt_prefix_template
+  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = Pstate:get_agent(prov.name, "chat") })
   local model = M.agents.chat[name].model
   local system_prompt = M.agents.chat[name].system_prompt
   return {
@@ -1532,12 +1542,12 @@ M.Prompt = function(params, target, agent, prompt, template)
     end
 
     if sys_prompt ~= "" then
+      local repo_instructions = futils.find_repo_instructions()
+      if repo_instructions ~= "" and sys_prompt ~= "" then
+        -- append the repository instructions from .parrot.md to the system prompt
+        sys_prompt = sys_prompt .. "\n" .. repo_instructions
+      end
       table.insert(messages, { role = "system", content = sys_prompt })
-    end
-
-    local repo_instructions = futils.find_repo_instructions()
-    if repo_instructions ~= "" and sys_prompt ~= "" then
-      table.insert(messages, { role = "system", content = repo_instructions })
     end
 
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")

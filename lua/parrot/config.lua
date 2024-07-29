@@ -83,13 +83,12 @@ local config = {
   },
   enable_spinner = true,
   spinner_type = "dots",
-  -- templates
   chat_template = [[
   # topic: ?
-
+  {{optional}}
   ---
 
-  %s]],
+  {{user}}]],
   template_selection = [[
 	I have the following content from {{filename}}:
 
@@ -171,7 +170,7 @@ local config = {
       parrot.logger.info("Implementing selection with agent: " .. agent.name)
       parrot.Prompt(params, parrot.ui.Target.rewrite, agent, nil, template)
     end,
-    -- PrtAsk simply asks a question that should be answered shortly and precisely.
+    -- PrtAsk simply provides an answer to a question within a popup window
     Ask = function(parrot, params)
       local template = [[
 			In light of your existing knowledge base, please generate a response that
