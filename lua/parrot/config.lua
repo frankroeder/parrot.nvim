@@ -1,11 +1,19 @@
 local agents = require("parrot.agents")
+local utils = require("parrot.utils")
+local Chat = require("parrot.chat_handler")
+local get_provider_agents = require("parrot.provider").get_provider_agents
+
+local M = {}
+
+M.loaded = false
+M.options = nil
 
 local topic_prompt = [[
 Summarize the topic of our conversation above
 in two or three words. Respond only with those words.
 ]]
 
-local config = {
+local defaults = {
   providers = {
     pplx = {
       api_key = "",
@@ -187,4 +195,165 @@ local config = {
   },
 }
 
-return config
+M.merge_providers = function(default_providers, user_providers)
+  local result = {}
+  for provider, config in pairs(user_providers) do
+    result[provider] = vim.tbl_deep_extend("force", default_providers[provider] or {}, config)
+  end
+  return result
+end
+
+M.merge_agent_type = function(default_agents, user_agents, user_providers)
+  local result = vim.deepcopy(user_agents) or {}
+  for _, default_agent in ipairs(default_agents) do
+    if user_providers[default_agent.provider] then
+      table.insert(result, vim.deepcopy(default_agent))
+    end
+  end
+  return result
+end
+
+M.merge_agents = function(default_agents, user_agents, user_providers)
+  return {
+    command = M.merge_agent_type(default_agents.command or {}, user_agents.command, user_providers),
+    chat = M.merge_agent_type(default_agents.chat or {}, user_agents.chat, user_providers),
+  }
+end
+
+M.index_agents_by_name = function(agents)
+  local result = {}
+  for category, agent_list in pairs(agents) do
+    result[category] = {}
+    for _, agent in ipairs(agent_list) do
+      result[category][agent.name] = agent
+    end
+  end
+  return result
+end
+
+function M.setup(opts)
+  if vim.fn.has("nvim-0.9.4") == 0 then
+    return vim.notify("parrot.nvim requires Neovim >= 0.9.4", vim.log.levels.ERROR)
+  end
+
+  local default_opts = vim.deepcopy(opts)
+  local valid_provider_names = vim.tbl_keys(defaults.providers)
+
+  if not utils.has_valid_key(opts.providers, valid_provider_names) then
+    return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
+  end
+
+  M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
+  M.providers = M.merge_providers(defaults.providers, opts.providers)
+  M.options.providers = nil
+  local agents = M.merge_agents(defaults.agents or {}, opts.agents or {}, M.providers)
+  M.agents = M.index_agents_by_name(agents)
+  M.options.agents = nil
+  M.hooks = M.options.hooks
+  M.options.hooks = nil
+
+
+  -- resolve symlinks
+  local stat = vim.loop.fs_lstat(M.options.chat_dir)
+  if stat and stat.type == "link" then
+    M.options.chat_dir = vim.fn.resolve(M.options.chat_dir)
+  end
+  local stat = vim.loop.fs_lstat(M.options.state_dir)
+  if stat and stat.type == "link" then
+    M.options.state_dir = vim.fn.resolve(M.options.state_dir)
+  end
+
+  -- Create directories for all config entries ending with "_dir"
+  for k, v in pairs(M.options) do
+    if type(v) == "string" and k:match("_dir$") then
+      local dir = v:gsub("/$", "")
+      M.options[k] = dir
+      vim.fn.mkdir(dir, "p")
+    end
+  end
+
+  M._available_providers = vim.tbl_keys(M.providers)
+  M._available_provider_agents = vim.tbl_map(function()
+    return { chat = {}, command = {} }
+  end, M.providers)
+
+  for type, agts in pairs(M.agents) do
+    for agt_name, agt in pairs(agts) do
+      table.insert(M._available_provider_agents[agt.provider][type], agt_name)
+    end
+  end
+
+  table.sort(M._available_providers)
+  table.sort(M._available_provider_agents)
+  M.register_hooks(M.hooks, M.options)
+
+  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M._available_providers, M._available_provider_agents)
+  M.cmd = {
+		ChatFinder = "finder",
+		ChatStop = "stop",
+		ChatNew = "chat_new",
+		ChatToggle = "toggle",
+		ChatPaste = "paste",
+		ChatDelete = "delete",
+		ChatResponde = "responde",
+		Context = "context",
+		Agent = "agent",
+		Provider = "provider",
+	}
+  M.add_default_commands(M.cmd, M.hooks, M.options)
+  M.chat_handler.set_commands(M.cmd)
+end
+
+
+M.register_hooks = function(hooks, options)
+   -- register user commands
+  for hook, _ in pairs(hooks) do
+    vim.api.nvim_create_user_command(options.cmd_prefix .. hook, function(params)
+      M.call_hook(hook, params)
+    end, { nargs = "?", range = true, desc = "Parrot LLM plugin" })
+  end
+end
+
+-- hook caller
+M.call_hook = function(name, params)
+  if M.hooks[name] ~= nil then
+    return M.hooks[name](M, params)
+  end
+  M.logger.error("The hook '" .. name .. "' does not exist.")
+end
+
+M.add_default_commands = function(commands, hooks, options)
+  local completions = {
+    ChatNew = { "popup", "split", "vsplit", "tabnew" },
+    ChatPaste = { "popup", "split", "vsplit", "tabnew" },
+    ChatToggle = { "popup", "split", "vsplit", "tabnew" },
+    Context = { "popup", "split", "vsplit", "tabnew" },
+  }
+   -- register default commands
+  for cmd, cmd_func in pairs(commands) do
+    if hooks[cmd] == nil then
+      vim.api.nvim_create_user_command(options.cmd_prefix .. cmd, function(params)
+				M.chat_handler[M.cmd[cmd]](M.chat_handler, params)
+      end, {
+        nargs = "?",
+        range = true,
+        desc = "Parrot LLM plugin",
+        complete = function()
+          if completions[cmd] then
+            return completions[cmd]
+          end
+          if cmd == "Agent" then
+            local buf = vim.api.nvim_get_current_buf()
+            local file_name = vim.api.nvim_buf_get_name(buf)
+            return get_provider_agents(utils.is_chat(buf, file_name, options.chat_dir), M._available_provider_agents)
+          elseif cmd == "Provider" then
+            return M._available_providers
+          end
+          return {}
+        end,
+      })
+    end
+  end
+end
+
+return M

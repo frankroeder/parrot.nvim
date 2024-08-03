@@ -8,18 +8,6 @@ M.trim = function(str)
   return str:gsub("^[\t ]+", ""):gsub("\n[\t ]+", "\n")
 end
 
----@param fn function # function to wrap so it only gets called once
-M.once = function(fn)
-  local once = false
-  return function(...)
-    if once then
-      return
-    end
-    once = true
-    fn(...)
-  end
-end
-
 ---@param keys string # string of keystrokes
 ---@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
 M.feedkeys = function(keys, mode)
