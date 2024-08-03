@@ -1,9 +1,12 @@
 local utils = require("parrot.utils")
+local futils = require("parrot.file_utils")
+local logger = require("parrot.logger")
 local Pool = require("parrot.pool")
 local Queries = require("parrot.queries")
 local State = require("parrot.state")
 local chatutils = require("parrot.chat_utils")
 local ui = require("parrot.ui")
+local init_provider = require("parrot.provider").init_provider
 local get_provider = require("parrot.provider").get_provider
 local get_provider_agents = require("parrot.provider").get_provider_agents
 
@@ -14,9 +17,10 @@ ChatHandler.__index = ChatHandler
 function ChatHandler:new(options, providers, agents, available_providers, available_provider_agents, commands)
   local state = State:new(options.state_dir)
   state:refresh(available_providers, available_provider_agents)
-  self:prepare_commands()
+  -- self:prepare_commands()
   return setmetatable({
     _plugin_name = "parrot.nvim",
+    agents = agents,
     options = options,
     providers = providers,
     pool = Pool:new(),
@@ -396,10 +400,10 @@ function ChatHandler:chat_toggle(params)
     end
   end
 
-  self:new_chat(params, true)
+  self:_new_chat(params, true)
 end
 
-function ChatHandler:paste(params)
+function ChatHandler:chat_paste(params)
   -- if there is no selection, do nothing
   if params.range ~= 2 then
     logger.warning("Please select some text to paste into the chat.")
@@ -474,7 +478,7 @@ function ChatHandler:_chat_respond(params)
   local agent_provider = agent.provider
   local prov = get_provider(self.state, self.providers)
 
-  if not pool:unique_for_buffer(buf) then
+  if not self.pool:unique_for_buffer(buf) then
     logger.warning("Another parrot process is already running for this buffer.")
     return
   end
@@ -809,7 +813,7 @@ function ChatHandler:provider(params)
   if prov_arg ~= "" then
     self:switch_provider(prov_arg)
   elseif has_fzf then
-    fzf_lua.fzf_exec(self._available_providers, {
+    fzf_lua.fzf_exec(self.available_providers, {
       prompt = "Provider selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       complete = function(selection)
@@ -817,7 +821,7 @@ function ChatHandler:provider(params)
       end,
     })
   else
-    vim.ui.select(self._available_providers, {
+    vim.ui.select(self.available_providers, {
       prompt = "Select your provider:",
     }, function(selected_prov)
       self:switch_provider(selected_prov)
@@ -844,7 +848,7 @@ function ChatHandler:switch_agent(is_chat, selected_agent, prov)
   else
     logger.warning(selected_agent .. " is not a Command agent")
   end
-  self.state:refresh(self._available_providers, self._available_provider_agents)
+  self.state:refresh(self.available_providers, self.available_provider_agents)
   self:prepare_commands()
 end
 
@@ -903,7 +907,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
   local buf = vim.api.nvim_get_current_buf()
   local win = vim.api.nvim_get_current_win()
 
-  if not pool:unique_for_buffer(buf) then
+  if not self.pool:unique_for_buffer(buf) then
     logger.warning("Another parrot process is already running for this buffer.")
     return
   end

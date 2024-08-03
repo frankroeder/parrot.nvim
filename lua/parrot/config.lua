@@ -188,6 +188,7 @@ local defaults = {
 			focusing on the essence of the inquiry.
 			Question: {{command}}
 			]]
+      print("PARROT", vim.inspect(parrot))
       local agent = parrot.get_command_agent()
       parrot.logger.info("Asking agent: " .. vim.inspect(agent.name))
       parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
@@ -294,7 +295,7 @@ function M.setup(opts)
 		ChatToggle = "chat_toggle",
 		ChatPaste = "chat_paste",
 		ChatDelete = "chat_delete",
-		ChatResponde = "chat_responde",
+		ChatResponde = "chat_respond",
 		Context = "context",
 		Agent = "agent",
 		Provider = "provider",
