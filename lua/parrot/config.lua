@@ -287,21 +287,20 @@ function M.setup(opts)
   table.sort(M._available_provider_agents)
   M.register_hooks(M.hooks, M.options)
 
-  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M._available_providers, M._available_provider_agents)
   M.cmd = {
-		ChatFinder = "finder",
+		ChatFinder = "chat_finder",
 		ChatStop = "stop",
 		ChatNew = "chat_new",
-		ChatToggle = "toggle",
-		ChatPaste = "paste",
-		ChatDelete = "delete",
-		ChatResponde = "responde",
+		ChatToggle = "chat_toggle",
+		ChatPaste = "chat_paste",
+		ChatDelete = "chat_delete",
+		ChatResponde = "chat_responde",
 		Context = "context",
 		Agent = "agent",
 		Provider = "provider",
 	}
+  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M._available_providers, M._available_provider_agents, M.cmd)
   M.add_default_commands(M.cmd, M.hooks, M.options)
-  M.chat_handler.set_commands(M.cmd)
 end
 
 
