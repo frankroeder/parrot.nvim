@@ -1,4 +1,5 @@
 local ui = require("parrot.ui")
+local utils = require("parrot.utils")
 
 local M = {}
 ---@param params table | string # table with args or string args
@@ -31,7 +32,7 @@ end
 ---@param first_undojoin boolean | nil # whether to skip first undojoin
 ---@param prefix string | nil # prefix to insert before each response line
 ---@param cursor boolean # whether to move cursor to the end of the response
-M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
+M.create_handler = function(queries, buf, win, line, first_undojoin, prefix, cursor)
   buf = buf or vim.api.nvim_get_current_buf()
   prefix = prefix or ""
   local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
@@ -112,6 +113,21 @@ M.create_handler = function(buf, win, line, first_undojoin, prefix, cursor)
     end
   end)
 end
+---@param buf number | nil # buffer number
+M.prep_md = function(buf)
+  -- disable swapping for this buffer and set filetype to markdown
+  vim.api.nvim_command("setlocal noswapfile")
+  -- better text wrapping
+  vim.api.nvim_command("setlocal wrap linebreak")
+  -- auto save on TextChanged, InsertLeave
+  vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
 
+  -- register shortcuts local to this buffer
+  buf = buf or vim.api.nvim_get_current_buf()
+
+  -- ensure normal mode
+  vim.api.nvim_command("stopinsert")
+  utils.feedkeys("<esc>", "xn")
+end
 
 return M

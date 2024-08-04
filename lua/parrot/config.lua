@@ -5,9 +5,6 @@ local get_provider_agents = require("parrot.provider").get_provider_agents
 
 local M = {}
 
-M.loaded = false
-M.options = nil
-
 local topic_prompt = [[
 Summarize the topic of our conversation above
 in two or three words. Respond only with those words.
@@ -66,10 +63,6 @@ local defaults = {
   agents = agents,
   chat_user_prefix = "🗨:",
   chat_confirm_delete = true,
-  chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
-  chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
-  chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
-  chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
   chat_free_cursor = false,
   chat_prompt_buf_type = false,
   toggle_target = "vsplit",
@@ -188,7 +181,6 @@ local defaults = {
 			focusing on the essence of the inquiry.
 			Question: {{command}}
 			]]
-      print("PARROT", vim.inspect(parrot))
       local agent = parrot.get_command_agent()
       parrot.logger.info("Asking agent: " .. vim.inspect(agent.name))
       parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
@@ -232,14 +224,20 @@ M.index_agents_by_name = function(agents)
   return result
 end
 
+M.loaded = false
+M.options = nil
+M.providers = nil
+M.agents = nil
+M.hooks = nil
+
 function M.setup(opts)
   if vim.fn.has("nvim-0.9.4") == 0 then
     return vim.notify("parrot.nvim requires Neovim >= 0.9.4", vim.log.levels.ERROR)
   end
 
-  local default_opts = vim.deepcopy(opts)
-  local valid_provider_names = vim.tbl_keys(defaults.providers)
+  math.randomseed(os.time())
 
+  local valid_provider_names = vim.tbl_keys(defaults.providers)
   if not utils.has_valid_key(opts.providers, valid_provider_names) then
     return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
   end
@@ -252,7 +250,6 @@ function M.setup(opts)
   M.options.agents = nil
   M.hooks = M.options.hooks
   M.options.hooks = nil
-
 
   -- resolve symlinks
   local stat = vim.loop.fs_lstat(M.options.chat_dir)
@@ -273,40 +270,41 @@ function M.setup(opts)
     end
   end
 
-  M._available_providers = vim.tbl_keys(M.providers)
-  M._available_provider_agents = vim.tbl_map(function()
+  M.available_providers = vim.tbl_keys(M.providers)
+  M.available_provider_agents = vim.tbl_map(function()
     return { chat = {}, command = {} }
   end, M.providers)
 
   for type, agts in pairs(M.agents) do
     for agt_name, agt in pairs(agts) do
-      table.insert(M._available_provider_agents[agt.provider][type], agt_name)
+      table.insert(M.available_provider_agents[agt.provider][type], agt_name)
     end
   end
 
-  table.sort(M._available_providers)
-  table.sort(M._available_provider_agents)
+  table.sort(M.available_providers)
+  table.sort(M.available_provider_agents)
   M.register_hooks(M.hooks, M.options)
 
   M.cmd = {
-		ChatFinder = "chat_finder",
-		ChatStop = "stop",
-		ChatNew = "chat_new",
-		ChatToggle = "chat_toggle",
-		ChatPaste = "chat_paste",
-		ChatDelete = "chat_delete",
-		ChatResponde = "chat_respond",
-		Context = "context",
-		Agent = "agent",
-		Provider = "provider",
-	}
-  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M._available_providers, M._available_provider_agents, M.cmd)
+    ChatFinder = "chat_finder",
+    ChatStop = "stop",
+    ChatNew = "chat_new",
+    ChatToggle = "chat_toggle",
+    ChatPaste = "chat_paste",
+    ChatDelete = "chat_delete",
+    ChatResponde = "chat_respond",
+    Context = "context",
+    Agent = "agent",
+    Provider = "provider",
+  }
+  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M.available_providers, M.available_provider_agents, M.cmd)
   M.add_default_commands(M.cmd, M.hooks, M.options)
+
+  M.loaded = true
 end
 
-
 M.register_hooks = function(hooks, options)
-   -- register user commands
+  -- register user commands
   for hook, _ in pairs(hooks) do
     vim.api.nvim_create_user_command(options.cmd_prefix .. hook, function(params)
       M.call_hook(hook, params)
@@ -329,11 +327,11 @@ M.add_default_commands = function(commands, hooks, options)
     ChatToggle = { "popup", "split", "vsplit", "tabnew" },
     Context = { "popup", "split", "vsplit", "tabnew" },
   }
-   -- register default commands
+  -- register default commands
   for cmd, cmd_func in pairs(commands) do
     if hooks[cmd] == nil then
       vim.api.nvim_create_user_command(options.cmd_prefix .. cmd, function(params)
-				M.chat_handler[M.cmd[cmd]](M.chat_handler, params)
+        M.chat_handler[M.cmd[cmd]](M.chat_handler, params)
       end, {
         nargs = "?",
         range = true,
@@ -345,9 +343,14 @@ M.add_default_commands = function(commands, hooks, options)
           if cmd == "Agent" then
             local buf = vim.api.nvim_get_current_buf()
             local file_name = vim.api.nvim_buf_get_name(buf)
-            return get_provider_agents(utils.is_chat(buf, file_name, options.chat_dir), M._available_provider_agents)
+            return get_provider_agents(
+              utils.is_chat(buf, file_name, options.chat_dir),
+              M.chat_handler.state,
+              M.chat_handler.providers,
+              M.available_provider_agents
+            )
           elseif cmd == "Provider" then
-            return M._available_providers
+            return M.available_providers
           end
           return {}
         end,

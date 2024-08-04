@@ -9,6 +9,8 @@ local ui = require("parrot.ui")
 local init_provider = require("parrot.provider").init_provider
 local get_provider = require("parrot.provider").get_provider
 local get_provider_agents = require("parrot.provider").get_provider_agents
+local Spinner = require("parrot.spinner")
+local Job = require("plenary.job")
 
 local ChatHandler = {}
 
@@ -37,6 +39,58 @@ function ChatHandler:new(options, providers, agents, available_providers, availa
     available_providers = available_providers,
     available_provider_agents = available_provider_agents,
   }, self)
+end
+
+function ChatHandler:buf_handler()
+  local gid = utils.create_augroup("PrtBufHandler", { clear = true })
+
+  utils.autocmd({ "BufEnter" }, nil, function(event)
+    local buf = event.buf
+
+    if not vim.api.nvim_buf_is_valid(buf) then
+      return
+    end
+
+    local file_name = vim.api.nvim_buf_get_name(buf)
+
+    self:prep_chat(buf, file_name)
+    self:prep_context(buf, file_name)
+  end, gid)
+end
+
+function ChatHandler:prep_chat(buf, file_name)
+  if not utils.is_chat(buf, file_name, self.options.chat_dir) then
+    return
+  end
+
+  if buf ~= vim.api.nvim_get_current_buf() then
+    return
+  end
+
+  chatutils.prep_md(buf)
+
+  if self.options.chat_prompt_buf_type then
+    vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
+    vim.fn.prompt_setprompt(buf, "")
+    vim.fn.prompt_setcallback(buf, function()
+      self:chat_respond({ args = "" })
+    end)
+  end
+  -- remember last opened chat file
+  self.state:set_last_chat(file_name)
+  self.state:refresh(self.available_providers, self.available_provider_agents)
+end
+
+function ChatHandler:prep_context(buf, file_name)
+  if not utils.ends_with(file_name, ".parrot.md") then
+    return
+  end
+
+  if buf ~= vim.api.nvim_get_current_buf() then
+    return
+  end
+
+  chatutils.prep_md(buf)
 end
 
 ---@param kind number # kind of toggle
@@ -107,7 +161,8 @@ function ChatHandler:get_chat_agent()
   local prov = get_provider(self.state, self.providers)
   local name = self.state:get_agent(prov.name, "chat")
   local template = self.options.command_prompt_prefix_template
-  local cmd_prefix = utils.template_render_from_list(template, { ["{{agent}}"] = self.state:get_agent(prov.name, "chat") })
+  local cmd_prefix =
+    utils.template_render_from_list(template, { ["{{agent}}"] = self.state:get_agent(prov.name, "chat") })
   local model = self.agents.chat[name].model
   local system_prompt = self.agents.chat[name].system_prompt
   return {
@@ -593,12 +648,20 @@ function ChatHandler:_chat_respond(params)
     buf,
     query_prov,
     utils.prepare_payload(messages, agent.model),
-    chatutils.create_handler(buf, win, utils.last_content_line(buf), true, "", not self.options.chat_free_cursor),
+    chatutils.create_handler(
+      self.queries,
+      buf,
+      win,
+      utils.last_content_line(buf),
+      true,
+      "",
+      not self.options.chat_free_cursor
+    ),
     vim.schedule_wrap(function(qid)
       if self.options.enable_spinner and spinner then
         spinner:stop()
       end
-      local qt = queries:get(qid)
+      local qt = self.queries:get(qid)
       if not qt then
         return
       end
@@ -637,7 +700,7 @@ function ChatHandler:_chat_respond(params)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)
-        local topic_handler = chatutils.create_handler(topic_buf, nil, 0, false, "", false)
+        local topic_handler = chatutils.create_handler(self.queries, topic_buf, nil, 0, false, "", false)
 
         topic_prov:check({ model = self.providers[topic_prov.name].topic_model })
         topic_prov:set_model(self.providers[topic_prov.name].topic_model)
@@ -712,7 +775,7 @@ function ChatHandler:chat_respond(params)
   params.range = 2
   params.line1 = cur_index + 1
   params.line2 = #lines
-  self:chat_respond(params)
+  self:_chat_respond(params)
 end
 
 function ChatHandler:chat_finder()
@@ -784,7 +847,12 @@ function ChatHandler:chat_finder()
         logger.warning("Invalid chat file selection.")
         return
       end
-      self:open_buf(selected_chat, chatutils.resolve_buf_target(self.options.toggle_target), self._toggle_kind.chat, false)
+      self:open_buf(
+        selected_chat,
+        chatutils.resolve_buf_target(self.options.toggle_target),
+        self._toggle_kind.chat,
+        false
+      )
     end)
   end
 end
@@ -966,7 +1034,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
     local handler = function() end
     -- default on_exit strips trailing backticks if response was markdown snippet
     local on_exit = function(qid)
-      local qt = queries:get(qid)
+      local qt = self.queries:get(qid)
       if not qt then
         return
       end
@@ -1090,21 +1158,21 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
       -- delete selection
       vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
       -- prepare handler
-      handler = chatutils.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+      handler = chatutils.create_handler(self.queries, buf, win, start_line - 1, true, prefix, cursor)
     elseif target == ui.Target.append then
       -- move cursor to the end of the selection
       vim.api.nvim_win_set_cursor(0, { end_line, 0 })
       -- put newline after selection
       vim.api.nvim_put({ "" }, "l", true, true)
       -- prepare handler
-      handler = chatutils.create_handler(buf, win, end_line, true, prefix, cursor)
+      handler = chatutils.create_handler(self.queries, buf, win, end_line, true, prefix, cursor)
     elseif target == ui.Target.prepend then
       -- move cursor to the start of the selection
       vim.api.nvim_win_set_cursor(0, { start_line, 0 })
       -- put newline before selection
       vim.api.nvim_put({ "" }, "l", false, true)
       -- prepare handler
-      handler = chatutils.create_handler(buf, win, start_line - 1, true, prefix, cursor)
+      handler = chatutils.create_handler(self.queries, buf, win, start_line - 1, true, prefix, cursor)
     elseif target == ui.Target.popup then
       self:toggle_close(M._toggle_kind.popup)
       -- create a new buffer
@@ -1132,7 +1200,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
       -- better text wrapping
       vim.api.nvim_command("setlocal wrap linebreak")
       -- prepare handler
-      handler = chatutils.create_handler(buf, win, 0, false, "", false)
+      handler = chatutils.create_handler(self.queries, buf, win, 0, false, "", false)
       self:toggle_add(self._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
     elseif type(target) == "table" then
       if target.type == ui.Target.new().type then
@@ -1164,7 +1232,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
       local ft = target.filetype or filetype
       vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
-      handler = chatutils.create_handler(buf, win, 0, false, "", cursor)
+      handler = chatutils.create_handler(self.queries, buf, win, 0, false, "", cursor)
     end
 
     -- call the model and write the response
@@ -1190,7 +1258,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
     )
   end
 
-   vim.schedule(function()
+  vim.schedule(function()
     local args = params.args or ""
     if args:match("%S") then
       callback(args)
@@ -1216,6 +1284,113 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
       logger.error("Invalid user input ui option", self.options.user_input_ui)
     end
   end)
+end
+
+-- call the API
+---@param buf number | nil # buffer number
+---@param provider table
+---@param payload table # payload for api
+---@param handler function # response handler
+---@param on_exit function | nil # optional on_exit handler
+function ChatHandler:query(buf, provider, payload, handler, on_exit)
+  -- make sure handler is a function
+  if type(handler) ~= "function" then
+    logger.error(
+      string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
+    )
+    return
+  end
+
+  if not provider:verify() then
+    return
+  end
+
+  local qid = utils.uuid()
+  self.queries:add(qid, {
+    timestamp = os.time(),
+    buf = buf,
+    provider = provider.name,
+    payload = payload,
+    handler = handler,
+    on_exit = on_exit,
+    response = "",
+    first_line = -1,
+    last_line = -1,
+    ns_id = nil,
+    ex_id = nil,
+  })
+
+  self.queries:cleanup(8, 60)
+
+  local curl_params = vim.deepcopy(self.options.curl_params or {})
+  payload = provider:preprocess_payload(payload)
+  local args = {
+    "--no-buffer",
+    "--silent",
+    "-H",
+    "accept: application/json",
+    "-H",
+    "content-type: application/json",
+    "-d",
+    vim.json.encode(payload),
+  }
+
+  for _, arg in ipairs(args) do
+    table.insert(curl_params, arg)
+  end
+
+  for _, parg in ipairs(provider:curl_params()) do
+    table.insert(curl_params, parg)
+  end
+
+  local buffer = ""
+  local job = Job:new({
+    command = "curl",
+    args = curl_params,
+    on_exit = function(response, exit_code)
+      logger.debug("on_exit: " .. vim.inspect(response:result()))
+      if exit_code ~= 0 then
+        logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
+        on_exit(qid)
+      end
+      local result = response:result()
+      result = utils.parse_raw_response(result)
+      provider:process_onexit(result)
+
+      if response.handle and not response.handle:is_closing() then
+        response.handle:close()
+      end
+
+      on_exit(qid)
+      local qt = self.queries:get(qid)
+      if qt.ns_id and qt.buf then
+        vim.schedule(function()
+          vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
+        end)
+      end
+      self.pool:remove(response.pid)
+    end,
+    on_stdout = function(_, data)
+      logger.debug("on_stdout: " .. vim.inspect(data))
+      local qt = self.queries:get(qid)
+      if not qt then
+        return
+      end
+
+      local lines = vim.split(data, "\n")
+      for _, line in ipairs(lines) do
+        local raw_json = string.gsub(line, "^data:", "")
+        local content = provider:process_stdout(raw_json)
+        if content then
+          qt.response = qt.response .. content
+          buffer = buffer .. content
+          handler(qid, content)
+        end
+      end
+    end,
+  })
+  job:start()
+  self.pool:add(job, buf)
 end
 
 return ChatHandler
