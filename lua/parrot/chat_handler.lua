@@ -951,7 +951,7 @@ function ChatHandler:switch_agent(is_chat, selected_agent, prov)
     return
   end
 
-  if is_chat and agents.chat[selected_agent] then
+  if is_chat and self.agents.chat[selected_agent] then
     self.state:set_agent(prov.name, selected_agent, "chat")
     logger.info("Chat agent: " .. self.state:get_agent(prov.name, "chat"))
     prov:check(self.agents.chat[selected_agent])
