@@ -1,20 +1,22 @@
 local Pool = {}
 Pool.__index = Pool
 
+--- Creates a new Pool instance.
+--- @return table # A new Pool instance.
 function Pool:new()
   return setmetatable({ _processes = {} }, self)
 end
 
--- add a process to the pool
----@param job table # a plenary job
----@param buf number | nil # buffer number
+--- Adds a process to the pool.
+--- @param job table # A plenary job.
+--- @param buf number|nil # The buffer number, optional.
 function Pool:add(job, buf)
   table.insert(self._processes, { job = job, buf = buf })
 end
 
---- Check if there is no other pid running for the given buffer
----@param buf number | nil # buffer number
----@return boolean
+--- Checks if there is no other process running for the given buffer.
+--- @param buf number|nil # The buffer number, optional.
+--- @return boolean # True if no other process is running for the buffer, false otherwise.
 function Pool:unique_for_buffer(buf)
   if buf == nil then
     return true
@@ -27,8 +29,8 @@ function Pool:unique_for_buffer(buf)
   return true
 end
 
--- remove the process with "pid" from the pool
----@param pid number # the process id to find the corresponding handle
+--- Removes the process with the specified PID from the pool.
+--- @param pid number # The process ID to find the corresponding handle.
 function Pool:remove(pid)
   for i, handle_info in self:ipairs() do
     if handle_info.job.pid == pid then
@@ -38,10 +40,14 @@ function Pool:remove(pid)
   end
 end
 
+--- Checks if the pool is empty.
+--- @return boolean # True if the pool is empty, false otherwise.
 function Pool:is_empty()
   return next(self._processes) == nil
 end
 
+--- Returns an iterator function for the processes in the pool.
+--- @return function # An iterator function for the processes.
 function Pool:ipairs()
   return ipairs(self._processes)
 end
