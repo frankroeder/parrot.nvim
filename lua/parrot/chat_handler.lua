@@ -76,6 +76,48 @@ function ChatHandler:prep_chat(buf, file_name)
       self:chat_respond({ args = "" })
     end)
   end
+
+  -- setup chat specific commands
+  local range_commands = {
+    {
+      command = "ChatRespond",
+      modes = self.options.chat_shortcut_respond.modes,
+      shortcut = self.options.chat_shortcut_respond.shortcut,
+      comment = "Parrot Chat Respond",
+    },
+    {
+      command = "ChatNew",
+      modes = self.options.chat_shortcut_new.modes,
+      shortcut = self.options.chat_shortcut_new.shortcut,
+      comment = "Parrot Chat New",
+    },
+  }
+  for _, rc in ipairs(range_commands) do
+    local cmd = self.options.cmd_prefix .. rc.command .. "<cr>"
+    for _, mode in ipairs(rc.modes) do
+      if mode == "n" or mode == "i" then
+        utils.set_keymap({ buf }, mode, rc.shortcut, function()
+          vim.api.nvim_command(self.options.cmd_prefix .. rc.command)
+          -- go to normal mode
+          vim.api.nvim_command("stopinsert")
+          utils.feedkeys("<esc>", "xn")
+        end, rc.comment)
+      else
+        utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+      end
+    end
+  end
+
+  local ds = self.options.chat_shortcut_delete
+  utils.set_keymap({ buf }, ds.modes, ds.shortcut, function()
+    self:chat_delete()
+  end, "Parrot Chat Delete")
+
+  local ss = self.options.chat_shortcut_stop
+  utils.set_keymap({ buf }, ss.modes, ss.shortcut, function()
+    self:stop()
+  end, "Parrot Chat Stop")
+
   -- remember last opened chat file
   self.state:set_last_chat(file_name)
   self.state:refresh(self.available_providers, self.available_provider_agents)

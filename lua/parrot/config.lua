@@ -63,6 +63,10 @@ local defaults = {
   agents = agents,
   chat_user_prefix = "🗨:",
   chat_confirm_delete = true,
+  chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
+  chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
+  chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
+  chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
   chat_free_cursor = false,
   chat_prompt_buf_type = false,
   toggle_target = "vsplit",
@@ -298,7 +302,7 @@ function M.setup(opts)
     Provider = "provider",
   }
   M.chat_handler = Chat:new(M.options, M.providers, M.agents, M.available_providers, M.available_provider_agents, M.cmd)
-	M.chat_handler:buf_handler()
+  M.chat_handler:buf_handler()
   M.add_default_commands(M.cmd, M.hooks, M.options)
 
   M.loaded = true
