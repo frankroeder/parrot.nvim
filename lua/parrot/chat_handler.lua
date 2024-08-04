@@ -11,6 +11,7 @@ local get_provider = require("parrot.provider").get_provider
 local get_provider_agents = require("parrot.provider").get_provider_agents
 local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
+local pft = require("plenary.filetype")
 
 local ChatHandler = {}
 
@@ -19,7 +20,6 @@ ChatHandler.__index = ChatHandler
 function ChatHandler:new(options, providers, agents, available_providers, available_provider_agents, commands)
   local state = State:new(options.state_dir)
   state:refresh(available_providers, available_provider_agents)
-  -- self:prepare_commands()
   return setmetatable({
     _plugin_name = "parrot.nvim",
     agents = agents,
@@ -246,10 +246,16 @@ function ChatHandler:prepare_commands()
       end
       self:prompt(params, target, agent, agent.cmd_prefix, utils.trim(template))
     end
-    -- TODO:  --
-    self.commands[command] = function(params)
+    self.commands[command] = command
+    self:addCommand(command, function(params)
       cmd(params)
-    end
+    end)
+  end
+end
+
+function ChatHandler:addCommand(command, cmd)
+  self[command] = function(self, params)
+    cmd(params)
   end
 end
 

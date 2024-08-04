@@ -302,8 +302,9 @@ function M.setup(opts)
     Provider = "provider",
   }
   M.chat_handler = Chat:new(M.options, M.providers, M.agents, M.available_providers, M.available_provider_agents, M.cmd)
-  M.chat_handler:buf_handler()
+  M.chat_handler:prepare_commands()
   M.add_default_commands(M.cmd, M.hooks, M.options)
+  M.chat_handler:buf_handler()
 
   M.loaded = true
 end
