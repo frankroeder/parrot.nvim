@@ -4,8 +4,6 @@ TESTS_INIT=tests/minimal_init.lua
 TESTS_DIR := tests/
 PLUGIN_DIR := lua/
 
-MINIMAL_INIT := ./scripts/minimal_init.vim
-
 test:
 	@nvim \
 		--headless \
