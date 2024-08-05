@@ -268,7 +268,7 @@ function ChatHandler:stop(signal)
 
   for _, process_info in self.pool:ipairs() do
     if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
-      vim.loop.kill(process_info.job.pid, signal or 15)
+      vim.uv.kill(process_info.job.pid, signal or 15)
     end
   end
 
@@ -428,7 +428,7 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
 
   -- prepare filename
   local time = os.date("%Y-%m-%d.%H-%M-%S")
-  local stamp = tostring(math.floor(vim.loop.hrtime() / 1000000) % 1000)
+  local stamp = tostring(math.floor(vim.uv.hrtime() / 1000000) % 1000)
   local cbuf = vim.api.nvim_get_current_buf()
   -- make sure stamp is 3 digits
   while #stamp < 3 do

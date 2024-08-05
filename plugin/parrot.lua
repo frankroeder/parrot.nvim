@@ -1,11 +1,10 @@
 for _, name in ipairs({ "curl", "grep", "rg", "ln" }) do
   if vim.fn.executable(name) == 0 then
-    M.logger.error()
     return vim.notify(name .. " is not installed, run :checkhealth parrot", vim.log.levels.ERROR)
   end
 end
 
-local timer = (vim.uv or vim.loop).new_timer()
+local timer = vim.uv.new_timer()
 timer:start(
   500,
   0,

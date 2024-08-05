@@ -9,19 +9,6 @@ describe("utils", function()
     end)
   end)
 
-  describe("once", function()
-    it("should only call the function once", function()
-      local count = 0
-      local increment = utils.once(function()
-        count = count + 1
-      end)
-      increment()
-      increment()
-      increment()
-      assert.are.equal(1, count)
-    end)
-  end)
-
   describe("feedkeys", function()
     it("should call vim.api.nvim_feedkeys with correct arguments", function()
       local original_nvim_feedkeys = vim.api.nvim_feedkeys

@@ -101,23 +101,29 @@ M.create_popup = function(buf, title, size_func, opts, style)
   local pgid = opts.gid or utils.create_augroup("PrtPopup", { clear = true })
 
   -- cleanup on exit
-  local close = utils.once(function()
-    vim.schedule(function()
-      -- delete only internal augroups
-      if not opts.gid then
-        vim.api.nvim_del_augroup_by_id(pgid)
-      end
-      if win and vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
-      end
-      if opts.keep_buf then
+  local close = (function()
+    local called = false
+    return function()
+      if called then
         return
       end
-      if vim.api.nvim_buf_is_valid(buf) then
-        vim.api.nvim_buf_delete(buf, { force = true })
-      end
-    end)
-  end)
+      called = true
+      vim.schedule(function()
+        if not opts.gid then
+          vim.api.nvim_del_augroup_by_id(pgid)
+        end
+        if win and vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_win_close(win, true)
+        end
+        if opts.keep_buf then
+          return
+        end
+        if vim.api.nvim_buf_is_valid(buf) then
+          vim.api.nvim_buf_delete(buf, { force = true })
+        end
+      end)
+    end
+  end)()
 
   -- resize on vim resize
   utils.autocmd("VimResized", { buf }, resize, pgid)
