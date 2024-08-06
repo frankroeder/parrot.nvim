@@ -64,6 +64,7 @@ local defaults = {
   chat_dir = vim.fn.stdpath("data") .. "/parrot/chats",
   agents = require("parrot.agents"),
   chat_user_prefix = "🗨:",
+  agent_prefix = "🦜:",
   chat_confirm_delete = true,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
@@ -98,6 +99,11 @@ local defaults = {
   {{user}}]],
   template_selection = [[
 	I have the following content from {{filename}}:
+
+  Here is the full context:
+	```{{filetype}}
+	{{multifilecontent}}
+	```
 
 	```{{filetype}}
 	{{selection}}

@@ -188,14 +188,14 @@ M.template_render_from_list = function(template, key_value_pairs)
   return template
 end
 
-M.template_render = function(template, command, selection, filetype, filename, filecontent)
-  filecontent = filecontent or ""
+M.template_render = function(template, command, selection, filetype, filename, filecontent, multifilecontent)
   local key_value_pairs = {
     ["{{command}}"] = command,
     ["{{selection}}"] = selection,
     ["{{filetype}}"] = filetype,
     ["{{filename}}"] = filename,
     ["{{filecontent}}"] = filecontent,
+    ["{{multifilecontent}}"] = multifilecontent,
   }
   return M.template_render_from_list(template, key_value_pairs)
 end
@@ -255,6 +255,20 @@ M.is_chat = function(buf, file_name, chat_dir)
   return true
 end
 
+M.get_all_buffer_content = function()
+  local buffers = vim.api.nvim_list_bufs()
+  local content = {}
+
+  for _, buf in ipairs(buffers) do
+    if vim.api.nvim_buf_is_loaded(buf) then
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      table.insert(content, table.concat(lines, "\n"))
+    end
+  end
+
+  return table.concat(content, "\n\n")
+end
+
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
@@ -266,7 +280,9 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
     local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf))
     local fname = vim.api.nvim_buf_get_name(origin_buf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(origin_buf, 0, -1, false), "\n")
-    local rendered = M.template_render(template_selection, "", selection, filetype, fname, filecontent)
+    local multifilecontent = M.get_all_buffer_content()
+    local rendered =
+      M.template_render(template_selection, "", selection, filetype, fname, filecontent, multifilecontent)
     if rendered then
       selection = rendered
     end

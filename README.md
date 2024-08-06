@@ -204,6 +204,9 @@ to consider a visual selection within an API request.
     -- Chat user prompt prefix
     chat_user_prefix = "🗨:",
 
+    -- Agent prompt prefix
+    agent_prefix = "🦜:",
+
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
 
@@ -381,6 +384,7 @@ specific content into the user messages:
 | `{{filetype}}`          | Filetype of the current buffer       |
 | `{{filepath}}`          | Full path of the current file        |
 | `{{filecontent}}`       | Full content of the current buffer   |
+| `{{multifilecontent}}`  | Full content of all open buffers     |
 
 Below is an example of how to use these placeholders in a completion hook, which
 receives the full file context and the selected code snippet as input.
@@ -454,7 +458,7 @@ require("parrot").setup {
 - I am encountering errors related to the state.
     > If the state is corrupted, simply delete the file `~/.local/share/nvim/parrot/persisted/state.json`.
 - The completion feature is not functioning, and I am receiving errors.
-    > Ensure that you have an adequate amount of API credits and examine the log file `/tmp/parrot.nvim.log` for any errors.
+    > Ensure that you have an adequate amount of API credits and examine the log file `~/.local/state/nvim/parrot.nvim.log` for any errors.
 - I have discovered a bug, have a feature suggestion, or possess a general idea to enhance this project.
     > Everyone is invited to contribute to this project! If you have any suggestions, ideas, or bug reports, please feel free to submit an issue.
 

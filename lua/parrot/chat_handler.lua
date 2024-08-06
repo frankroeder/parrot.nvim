@@ -640,7 +640,7 @@ function ChatHandler:_chat_respond(params)
     agent_name = agent_name .. " & custom system prompt"
   end
 
-  local agent_prefix = "🦜:"
+  local agent_prefix = M.config.agent_prefix
   local agent_suffix = "[{{agent}}]"
   ---@diagnostic disable-next-line: cast-local-type
   agent_suffix =
@@ -1188,7 +1188,9 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
     end
 
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
-    local user_prompt = utils.template_render(template, command, selection, filetype, filename, filecontent)
+    local multifilecontent = utils.get_all_buffer_content()
+    local user_prompt =
+      utils.template_render(template, command, selection, filetype, filename, filecontent, multifilecontent)
     table.insert(messages, { role = "user", content = user_prompt })
 
     -- cancel possible visual mode before calling the model
