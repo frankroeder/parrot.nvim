@@ -363,7 +363,7 @@ require("parrot").setup {
           errors, verb tense issues, word choice problems, and other
           grammatical mistakes.
         ]]
-        prt.cmd.ChatNew(params, chat_prompt)
+        prt.ChatNew(params, chat_prompt)
       end,
     }
     -- ...
@@ -415,7 +415,7 @@ require("parrot").setup {
 ```
 
 The placeholders `{{filetype}}` and  `{{filecontent}}` can also be used in the `chat_prompt` when
-creating custom hooks calling `prt.cmd.ChatNew(params, chat_prompt)` to directly inject the whole file content.
+creating custom hooks calling `prt.ChatNew(params, chat_prompt)` to directly inject the whole file content.
 
 ```lua
 require("parrot").setup {
@@ -435,7 +435,7 @@ require("parrot").setup {
           {{filecontent}}
           ```
 				]]
-        prt.cmd.ChatNew(params, chat_prompt)
+        prt.ChatNew(params, chat_prompt)
       end,
     }
     -- ...

@@ -528,7 +528,6 @@ function ChatHandler:chat_paste(params)
     params.args = self.options.toggle_target
   end
   local target = chatutils.resolve_buf_target(params)
-
   local buf = utils.get_buffer(last_chat_file)
   local win_found = false
   if buf then
@@ -579,7 +578,6 @@ function ChatHandler:_chat_respond(params)
   local agent = self:get_chat_agent()
   local agent_name = agent.name
   local agent_provider = agent.provider
-  local prov = get_provider(self.state, self.providers)
 
   if not self.pool:unique_for_buffer(buf) then
     logger.warning("Another parrot process is already running for this buffer.")
@@ -1222,7 +1220,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
       -- prepare handler
       handler = chatutils.create_handler(self.queries, buf, win, start_line - 1, true, prefix, cursor)
     elseif target == ui.Target.popup then
-      self:toggle_close(M._toggle_kind.popup)
+      self:toggle_close(self._toggle_kind.popup)
       -- create a new buffer
       local popup_close = nil
       buf, win, popup_close, _ = ui.create_popup(
@@ -1329,7 +1327,7 @@ function ChatHandler:prompt(params, target, agent, prompt, template)
         callback(input)
       end)
     else
-      logger.error("Invalid user input ui option", self.options.user_input_ui)
+      logger.error("Invalid user input ui option: " .. self.options.user_input_ui)
     end
   end)
 end

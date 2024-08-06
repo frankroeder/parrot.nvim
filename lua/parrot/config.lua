@@ -1,9 +1,11 @@
-local agents = require("parrot.agents")
 local utils = require("parrot.utils")
 local Chat = require("parrot.chat_handler")
 local get_provider_agents = require("parrot.provider").get_provider_agents
 
-local M = {}
+local M = {
+  ui = require("parrot.ui"),
+  logger = require("parrot.logger"),
+}
 
 local topic_prompt = [[
 Summarize the topic of our conversation above
@@ -58,9 +60,9 @@ local defaults = {
   },
   cmd_prefix = "Prt",
   curl_params = {},
-  state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
-  chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
-  agents = agents,
+  state_dir = vim.fn.stdpath("data") .. "/parrot/persisted",
+  chat_dir = vim.fn.stdpath("data") .. "/parrot/chats",
+  agents = require("parrot.agents"),
   chat_user_prefix = "🗨:",
   chat_confirm_delete = true,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
@@ -156,7 +158,7 @@ local defaults = {
       vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
       vim.api.nvim_win_set_buf(0, bufnr)
     end,
-    Log = function(parrot, params)
+    Log = function(parrot, _)
       vim.cmd("edit " .. vim.fn.fnameescape(parrot.logger._logfile))
     end,
     -- PrtImplement rewrites the provided selection/range based on comments in it
@@ -217,9 +219,9 @@ M.merge_agents = function(default_agents, user_agents, user_providers)
   }
 end
 
-M.index_agents_by_name = function(agents)
+M.index_agents_by_name = function(_agents)
   local result = {}
-  for category, agent_list in pairs(agents) do
+  for category, agent_list in pairs(_agents) do
     result[category] = {}
     for _, agent in ipairs(agent_list) do
       result[category][agent.name] = agent
@@ -309,6 +311,22 @@ function M.setup(opts)
   M.loaded = true
 end
 
+M.Prompt = function(params, target, agent, prompt, template)
+  M.chat_handler:prompt(params, target, agent, prompt, template)
+end
+
+M.ChatNew = function(params, chat_prompt)
+  M.chat_handler:chat_new(params, chat_prompt)
+end
+
+M.get_chat_agent = function()
+  return M.chat_handler:get_chat_agent()
+end
+
+M.get_command_agent = function()
+  return M.chat_handler:get_command_agent()
+end
+
 M.register_hooks = function(hooks, options)
   -- register user commands
   for hook, _ in pairs(hooks) do
@@ -337,7 +355,7 @@ M.add_default_commands = function(commands, hooks, options)
   for cmd, cmd_func in pairs(commands) do
     if hooks[cmd] == nil then
       vim.api.nvim_create_user_command(options.cmd_prefix .. cmd, function(params)
-        M.chat_handler[M.cmd[cmd]](M.chat_handler, params)
+        M.chat_handler[cmd_func](M.chat_handler, params)
       end, {
         nargs = "?",
         range = true,
