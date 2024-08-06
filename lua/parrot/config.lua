@@ -93,6 +93,11 @@ local config = {
   template_selection = [[
 	I have the following content from {{filename}}:
 
+  Here is the full context:
+	```{{filetype}}
+	{{multifilecontent}}
+	```
+
 	```{{filetype}}
 	{{selection}}
 	```

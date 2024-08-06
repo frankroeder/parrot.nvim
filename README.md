@@ -384,6 +384,7 @@ specific content into the user messages:
 | `{{filetype}}`          | Filetype of the current buffer       |
 | `{{filepath}}`          | Full path of the current file        |
 | `{{filecontent}}`       | Full content of the current buffer   |
+| `{{multifilecontent}}`  | Full content of all open buffers     |
 
 Below is an example of how to use these placeholders in a completion hook, which
 receives the full file context and the selected code snippet as input.
