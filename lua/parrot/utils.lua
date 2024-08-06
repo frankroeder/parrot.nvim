@@ -201,7 +201,6 @@ M.template_render_from_list = function(template, key_value_pairs)
 end
 
 M.template_render = function(template, command, selection, filetype, filename, filecontent, multifilecontent)
-  -- filecontent = filecontent or ""
   local key_value_pairs = {
     ["{{command}}"] = command,
     ["{{selection}}"] = selection,
@@ -281,39 +280,6 @@ M.get_all_buffer_content = function()
 
   return table.concat(content, "\n\n")
 end
-
--- M.get_all_buffer_content = function()
---   local fzf_lua = require("fzf-lua")
--- 	local selected_buffers = {}
--- 	fzf_lua.buffers({
---     fzf_opts = {
---       ["--multi"] = "", -- Enable multi-select
---     },
---     actions = {
---       ["default"] = function(selected)
---         if not selected or #selected == 0 then
---           return ""
---         end
---         for _, item in ipairs(selected) do
---           local buf_id = tonumber(item:match("(%d+)"))
---           if buf_id then
---             local lines = table.concat(vim.api.nvim_buf_get_lines(buf_id, 0, -1, false), "\n")
---             table.insert(selected_buffers, lines)
---           end
---         end
--- 				print("SELECTE", vim.inspect(table.concat(selected_buffers, "\n")))
--- 				return table.concat(selected_buffers, "\n")
---       end
---     },
---     previewer = "builtin",
---     winopts = {
---       height = 0.5,
---       width = 0.5,
---       row = 0.35,
---       col = 0.5,
---     },
---   })
--- end
 
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
