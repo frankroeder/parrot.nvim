@@ -57,6 +57,7 @@ local config = {
   chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
   agents = agents,
   chat_user_prefix = "🗨:",
+  agent_prefix = "🦜:",
   chat_confirm_delete = true,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },

@@ -204,6 +204,9 @@ to consider a visual selection within an API request.
     -- Chat user prompt prefix
     chat_user_prefix = "🗨:",
 
+    -- Agent prompt prefix
+    agent_prefix = "🦜:",
+
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
 

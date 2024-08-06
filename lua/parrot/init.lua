@@ -924,7 +924,7 @@ M.chat_respond = function(params)
     agent_name = agent_name .. " & custom system prompt"
   end
 
-  local agent_prefix = "🦜:"
+  local agent_prefix = M.config.agent_prefix
   local agent_suffix = "[{{agent}}]"
   ---@diagnostic disable-next-line: cast-local-type
   agent_suffix =
