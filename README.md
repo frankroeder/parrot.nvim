@@ -458,7 +458,7 @@ require("parrot").setup {
 - I am encountering errors related to the state.
     > If the state is corrupted, simply delete the file `~/.local/share/nvim/parrot/persisted/state.json`.
 - The completion feature is not functioning, and I am receiving errors.
-    > Ensure that you have an adequate amount of API credits and examine the log file `/tmp/parrot.nvim.log` for any errors.
+    > Ensure that you have an adequate amount of API credits and examine the log file `~/.local/state/nvim/parrot.nvim.log` for any errors.
 - I have discovered a bug, have a feature suggestion, or possess a general idea to enhance this project.
     > Everyone is invited to contribute to this project! If you have any suggestions, ideas, or bug reports, please feel free to submit an issue.
 

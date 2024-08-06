@@ -1,6 +1,6 @@
 local M = {
   _plugin_name = "parrot.nvim",
-  _logfile = vim.fn.stdpath("data") .. "/parrot.nvim.log",
+  _logfile = vim.fn.stdpath("state") .. "/parrot.nvim.log",
 }
 
 if pcall(require, "notify") then
