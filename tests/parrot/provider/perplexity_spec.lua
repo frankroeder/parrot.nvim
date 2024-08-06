@@ -108,7 +108,7 @@ describe("Perplexity", function()
 
   describe("check", function()
     it("should return true for supported models", function()
-      assert.is_true(perplexity:check({ model = "llama-3-8b-instruct" }))
+      assert.is_true(perplexity:check({ model = "llama-3.1-8b-instruct" }))
       assert.is_true(perplexity:check({ model = { model = "mixtral-8x7b-instruct" } }))
     end)
 

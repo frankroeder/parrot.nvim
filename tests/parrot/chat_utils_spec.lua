@@ -27,30 +27,34 @@ describe("chat_utils", function()
     end)
   end)
 
-  -- describe("prep_md", function()
-  --   it("should set buffer options correctly", function()
-  --     async.run(function()
-  --       local buf = vim.api.nvim_create_buf(false, true)
-  --       chat_utils.prep_md(buf)
-  --
-  --       local options = {
-  --         "wrap",
-  --         "linebreak"
-  --       }
-  --
-  --       for _, option in ipairs(options) do
-  --         assert.is_true(vim.api.nvim_buf_get_option(buf, option))
-  --       end
-  --
-  --       -- Check if swapfile is disabled
-  --       assert.is_false(vim.api.nvim_buf_get_option(buf, "swapfile"))
-  --
-  --       -- Check if autocmd is set (this is a simplified check)
-  --       local autocmds = vim.api.nvim_get_autocmds({buffer = buf, event = {"TextChanged", "InsertLeave"}})
-  --       assert.is_true(#autocmds > 0)
-  --
-  --       vim.api.nvim_buf_delete(buf, {force = true})
-  --     end)
-  --   end)
-  -- end)
+  describe("prep_md", function()
+    it("should set buffer and window options correctly", function()
+      async.run(function()
+        local buf = vim.api.nvim_create_buf(false, true)
+        local win = vim.api.nvim_open_win(buf, true, {
+          relative = 'editor',
+          width = 80,
+          height = 20,
+          row = 5,
+          col = 5
+        })
+
+        chat_utils.prep_md(buf)
+
+        -- Check buffer option
+        assert.is_false(vim.api.nvim_buf_get_option(buf, "swapfile"))
+
+        -- Check window options
+        assert.is_true(vim.api.nvim_win_get_option(win, "wrap"))
+        assert.is_true(vim.api.nvim_win_get_option(win, "linebreak"))
+
+        -- Check if autocmd is set (this is a simplified check)
+        local autocmds = vim.api.nvim_get_autocmds({buffer = buf, event = {"TextChanged", "InsertLeave"}})
+        assert.is_true(#autocmds > 0)
+
+        vim.api.nvim_win_close(win, true)
+        vim.api.nvim_buf_delete(buf, {force = true})
+      end)
+    end)
+  end)
 end)
