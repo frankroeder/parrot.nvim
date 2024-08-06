@@ -57,6 +57,12 @@ local defaults = {
 			]],
       topic_model = "mistral-medium-latest",
     },
+    groq = {
+      api_key = "",
+      endpoint = "https://api.groq.com/openai/v1/chat/completions",
+      topic_prompt = topic_prompt,
+      topic_model = "llama-3.1-8b-instant",
+    },
   },
   cmd_prefix = "Prt",
   curl_params = {},

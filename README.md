@@ -30,6 +30,7 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + [Mistral API](https://docs.mistral.ai/api/)
     + [Gemini API](https://ai.google.dev/gemini-api/docs)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
+    + [Groq API](https://console.groq.com)
 - Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
 - Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI (lazy evaluation)
 - Provide repository-specific instructions with a `.parrot.md` file with the command `PrtContext`
@@ -121,6 +122,9 @@ Let the parrot fix your bugs.
         },
         gemini = {
           api_key = os.getenv "GEMINI_API_KEY",
+        },
+        groq = {
+          api_key = os.getenv "GROQ_API_KEY",
         },
         ollama = {} -- provide an empty list to make provider available
       },

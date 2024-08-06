@@ -184,13 +184,13 @@ describe("utils", function()
       assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 
-		it("should handle authentication error JSON", function()
+    it("should handle authentication error JSON", function()
       local input = { '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' }
       local expected = '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}'
       assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 
-		it("should handle API key error JSON", function()
+    it("should handle API key error JSON", function()
       local input = {
         "{",
         '  "error": {',
@@ -210,7 +210,8 @@ describe("utils", function()
         "  }",
         "}",
       }
-      local expected = '{   "error": {     "code": 400,     "message": "API key not valid. Please pass a valid API key.",     "status": "INVALID_ARGUMENT",     "details": [       {         "@type": "type.googleapis.com/google.rpc.ErrorInfo",         "reason": "API_KEY_INVALID",         "domain": "googleapis.com",         "metadata": {           "service": "generativelanguage.googleapis.com"         }       }     ]   } }'
+      local expected =
+        '{   "error": {     "code": 400,     "message": "API key not valid. Please pass a valid API key.",     "status": "INVALID_ARGUMENT",     "details": [       {         "@type": "type.googleapis.com/google.rpc.ErrorInfo",         "reason": "API_KEY_INVALID",         "domain": "googleapis.com",         "metadata": {           "service": "generativelanguage.googleapis.com"         }       }     ]   } }'
       assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 

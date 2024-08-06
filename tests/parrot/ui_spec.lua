@@ -79,7 +79,7 @@ describe("ui", function()
   --     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(test_input .. "<C-c>", true, false, true), "i", true)
   --
   --     ui.input({}, on_confirm)
-		-- 	print("ON content", on_confirm_called)
+  -- 	print("ON content", on_confirm_called)
   --     assert.is_true(on_confirm_called)
   --   end)
   -- end)

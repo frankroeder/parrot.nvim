@@ -17,13 +17,15 @@ describe("chat_utils", function()
   describe("create_handler", function()
     it("should create a handler function", function()
       local mock_queries = {
-        get = function() return {} end
+        get = function()
+          return {}
+        end,
       }
       local buf = vim.api.nvim_create_buf(false, true)
       local win = vim.api.nvim_get_current_win()
       local handler = chat_utils.create_handler(mock_queries, buf, win)
       assert.is_function(handler)
-      vim.api.nvim_buf_delete(buf, {force = true})
+      vim.api.nvim_buf_delete(buf, { force = true })
     end)
   end)
 
@@ -32,11 +34,11 @@ describe("chat_utils", function()
       async.run(function()
         local buf = vim.api.nvim_create_buf(false, true)
         local win = vim.api.nvim_open_win(buf, true, {
-          relative = 'editor',
+          relative = "editor",
           width = 80,
           height = 20,
           row = 5,
-          col = 5
+          col = 5,
         })
 
         chat_utils.prep_md(buf)
@@ -49,11 +51,11 @@ describe("chat_utils", function()
         assert.is_true(vim.api.nvim_win_get_option(win, "linebreak"))
 
         -- Check if autocmd is set (this is a simplified check)
-        local autocmds = vim.api.nvim_get_autocmds({buffer = buf, event = {"TextChanged", "InsertLeave"}})
+        local autocmds = vim.api.nvim_get_autocmds({ buffer = buf, event = { "TextChanged", "InsertLeave" } })
         assert.is_true(#autocmds > 0)
 
         vim.api.nvim_win_close(win, true)
-        vim.api.nvim_buf_delete(buf, {force = true})
+        vim.api.nvim_buf_delete(buf, { force = true })
       end)
     end)
   end)

@@ -4,6 +4,7 @@ local openai_agents = require("parrot.agents.openai")
 local ollama_agents = require("parrot.agents.ollama")
 local mistral_agents = require("parrot.agents.mistral")
 local gemini_agents = require("parrot.agents.gemini")
+local groq_agents = require("parrot.agents.groq")
 
 local system_chat_prompt = [[
 You are a versatile AI assistant with capabilities
@@ -58,6 +59,9 @@ for _, agent_type in ipairs({ "chat", "command" }) do
     table.insert(M[agent_type], inject_prompt(agent, agent_type))
   end
   for _, agent in ipairs(gemini_agents[agent_type]) do
+    table.insert(M[agent_type], inject_prompt(agent, agent_type))
+  end
+  for _, agent in ipairs(groq_agents[agent_type]) do
     table.insert(M[agent_type], inject_prompt(agent, agent_type))
   end
 end

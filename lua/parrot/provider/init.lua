@@ -4,6 +4,7 @@ local Gemini = require("parrot.provider.gemini")
 local Anthropic = require("parrot.provider.anthropic")
 local Perplexity = require("parrot.provider.perplexity")
 local Mistral = require("parrot.provider.mistral")
+local Groq = require("parrot.provider.groq")
 
 local M = {
   logger = require("parrot.logger"),
@@ -21,6 +22,7 @@ M.init_provider = function(prov_name, endpoint, api_key)
     anthropic = Anthropic,
     pplx = Perplexity,
     mistral = Mistral,
+    groq = Groq,
   }
 
   local ProviderClass = providers[prov_name]
