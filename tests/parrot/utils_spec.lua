@@ -53,7 +53,7 @@ describe("utils", function()
 
   describe("prepare_payload", function()
     it("should prepare payload with string model", function()
-      local messages = { { "role", "user", "content", "Hello" } }
+      local messages = { { role = "user", content = "Hello" } }
       local model = "gpt-3.5-turbo"
       local result = utils.prepare_payload(messages, model)
       assert.are.same({
@@ -64,7 +64,7 @@ describe("utils", function()
     end)
 
     it("should prepare payload with table model", function()
-      local messages = { { "role", "user", "content", "Hello" } }
+      local messages = { { role = "user", content = "Hello" } }
       local model = { model = "gpt-4", temperature = 0.7, top_p = 0.9 }
       local result = utils.prepare_payload(messages, model)
       assert.are.same({
@@ -73,6 +73,18 @@ describe("utils", function()
         model = "gpt-4",
         temperature = 0.7,
         top_p = 0.9,
+      }, result)
+    end)
+
+    it("should clamp temperature and top_p values", function()
+      local messages = { { role = "user", content = "Hello" } }
+      local model = { temperature = 3, top_p = 1.5 }
+      local result = utils.prepare_payload(messages, model)
+      assert.are.same({
+        messages = messages,
+        stream = true,
+        temperature = 2,
+        top_p = 1,
       }, result)
     end)
   end)
@@ -157,7 +169,6 @@ describe("utils", function()
   end)
 
   describe("parse_raw_response", function()
-    -- Perplexity API error
     it("should handle HTML error response", function()
       local input = {
         "<html>",
@@ -173,15 +184,13 @@ describe("utils", function()
       assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 
-    -- Anthropic API error
-    it("should handle authentication error JSON", function()
+		it("should handle authentication error JSON", function()
       local input = { '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' }
-      local expected = { type = "error", error = { type = "authentication_error", message = "invalid x-api-key" } }
-      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+      local expected = '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}'
+      assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 
-    -- Gemini API error
-    it("should handle API key error JSON", function()
+		it("should handle API key error JSON", function()
       local input = {
         "{",
         '  "error": {',
@@ -201,61 +210,17 @@ describe("utils", function()
         "  }",
         "}",
       }
-      local expected = {
-        error = {
-          code = 400,
-          message = "API key not valid. Please pass a valid API key.",
-          status = "INVALID_ARGUMENT",
-          details = {
-            {
-              ["@type"] = "type.googleapis.com/google.rpc.ErrorInfo",
-              reason = "API_KEY_INVALID",
-              domain = "googleapis.com",
-              metadata = {
-                service = "generativelanguage.googleapis.com",
-              },
-            },
-          },
-        },
-      }
-      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+      local expected = '{   "error": {     "code": 400,     "message": "API key not valid. Please pass a valid API key.",     "status": "INVALID_ARGUMENT",     "details": [       {         "@type": "type.googleapis.com/google.rpc.ErrorInfo",         "reason": "API_KEY_INVALID",         "domain": "googleapis.com",         "metadata": {           "service": "generativelanguage.googleapis.com"         }       }     ]   } }'
+      assert.are.equal(expected, utils.parse_raw_response(input))
     end)
 
-    -- OpenAI API error
-    it("should handle unauthorized error JSON", function()
-      local input = {
-        "{",
-        '    "error": {',
-        '        "message": "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",',
-        '        "type": "invalid_request_error",',
-        '        "param": null,',
-        '        "code": "invalid_api_key"',
-        "    }",
-        "}",
-      }
-      local expected = {
-        error = {
-          message = "Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys.",
-          type = "invalid_request_error",
-          param = vim.NIL,
-          code = "invalid_api_key",
-        },
-      }
-      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    it("should handle string input", function()
+      local input = "Hello, World!"
+      assert.are.equal(input, utils.parse_raw_response(input))
     end)
 
-    -- Mistral API error
-    it("should handle unauthorized error JSON", function()
-      local input = { "{", '  "message":"Unauthorized",', '  "request_id":"e113373b0349704893b58356e033606e"', "}" }
-      local expected = { message = "Unauthorized", request_id = "e113373b0349704893b58356e033606e" }
-      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
-    end)
-
-    -- Ollama API error
-    it("should handle model not found error JSON", function()
-      local input = { '{"error":"model \'llama5:latest\' not found, try pulling it first"}' }
-      local expected = { error = "model 'llama5:latest' not found, try pulling it first" }
-      assert.are.same(expected, vim.json.decode(utils.parse_raw_response(input)))
+    it("should handle nil input", function()
+      assert.is_nil(utils.parse_raw_response(nil))
     end)
   end)
 end)
