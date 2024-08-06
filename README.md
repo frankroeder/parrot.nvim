@@ -95,7 +95,7 @@ Let the parrot fix your bugs.
 ```lua
 {
   "frankroeder/parrot.nvim",
-  tag = "v0.3.9",
+  tag = "v0.3.10",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   -- optionally include "rcarriga/nvim-notify" for beautiful notifications
   config = function()
