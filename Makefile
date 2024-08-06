@@ -1,4 +1,4 @@
-.PHONY: test testlocal lint format
+.PHONY: test lint format
 
 TESTS_INIT=tests/minimal_init.lua
 TESTS_DIR := tests/
