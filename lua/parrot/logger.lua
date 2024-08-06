@@ -1,45 +1,56 @@
 local M = {
   _plugin_name = "parrot.nvim",
   _logfile = vim.fn.stdpath("state") .. "/parrot.nvim.log",
+  _max_log_lines = 10000,
+  _debug_enabled = vim.env.DEBUG_PARROT ~= nil,
 }
 
-if pcall(require, "notify") then
-  vim.notify = require("notify")
+-- Use pcall to safely require the notify plugin
+local notify_ok, notify = pcall(require, "notify")
+if notify_ok then
+  vim.notify = notify
 end
 
---- Writes a message to the log file.
---- @param msg string # The message to log.
---- @param kind string # The type of log message (e.g., "ErrorMsg", "Debug").
+-- Utility function to read file contents
+local function read_file(path)
+  local file = io.open(path, "r")
+  if not file then
+    return ""
+  end
+  local content = file:read("*a")
+  file:close()
+  return content
+end
+
+-- Utility function to write file contents
+local function write_file(path, content)
+  local file = io.open(path, "w")
+  if not file then
+    return false
+  end
+  file:write(content)
+  file:close()
+  return true
+end
+
+-- Limit the number of lines in the log file
+local function limit_logfile_lines()
+  local content = read_file(M._logfile)
+  local lines = vim.split(content, "\n")
+  if #lines > M._max_log_lines then
+    table.remove(lines, 1)
+  end
+  return table.concat(lines, "\n")
+end
+
+-- Write a message to the log file
 local function write_to_logfile(msg, kind)
-  local logfile_path = M._logfile
-  local max_lines = 10000
-
-  --- Limits the number of lines in the log file.
-  --- @return string # The limited log content.
-  local function limit_logfile_lines()
-    local lines = {}
-    for line in io.lines(logfile_path) do
-      table.insert(lines, line)
-      if #lines > max_lines then
-        table.remove(lines, 1)
-      end
-    end
-    return table.concat(lines, "\n")
-  end
-
-  local logfile = io.open(logfile_path, "w+")
-  if logfile then
-    local limited_log = limit_logfile_lines()
-    logfile:write(limited_log)
-    logfile:write(string.format("[%s] %s: [%s] %s\n", os.date("%Y-%m-%d %H:%M:%S"), M._plugin_name, kind, msg))
-    logfile:close()
-  end
+  local limited_log = limit_logfile_lines()
+  local new_log_entry = string.format("[%s] %s: [%s] %s\n", os.date("%Y-%m-%d %H:%M:%S"), M._plugin_name, kind, msg)
+  write_file(M._logfile, limited_log .. new_log_entry)
 end
 
---- Logs a message with a specified kind and level.
---- @param msg string # The message to log.
---- @param kind string # The type of log message (e.g., "ErrorMsg", "Debug").
---- @param level number # The log level (e.g., vim.log.levels.ERROR).
+-- Log a message with a specified kind and level
 local function log(msg, kind, level)
   if kind == "ErrorMsg" or kind == "Debug" then
     write_to_logfile(msg, kind)
@@ -51,28 +62,21 @@ local function log(msg, kind, level)
   end
 end
 
---- Logs an error message.
---- @param msg string # The error message.
+-- Logging functions
 function M.error(msg)
   log(msg, "ErrorMsg", vim.log.levels.ERROR)
 end
 
---- Logs a warning message.
---- @param msg string # The warning message.
 function M.warning(msg)
   log(msg, "WarningMsg", vim.log.levels.WARN)
 end
 
---- Logs an informational message.
---- @param msg string # The informational message.
 function M.info(msg)
   log(msg, "Normal", vim.log.levels.INFO)
 end
 
---- Logs a debug message if debugging is enabled.
---- @param msg string # The debug message.
 function M.debug(msg)
-  if os.getenv("DEBUG_PARROT") then
+  if M._debug_enabled then
     log(msg, "Debug", vim.log.levels.DEBUG)
   end
 end

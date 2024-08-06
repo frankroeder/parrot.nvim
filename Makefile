@@ -5,10 +5,9 @@ TEST_DIR := tests/
 PLUGIN_DIR := lua/
 
 test:
-	nvim --clean --headless --noplugin \
+	@nvim --clean --headless --noplugin \
 		-u $(TEST_INIT) \
-		-c "PlenaryBustedDirectory ${TEST_DIR} {minimal_init='$(TEST_INIT)'; timeout=500}"
-
+		-d "PlenaryBustedDirectory ${TEST_DIR} {minimal_init='$(TEST_INIT)'}"
 
 lint:
 	luacheck ${PLUGIN_DIR}

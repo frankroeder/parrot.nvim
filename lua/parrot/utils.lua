@@ -213,7 +213,7 @@ M.prepare_payload = function(messages, model)
     return model_req
   end
 
-  -- else insert the agent parameters
+  -- insert the agent model parameters
   for k, v in pairs(model) do
     if k == "temperature" then
       model_req[k] = math.max(0, math.min(2, v or 1))
@@ -310,10 +310,10 @@ M.filter_payload_parameters = function(valid_parameters, payload)
         new_payload[key] = {}
       end
       for tkey, _ in pairs(value) do
-        new_payload[key][tkey] = payload[tkey] -- or nil
+        new_payload[key][tkey] = payload[tkey]
       end
     else
-      new_payload[key] = payload[key] -- or nil
+      new_payload[key] = payload[key]
     end
   end
   return new_payload

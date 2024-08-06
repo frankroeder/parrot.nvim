@@ -104,4 +104,24 @@ M.delete_file = function(file, target_dir)
   end
 end
 
+M.read_file = function(path)
+  local file = io.open(path, "r")
+  if not file then
+    return ""
+  end
+  local content = file:read("*a")
+  file:close()
+  return content
+end
+
+M.write_file = function(path, content)
+  local file = io.open(path, "w")
+  if not file then
+    return false
+  end
+  file:write(content)
+  file:close()
+  return true
+end
+
 return M
