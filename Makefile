@@ -1,15 +1,14 @@
 .PHONY: test lint format
 
-TESTS_INIT=tests/minimal_init.lua
-TESTS_DIR := tests/
+TEST_INIT := tests/minimal_init.lua
+TEST_DIR := tests/
 PLUGIN_DIR := lua/
 
 test:
-	@nvim \
-		--headless \
-		--noplugin \
-		-u ${TESTS_INIT} \
-		-c "PlenaryBustedDirectory ${TESTS_DIR} { minimal_init = '${TESTS_INIT}' }"
+	nvim --clean --headless --noplugin \
+		-u $(TEST_INIT) \
+		-c "PlenaryBustedDirectory ${TEST_DIR} {minimal_init='$(TEST_INIT)'; timeout=500}"
+
 
 lint:
 	luacheck ${PLUGIN_DIR}
