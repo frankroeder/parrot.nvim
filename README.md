@@ -157,10 +157,10 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
 | `PrtAppend`               | Append text to the visual selection based on a provided prompt    |
 | `PrtPrepend`              | Prepend text to the visual selection based on a provided prompt   |
-| `PrtNew`                  | Prompt the endpoint to respond in new window     |
-| `PrtEnew`                 | Prompt the endpoint to respond in a new buffer   |
-| `PrtVnew`                 | Prompt the endpoint to respond in a vsplit       |
-| `PrtTabnew`               | Prompt the endpoint to respond in a new tab      |
+| `PrtNew`                  | Prompt the model to respond in a new window   |
+| `PrtEnew`                 | Prompt the model to respond in a new buffer   |
+| `PrtVnew`                 | Prompt the model to respond in a vsplit       |
+| `PrtTabnew`               | Prompt the model to respond in a new tab      |
 |  __Example Hooks__        | |
 | `PrtImplement`            | implements/translates the visual selection comment into code |
 | `PrtAsk`                  | Ask the model a question                      |

@@ -357,8 +357,8 @@ function M.setup(opts)
   M.loaded = true
 end
 
-M.Prompt = function(params, target, prompt, template)
-  M.chat_handler:prompt(params, target, prompt, template)
+M.Prompt = function(params, target, model_obj, prompt, template)
+  M.chat_handler:prompt(params, target, model_obj, prompt, template)
 end
 
 M.ChatNew = function(params, chat_prompt)
@@ -366,7 +366,7 @@ M.ChatNew = function(params, chat_prompt)
 end
 
 M.get_model = function(type)
-  M.chat_handler:get_model(type)
+  return M.chat_handler:get_model(type)
 end
 
 M.register_hooks = function(hooks, options)
