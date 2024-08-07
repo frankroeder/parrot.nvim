@@ -4,13 +4,6 @@ local utils = require("parrot.utils")
 local Anthropic = {}
 Anthropic.__index = Anthropic
 
-local available_model_set = {
-  ["claude-3-5-sonnet-20240620"] = true,
-  ["claude-3-opus-20240229"] = true,
-  ["claude-3-sonnet-20240229"] = true,
-  ["claude-3-haiku-20240307"] = true,
-}
-
 -- https://docs.anthropic.com/en/api/messages
 local available_api_parameters = {
   -- required
@@ -98,10 +91,6 @@ function Anthropic:process_onexit(res)
   if success and parsed.error and parsed.error.message then
     logger.error("Anthropic - message:" .. parsed.error.message .. " type:" .. parsed.error.type)
   end
-end
-
-function Anthropic:check(model)
-  return available_model_set[model]
 end
 
 function Anthropic:get_available_models()

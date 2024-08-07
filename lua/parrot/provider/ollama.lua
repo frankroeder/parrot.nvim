@@ -77,57 +77,28 @@ function Ollama:process_onexit(res)
   end
 end
 
-function Ollama:check(model)
-  if not self.ollama_installed then
-    logger.warning("ollama not found.")
-    return false
+function Ollama:get_available_models()
+  -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+  local job = Job:new({
+    command = "curl",
+    args = { "-H", "Content-Type: application/json", "http://localhost:11434/api/tags" },
+  }):sync()
+
+  local parsed_response = utils.parse_raw_response(job)
+  local success, parsed_data = pcall(vim.json.decode, parsed_response)
+  if not success then
+    logger.error("Error parsing JSON:" .. vim.inspect(parsed_data))
+    return {}
   end
-
-  local handle = io.popen("ollama list")
-  local result = handle:read("*a")
-  handle:close()
-
-  local found_match = false
-  for line in result:gmatch("[^\r\n]+") do
-    if string.match(line, model) then
-      found_match = true
-      break
-    end
-  end
-
-  if not found_match then
-    if not pcall(require, "plenary") then
-      logger.error("Plenary not installed. Please install nvim-lua/plenary.nvim to use this plugin.")
-      return false
-    end
-    local confirm = vim.fn.confirm("ollama model " .. model .. " not found. Download now?", "&Yes\n&No", 1)
-    if confirm == 1 then
-      local job = Job:new({
-        command = "ollama",
-        args = { "pull", model },
-        on_exit = function(_, return_val)
-          logger.info("Download finished with exit code: " .. return_val)
-        end,
-        on_stderr = function(j, data)
-          print("Downloading, please wait: " .. data)
-          if j ~= nil then
-            logger.error(vim.inspect(j:result()))
-          end
-        end,
-      })
-      job:start()
-      return true
+  local names = {}
+  if parsed_data.models then
+    for _, model in ipairs(parsed_data.models) do
+      table.insert(names, model.name)
     end
   else
-    return true
+    return { "No model found, please download" }
   end
-  return false
-end
-
-function Ollama:get_available_models()
-  return {
-    "llama3",
-  }
+  return names
 end
 
 return Ollama

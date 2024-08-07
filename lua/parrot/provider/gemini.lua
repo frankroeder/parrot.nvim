@@ -4,11 +4,6 @@ local utils = require("parrot.utils")
 local Gemini = {}
 Gemini.__index = Gemini
 
-local available_model_set = {
-  ["gemini-1.5-flash"] = true,
-  ["gemini-1.5-pro"] = true,
-}
-
 -- https://ai.google.dev/gemini-api/docs/models/generative-models#model_parameters
 local available_api_parameters = {
   ["contents"] = true,
@@ -120,14 +115,11 @@ function Gemini:process_onexit(res)
   end
 end
 
-function Gemini:check(model)
-  return available_model_set[model]
-end
-
 function Gemini:get_available_models()
   return {
     "gemini-1.5-flash",
     "gemini-1.5-pro",
+    "gemini-1.0-pro",
   }
 end
 

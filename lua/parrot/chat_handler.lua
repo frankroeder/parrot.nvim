@@ -656,6 +656,7 @@ function ChatHandler:_chat_respond(params)
   end
 
   local query_prov = self:get_provider(true)
+  query_prov:set_model(model_obj.name)
 
   local llm_prefix = self.options.llm_prefix
   local llm_suffix = "[{{llm}}]"
@@ -761,8 +762,7 @@ function ChatHandler:_chat_respond(params)
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)
         local topic_handler = chatutils.create_handler(self.queries, topic_buf, nil, 0, false, "", false)
-
-        topic_prov:check({ model = self.providers[topic_prov.name].topic_model })
+        topic_prov:set_model(self.providers[topic_prov.name].topic.model)
 
         local topic_spinner = nil
         if self.options.enable_spinner then
@@ -927,7 +927,7 @@ function ChatHandler:switch_provider(selected_prov, is_chat)
   end
 
   if self.providers[selected_prov] then
-    self.set_provider(selected_prov, is_chat)
+    self:set_provider(selected_prov, is_chat)
     logger.info("Switched to provider: " .. selected_prov)
     return
   else
@@ -949,7 +949,7 @@ function ChatHandler:provider(params)
       prompt = "Provider selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       complete = function(selection)
-        self:switch_provider(selection[1])
+        self:switch_provider(selection[1], is_chat)
       end,
     })
   else
@@ -966,7 +966,6 @@ function ChatHandler:switch_model(is_chat, selected_model, prov)
     logger.warning("Empty model selection")
     return
   end
-  prov:check(selected_model)
   if is_chat then
     self.state:set_model(prov.name, selected_model, "chat")
     logger.info("Chat model: " .. selected_model)
@@ -1281,6 +1280,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     end
 
     -- call the model and write the response
+		prov:set_model(model_obj.name)
 
     local spinner = nil
     if self.options.enable_spinner then

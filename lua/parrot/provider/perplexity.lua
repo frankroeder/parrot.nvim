@@ -4,17 +4,6 @@ local utils = require("parrot.utils")
 local Perplexity = {}
 Perplexity.__index = Perplexity
 
-local available_model_set = {
-  -- adjust the new data
-  ["llama-3.1-sonar-small-128k-chat"] = true,
-  ["llama-3.1-sonar-small-128k-online"] = true,
-  ["llama-3.1-sonar-large-128k-chat"] = true,
-  ["llama-3.1-sonar-large-128k-online"] = true,
-  ["llama-3.1-8b-instruct"] = true,
-  ["llama-3.1-70b-instruct"] = true,
-  ["mixtral-8x7b-instruct"] = true,
-}
-
 -- https://docs.perplexity.ai/reference/post_chat_completions
 local available_api_parameters = {
   -- required
@@ -93,10 +82,6 @@ function Perplexity:process_onexit(res)
   if parsed then
     logger.error("Perplexity - message: " .. parsed)
   end
-end
-
-function Perplexity:check(model)
-  return available_model_set[model]
 end
 
 function Perplexity:get_available_models()

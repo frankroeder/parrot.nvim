@@ -1,28 +1,9 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
+local Job = require("plenary.job")
 
 local OpenAI = {}
 OpenAI.__index = OpenAI
-
-local available_model_set = {
-  ["gpt-3.5-turbo"] = true,
-  ["gpt-3.5-turbo-0125"] = true,
-  ["gpt-3.5-turbo-1106"] = true,
-  ["gpt-3.5-turbo-16k"] = true,
-  ["gpt-3.5-turbo-instruct"] = true,
-  ["gpt-3.5-turbo-instruct-0914"] = true,
-  ["gpt-4"] = true,
-  ["gpt-4-0125-preview"] = true,
-  ["gpt-4-0613"] = true,
-  ["gpt-4-1106-preview"] = true,
-  ["gpt-4-turbo"] = true,
-  ["gpt-4-turbo-2024-04-09"] = true,
-  ["gpt-4-turbo-preview"] = true,
-  ["gpt-4o"] = true,
-  ["gpt-4o-2024-05-13"] = true,
-  ["gpt-4o-mini"] = true,
-  ["gpt-4o-mini-2024-07-18"] = true,
-}
 
 -- https://platform.openai.com/docs/api-reference/chat/create
 local available_api_parameters = {
@@ -110,32 +91,27 @@ function OpenAI:process_onexit(res)
   end
 end
 
-function OpenAI:check(model)
-  return available_model_set[model]
-end
-
 function OpenAI:get_available_models()
   -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
-  -- local Job = require("plenary.job")
-  -- self:verify()
-  -- Job:new({
-  --   command = "curl",
-  --   args = {
-  --     "https://api.openai.com/v1/models",
-  --     "-H", "Authorization: Bearer " .. self.api_key,
-  --   },
-  --   on_exit = function(job)
-  --      local parsed_response = utils.parse_raw_response(job:result())
-  -- 		print("JSON DEOCDE", vim.inspect(vim.json.decode(parsed_response)))
-  --      local ids = {}
-  --      for _, item in ipairs(vim.json.decode(parsed_response).data) do
-  --        table.insert(ids, item.id)
-  --      end
-  --      print("IDS", vim.inspect(ids))
-  --      return ids
-  --   end,
-  -- }):start()
 
+  if self:verify() then
+    Job:new({
+      command = "curl",
+      args = {
+        "https://api.openai.com/v1/models",
+        "-H",
+        "Authorization: Bearer " .. self.api_key,
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        local ids = {}
+        for _, item in ipairs(vim.json.decode(parsed_response).data) do
+          table.insert(ids, item.id)
+        end
+        return ids
+      end,
+    }):start()
+  end
   return {
     "gpt-3.5-turbo",
     "gpt-3.5-turbo-0125",

@@ -1,22 +1,9 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
+local Job = require("plenary.job")
 
 local Groq = {}
 Groq.__index = Groq
-
-local available_model_set = {
-  ["llama-3.1-405b-reasoning"] = true,
-  ["llama-3.1-70b-versatile"] = true,
-  ["llama-3.1-8b-instant"] = true,
-  ["llama3-groq-70b-8192-tool-use-preview"] = true,
-  ["llama3-groq-8b-8192-tool-use-preview"] = true,
-  ["llama-guard-3-8b"] = true,
-  ["llama3-70b-8192"] = true,
-  ["llama3-8b-8192"] = true,
-  ["mixtral-8x7b-32768"] = true,
-  ["gemma-7b-it"] = true,
-  ["gemma2-9b-it"] = true,
-}
 
 -- https://console.groq.com/docs/api-reference#chat-create
 local available_api_parameters = {
@@ -100,18 +87,33 @@ function Groq:process_stdout(response)
 end
 
 function Groq:process_onexit(res)
-  -- '{"error":{"message":"Invalid API Key","type":"invalid_request_error","code":"invalid_api_key"}}'
   local success, parsed = pcall(vim.json.decode, res)
   if success and parsed.error then
     logger.error("Groq - message: " .. parsed.error.message)
   end
 end
 
-function Groq:check(model)
-  return available_model_set[model]
-end
-
 function Groq:get_available_models()
+  if self:verify() then
+    Job:new({
+      command = "curl",
+      args = {
+        "https://api.groq.com/openai/v1/models",
+        "-H",
+        "Authorization: Bearer " .. self.api_key,
+        "-H",
+        "Content-Type: application/json",
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        local ids = {}
+        for _, item in ipairs(vim.json.decode(parsed_response).data) do
+          table.insert(ids, item.id)
+        end
+        return ids
+      end,
+    }):start()
+  end
   return {
     "llama-3.1-405b-reasoning",
     "llama-3.1-70b-versatile",

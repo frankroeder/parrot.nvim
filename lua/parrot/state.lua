@@ -16,7 +16,7 @@ end
 --- Initializes file state for each provider if it's empty.
 --- @param available_providers table # A table of available providers.
 function State:init_file_state(available_providers)
-  self.file_state.current_provider = { chat = nil, command = nil }
+  self.file_state.current_provider = self.file_state.current_provider or { chat = "", command = "" }
   if next(self.file_state) == nil then
     for _, prov in ipairs(available_providers) do
       self.file_state[prov] = { chat_model = nil, command_model = nil }
@@ -28,7 +28,7 @@ end
 --- @param provider string # Provider name to initialize state.
 function State:init_provider_state(provider)
   self._state[provider] = self._state[provider] or { chat_model = nil, command_model = nil }
-  self._state.current_provider = { chat = nil, comand = nil }
+  self._state.current_provider = self._state.current_provider or { chat = "", command = "" }
 end
 
 --- Loads model for the specified provider and type.
@@ -101,9 +101,9 @@ end
 --- @return string|nil # Returns the current provider name, or nil if not set.
 function State:get_provider(is_chat)
   if is_chat then
-    return self._state.current_provider.chat
+    return self.file_state.current_provider.chat or self._state.current_provider.chat
   else
-    return self._state.current_provider.command
+    return self.file_state.current_provider.command or self._state.current_provider.command
   end
 end
 

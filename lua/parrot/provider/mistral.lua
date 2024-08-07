@@ -4,17 +4,6 @@ local utils = require("parrot.utils")
 local Mistral = {}
 Mistral.__index = Mistral
 
-local available_model_set = {
-  ["codestral-latest"] = true,
-  ["mistral-tiny"] = true,
-  ["mistral-small-latest"] = true,
-  ["mistral-medium-latest"] = true,
-  ["mistral-large-latest"] = true,
-  ["open-mistral-7b"] = true,
-  ["open-mixtral-8x7b"] = true,
-  ["open-mixtral-8x22b"] = true,
-}
-
 -- https://docs.mistral.ai/api/#operation/createChatCompletion
 local available_api_parameters = {
   -- required
@@ -89,10 +78,6 @@ function Mistral:process_onexit(res)
   if success and parsed.message then
     logger.error("Mistral - message: " .. parsed.message)
   end
-end
-
-function Mistral:check(model)
-  return available_model_set[model]
 end
 
 function Mistral:get_available_models()

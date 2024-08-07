@@ -326,9 +326,9 @@ function M.setup(opts)
 
   M.available_providers = vim.tbl_keys(M.providers)
 
-  available_models = {}
+  local available_models = {}
   for _, prov_name in ipairs(M.available_providers) do
-    local _prov = init_provider(prov_name, "", "")
+    local _prov = init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
     available_models[prov_name] = _prov:get_available_models()
   end
   M.available_models = available_models
