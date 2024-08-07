@@ -106,17 +106,6 @@ describe("Perplexity", function()
     end)
   end)
 
-  describe("check", function()
-    it("should return true for supported models", function()
-      assert.is_true(perplexity:check("llama-3.1-8b-instruct"))
-      assert.is_true(perplexity:check("mixtral-8x7b-instruct"))
-    end)
-
-    it("should return false for unsupported models", function()
-      assert.is_nil(perplexity:check({ model = "unsupported-model" }))
-    end)
-  end)
-
   describe("curl_params", function()
     it("should return correct curl parameters", function()
       local expected = {

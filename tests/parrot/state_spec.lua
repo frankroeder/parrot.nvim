@@ -99,11 +99,18 @@ describe("State", function()
         state:init_file_state(providers)
 
         assert.are.same({
-          ollama = { chat_model = nil, command_model = nil },
-          mistral = { chat_model = nil, command_model = nil },
-          pplx = { chat_model = nil, command_model = nil },
-          anthropic = { chat_model = nil, command_model = nil },
-          openai = { chat_model = nil, command_model = nil },
+          current_provider = {
+            chat = "ollama",
+            command = "ollama",
+          },
+          mistral = {
+            chat_model = "model1",
+            command_model = "model1",
+          },
+          ollama = {
+            chat_model = "model1",
+            command_model = "model1",
+          },
         }, state.file_state)
       end)
     end)
@@ -116,7 +123,10 @@ describe("State", function()
 
         state:init_provider_state("ollama")
 
-        assert.are.same({ ollama = { chat_model = nil, command_model = nil } }, state._state)
+        assert.are.same({
+          current_provider = { chat = "", command = "" },
+          ollama = { chat_model = nil, command_model = nil },
+        }, state._state)
       end)
     end)
   end)
@@ -173,7 +183,7 @@ describe("State", function()
           pplx = { chat_model = "Llama3-Sonar-Large-32k-Chat", command_model = "Llama3-Sonar-Large-32k-Chat" },
           anthropic = { chat_model = "Claude-3-Haiku-Chat", command_model = "Claude-3-Haiku-Chat" },
           openai = { chat_model = "ChatGPT4", command_model = "ChatGPT4" },
-          provider = "ollama",
+          current_provider = { chat = "ollama", command = "ollama" },
         }, state._state)
       end)
     end)
@@ -182,7 +192,7 @@ describe("State", function()
       async.run(function()
         local state = State:new("/tmp")
         state.file_state = {
-          provider = "anthropic",
+          current_provider = { chat = "ollama", command = "ollama" },
           anthropic = { command_model = "Claude-3-Haiku", chat_model = "Claude-3-Haiku-Chat" },
           openai = { command_model = "CodeGPT3.5", chat_model = "ChatGPT3.5" },
           ollama = { command_model = "Llama2-13B", chat_model = "Llama2-13B" },
@@ -199,7 +209,7 @@ describe("State", function()
         assert.are.same({
           ollama = { chat_model = "Gemma-7B", command_model = "Gemma-7B" },
           openai = { chat_model = "ChatGPT4", command_model = "ChatGPT4" },
-          provider = "ollama",
+          current_provider = { chat = "ollama", command = "ollama" },
         }, state._state)
       end)
     end)
@@ -209,8 +219,13 @@ describe("State", function()
     it("should set the current provider", function()
       async.run(function()
         local state = State:new("/tmp")
-        state:set_provider("openai")
-        assert.are.same("openai", state._state.provider)
+        state:init_provider_state("openai")
+        state:set_provider("openai", true)
+        assert.are.same("openai", state._state.current_provider.chat)
+        assert.are.same("", state._state.current_provider.command)
+
+        state:set_provider("groq", false)
+        assert.are.same("groq", state._state.current_provider.command)
       end)
     end)
   end)
@@ -230,8 +245,8 @@ describe("State", function()
     it("should get the current provider", function()
       async.run(function()
         local state = State:new("/tmp")
-        state._state.provider = "mistral"
-        assert.are.same("mistral", state:get_provider())
+        state.file_state.current_provider = { chat = "ollama", command = "mistral" }
+        assert.are.same("mistral", state:get_provider(false))
       end)
     end)
   end)
@@ -276,7 +291,7 @@ describe("State", function()
         local state = State:new("/tmp")
         state._state = {
           ollama = { chat_model = "Gemma-7B", command_model = "Gemma-7B" },
-          provider = "ollama",
+          current_provider = { chat = "ollama", command = "ollama" },
         }
 
         state:save()

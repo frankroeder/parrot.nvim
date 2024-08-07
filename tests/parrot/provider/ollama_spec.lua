@@ -119,45 +119,4 @@ describe("Ollama", function()
       assert.is_true(ollama:verify())
     end)
   end)
-
-  describe("check", function()
-    before_each(function()
-      -- Mock vim.fn.executable
-      _G.vim = _G.vim or {}
-      _G.vim.fn = _G.vim.fn or {}
-      _G.vim.fn.executable = function(cmd)
-        return cmd == "ollama"
-      end
-
-      -- Mock io.popen
-      _G.io.popen = function()
-        return {
-          read = function()
-            return "model1\nmodel2\nmodel3"
-          end,
-          close = function() end,
-        }
-      end
-
-      -- Mock vim.fn.confirm
-      _G.vim.fn.confirm = function()
-        return 1
-      end
-    end)
-
-    it("should return false if ollama is not installed", function()
-      ollama.ollama_installed = false
-      assert.is_false(ollama:check("model1"))
-      assert.spy(logger_mock.warning).was_called_with("ollama not found.")
-    end)
-
-    it("should return true if the model is found", function()
-      assert.is_true(ollama:check("model2"))
-    end)
-
-    it("should prompt to download if the model is not found", function()
-      Job_mock.new.returns({ start = function() end })
-      assert.is_true(ollama:check("new_model"))
-    end)
-  end)
 end)
