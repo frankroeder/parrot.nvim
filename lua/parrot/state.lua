@@ -25,10 +25,15 @@ function State:init_file_state(available_providers)
 end
 
 --- Initializes state for a specific provider if it's not already initialized.
---- @param provider string # Provider name to initialize state.
-function State:init_provider_state(provider)
-  self._state[provider] = self._state[provider] or { chat_model = nil, command_model = nil }
+--- @param available_providers table
+--- @param available_models table
+function State:init_state(available_providers, available_models)
   self._state.current_provider = self._state.current_provider or { chat = "", command = "" }
+  for _, provider in ipairs(available_providers) do
+    self._state[provider] = self._state[provider] or { chat_model = nil, command_model = nil }
+    self:load_models(provider, "chat_model", available_models)
+    self:load_models(provider, "command_model", available_models)
+  end
 end
 
 --- Loads model for the specified provider and type.
@@ -49,8 +54,7 @@ function State:load_models(provider, model_type, available_models)
     if state_model and is_valid_model then
       self._state[provider][model_type] = state_model
     else
-      self._state[provider][model_type] = model_type == "chat_model" and available_models[provider][1]
-        or available_models[provider][1]
+      self._state[provider][model_type] = available_models[provider][1]
     end
   end
 end
@@ -60,11 +64,7 @@ end
 --- @param available_models table # Available models.
 function State:refresh(available_providers, available_models)
   self:init_file_state(available_providers)
-  for _, provider in ipairs(available_providers) do
-    self:init_provider_state(provider)
-    self:load_models(provider, "chat_model", available_models)
-    self:load_models(provider, "command_model", available_models)
-  end
+  self:init_state(available_providers, available_models)
   self._state.current_provider.chat = self._state.current_provider.chat
     or self.file_state.current_provider.chat
     or available_providers[1]
@@ -125,9 +125,9 @@ end
 --- @return table|nil # Returns the model string
 function State:get_model(provider, model_type)
   if model_type == "chat" then
-    return self._state[provider].chat_model
+    return self._state[provider].chat_model or self.file_state[provider].chat_model
   elseif model_type == "command" then
-    return self._state[provider].command_model
+    return self._state[provider].command_model or self.file_state[provider].command_model
   end
 end
 

@@ -90,42 +90,40 @@ describe("State", function()
     end)
   end)
 
-  -- describe("init_file_state", function()
-  --   it("should initialize file state for each provider", function()
-  --     async.run(function()
-  --       local state = State:new("/tmp")
-  --       local providers = { "ollama", "mistral", "pplx", "anthropic", "openai" }
-  --
-  --       state:init_file_state(providers)
-  --
-  --       assert.are.same({
-  --         current_provider = {
-  --           chat = "ollama",
-  --           command = "ollama",
-  --         },
-  --         mistral = {
-  --           chat_model = "model1",
-  --           command_model = "model1",
-  --         },
-  --         ollama = {
-  --           chat_model = "model1",
-  --           command_model = "model1",
-  --         },
-  --       }, state.file_state)
-  --     end)
-  --   end)
-  -- end)
+  describe("init_file_state", function()
+    it("should initialize file state for each provider", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        local providers = { "ollama", "mistral", "pplx", "anthropic", "openai" }
 
-  describe("init_provider_state", function()
+        state:init_state({ "ollama" }, { ollama = { chat = { "model1", "model2" }, command = { "model3", "model4" } } })
+
+        assert.are.same({
+          current_provider = {
+            chat = "ollama",
+            command = "ollama",
+          },
+          mistral = {
+            chat_model = "model1",
+            command_model = "model1",
+          },
+          ollama = {
+            chat_model = "model1",
+            command_model = "model1",
+          },
+        }, state.file_state)
+      end)
+    end)
+  end)
+
+  describe("init_state", function()
     it("should initialize provider state", function()
       async.run(function()
         local state = State:new("/tmp")
-
-        state:init_provider_state("ollama")
-
+        state:init_state({ "ollama" }, { ollama = { "model1", "model2" } })
         assert.are.same({
           current_provider = { chat = "", command = "" },
-          ollama = { chat_model = nil, command_model = nil },
+          ollama = { chat_model = "model1", command_model = "model1" },
         }, state._state)
       end)
     end)
@@ -219,7 +217,7 @@ describe("State", function()
     it("should set the current provider", function()
       async.run(function()
         local state = State:new("/tmp")
-        state:init_provider_state("openai")
+        state:init_state({ "openai" }, { openai = { "gpt-4o", "gpt-3.5" } })
         state:set_provider("openai", true)
         assert.are.same("openai", state._state.current_provider.chat)
         assert.are.same("", state._state.current_provider.command)
@@ -234,7 +232,7 @@ describe("State", function()
     it("should set the model for a specific provider and type", function()
       async.run(function()
         local state = State:new("/tmp")
-        state:init_provider_state("openai")
+        state:init_state({ "openai" }, { openai = { "gpt-4o", "gpt-3.5" } })
         state:set_model("openai", "ChatGPT4", "chat")
         assert.are.same("ChatGPT4", state._state.openai.chat_model)
       end)
@@ -255,7 +253,7 @@ describe("State", function()
     it("should get the model for a specific provider and type", function()
       async.run(function()
         local state = State:new("/tmp")
-        state:init_provider_state("anthropic")
+        state:init_state({ "anthropic" }, { anthropic = { "haiku", "opus" } })
         state._state.anthropic.chat_model = "Claude-3-Haiku-Chat"
         assert.are.same("Claude-3-Haiku-Chat", state:get_model("anthropic", "chat"))
       end)
