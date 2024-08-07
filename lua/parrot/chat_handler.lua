@@ -183,7 +183,7 @@ function ChatHandler:get_model(type)
   local model = self.state:get_model(prov.name, type)
   local template = self.options.command_prompt_prefix_template
   local cmd_prefix =
-    utils.template_render_from_list(template, { ["{{agent}}"] = self.state:get_model(prov.name, "chat").name })
+    utils.template_render_from_list(template, { ["{{llm}}"] = self.state:get_model(prov.name, "chat").name })
   local system_prompt = self.options.system_prompt[type]
   return {
     cmd_prefix = cmd_prefix,
@@ -619,11 +619,11 @@ function ChatHandler:_chat_respond(params)
 
   local query_prov = get_provider(self.state, self.providers)
 
-  local agent_prefix = self.options.agent_prefix
-  local agent_suffix = "[{{agent}}]"
+  local llm_prefix = self.options.llm_prefix
+  local llm_suffix = "[{{llm}}]"
   local provider = query_prov.name
   ---@diagnostic disable-next-line: cast-local-type
-  agent_suffix = utils.template_render_from_list(agent_suffix, { ["{{agent}}"] = model_name .. " - " .. provider })
+  llm_suffix = utils.template_render_from_list(llm_suffix, { ["{{llm}}"] = model_name .. " - " .. provider })
 
   for index = start_index, end_index do
     local line = lines[index]
@@ -631,7 +631,7 @@ function ChatHandler:_chat_respond(params)
       table.insert(messages, { role = role, content = content })
       role = "user"
       content = line:sub(#self.options.chat_user_prefix + 1)
-    elseif line:sub(1, #agent_prefix) == agent_prefix then
+    elseif line:sub(1, #llm_prefix) == llm_prefix then
       table.insert(messages, { role = role, content = content })
       role = "assistant"
       content = ""
@@ -657,7 +657,7 @@ function ChatHandler:_chat_respond(params)
 
   -- write assistant prompt
   local last_content_line = utils.last_content_line(buf)
-  vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", agent_prefix .. agent_suffix, "" })
+  vim.api.nvim_buf_set_lines(buf, last_content_line, last_content_line, false, { "", llm_prefix .. llm_suffix, "" })
 
   local spinner = nil
   if self.options.enable_spinner then

@@ -31,14 +31,14 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
     + [Gemini API](https://ai.google.dev/gemini-api/docs)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + [Groq API](https://console.groq.com)
-- Custom agent definitions to determine specific prompt and API parameter combinations, similar to [GPTs](https://openai.com/index/introducing-gpts/)
 - Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI (lazy evaluation)
 - Provide repository-specific instructions with a `.parrot.md` file with the command `PrtContext`
 - **No** autocompletion and **no** hidden requests in the background to analyze your files
 
 ## Demo
 
-Seamlessly switch between providers and agents.
+Seamlessly switch between providers and models.
+TODO: replace
 <div align="left">
     <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/da44ebb0-e705-4ea6-b7c0-1a93c6ba034f" width="100%">
 </div>
@@ -152,18 +152,18 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtChatRespond`          | trigger chat respond (in chat file)           |
 | `PrtStop`                 | interrupt ongoing respond                     |
 | `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf)  |
-| `PrtAgent <agent>`        | switch the agent (empty arg triggers fzf)     |
+| `PrtModel <model>`        | switch the model (empty arg triggers fzf)     |
 |  __Interactive__          | |
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
 | `PrtAppend`               | Append text to the visual selection based on a provided prompt    |
 | `PrtPrepend`              | Prepend text to the visual selection based on a provided prompt   |
-| `PrtNew`                  | Prompt the agent to respond in new window     |
-| `PrtEnew`                 | Prompt the agent to respond in a new buffer   |
-| `PrtVnew`                 | Prompt the agent to respond in a vsplit       |
-| `PrtTabnew`               | Prompt the agent to respond in a new tab      |
+| `PrtNew`                  | Prompt the endpoint to respond in new window     |
+| `PrtEnew`                 | Prompt the endpoint to respond in a new buffer   |
+| `PrtVnew`                 | Prompt the endpoint to respond in a vsplit       |
+| `PrtTabnew`               | Prompt the endpoint to respond in a new tab      |
 |  __Example Hooks__        | |
 | `PrtImplement`            | implements/translates the visual selection comment into code |
-| `PrtAsk`                  | Ask the agent a question                      |
+| `PrtAsk`                  | Ask the model a question                      |
 
 With `<target>`, we indicate the command to open the chat within one of the following target locations (defaults to `toggle_target`):
 
@@ -193,14 +193,8 @@ to consider a visual selection within an API request.
     curl_params = {},
 
     -- The directory to store persisted state information like the
-    -- current provider and the selected agents
+    -- current provider and the selected models
     state_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/persisted",
-
-    -- Defintion of the agents (similar to GPTs) for the chats and the inline hooks
-    agents = {
-        chat = ...,
-        command = ...,
-    },
 
     -- The directory to store the chats (searched with PrtChatFinder)
     chat_dir = vim.fn.stdpath("data"):gsub("/$", "") .. "/parrot/chats",
@@ -208,8 +202,8 @@ to consider a visual selection within an API request.
     -- Chat user prompt prefix
     chat_user_prefix = "🗨:",
 
-    -- Agent prompt prefix
-    agent_prefix = "🦜:",
+    -- llm prompt prefix
+    llm_prefix = "🦜:",
 
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
@@ -246,15 +240,15 @@ to consider a visual selection within an API request.
     style_popup_margin_top = 2,
     style_popup_max_width = 160
 
-    -- Prompt used for interactive LLM calls like PrtRewrite where {{agent}} is
-    -- a placeholder for the agent name
-    command_prompt_prefix_template = "🤖 {{agent}} ~ ",
+    -- Prompt used for interactive LLM calls like PrtRewrite where {{llm}} is
+    -- a placeholder for the llm name
+    command_prompt_prefix_template = "🤖 {{llm}} ~ ",
 
     -- auto select command response (easier chaining of commands)
     -- if false it also frees up the buffer cursor for further editing elsewhere
     command_auto_select_response = true,
 
-    -- fzf_lua options for PrtAgent and PrtChatFinder when plugin is installed
+    -- fzf_lua options for PrtModel and PrtChatFinder when plugin is installed
     fzf_lua_opts = {
         ["--ansi"] = true,
         ["--sort"] = "",
@@ -309,26 +303,6 @@ This plugin provides the following default key mappings:
 Refer to my personal lazy.nvim setup for further hooks and key bindings:
 https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
 
-### Adding a new agents
-
-We provide two types of agents that might need different system prompts and API parameters.
-To make a new chat agent available, one simply adds a new entry to the list `chat` or to `command`, respectively.
-
-```lua
-require("parrot").setup {
-    -- ...
-    agents = {
-        chat = {
-          {
-              name = "CodeLlama",
-              model = { model = "codellama", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-              system_prompt = "Help me!",
-              provider = "ollama",
-          }
-        }
-    },
-    -- ...
-}
 ```
 ### Adding a new command
 
@@ -347,9 +321,9 @@ require("parrot").setup {
           focusing on the essence of the inquiry.
           Question: {{command}}
         ]]
-        local agent = parrot.get_command_agent()
-        parrot.logger.info("Asking agent: " .. agent.name)
-        parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
+        local model_obj = parrot.get_model("command")
+        parrot.logger.info("Asking model: " .. model_obj.name)
+        parrot.Prompt(params, parrot.ui.Target.popup, model_obj, "🤖 Ask ~ ", template)
       end,
     }
     -- ...
@@ -414,8 +388,8 @@ require("parrot").setup {
           Please finish the code above carefully and logically.
           Respond just with the snippet of code that should be inserted.
           ]]
-    	  local agent = prt.get_command_agent()
-    	  prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+    	  local model_obj = prt.get_model()
+    	  prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
     	end,
     }
     -- ...

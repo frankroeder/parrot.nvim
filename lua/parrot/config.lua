@@ -143,7 +143,7 @@ local defaults = {
   state_dir = vim.fn.stdpath("data") .. "/parrot/persisted",
   chat_dir = vim.fn.stdpath("data") .. "/parrot/chats",
   chat_user_prefix = "🗨:",
-  agent_prefix = "🦜:",
+  llm_prefix = "🦜:",
   chat_confirm_delete = true,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
@@ -159,7 +159,7 @@ local defaults = {
   style_popup_margin_right = 2,
   style_popup_margin_top = 2,
   style_popup_max_width = 160,
-  command_prompt_prefix_template = "🤖 {{agent}} ~ ",
+  command_prompt_prefix_template = "🤖 {{llm}} ~ ",
   command_auto_select_response = true,
   fzf_lua_opts = {
     ["--ansi"] = true,
@@ -258,9 +258,9 @@ local defaults = {
 			Please rewrite this according to the contained instructions.
 			Respond exclusively with the snippet that should replace the selection above.
 			]]
-      local agent = parrot.get_command_agent()
-      parrot.logger.info("Implementing selection with agent: " .. agent.name)
-      parrot.Prompt(params, parrot.ui.Target.rewrite, agent, nil, template)
+      local model_obj = parrot.get_model("command")
+      parrot.logger.info("Implementing selection with model: " .. model_obj.name)
+      parrot.Prompt(params, parrot.ui.Target.rewrite, model_obj, nil, template)
     end,
     -- PrtAsk simply provides an answer to a question within a popup window
     Ask = function(parrot, params)
@@ -272,9 +272,9 @@ local defaults = {
 			focusing on the essence of the inquiry.
 			Question: {{command}}
 			]]
-      local agent = parrot.get_command_agent()
-      parrot.logger.info("Asking agent: " .. vim.inspect(agent.name))
-      parrot.Prompt(params, parrot.ui.Target.popup, agent, "🤖 Ask ~ ", template)
+      local model_obj = parrot.get_model("command")
+      parrot.logger.info("Asking model: " .. model_obj.name)
+      parrot.Prompt(params, parrot.ui.Target.popup, model_obj, "🤖 Ask ~ ", template)
     end,
   },
 }
@@ -412,8 +412,6 @@ M.add_default_commands = function(commands, hooks, options)
             return completions[cmd]
           end
           if cmd == "Model" then
-            local buf = vim.api.nvim_get_current_buf()
-            local file_name = vim.api.nvim_buf_get_name(buf)
             return M.available_models[M.chat_handler.state:get_provider()]
           elseif cmd == "Provider" then
             return M.available_providers

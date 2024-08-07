@@ -55,7 +55,7 @@ end
 
 --- Refreshes the state with available providers and their models.
 --- @param available_providers table # Available providers.
---- @param available_provider_agents table # Available models.
+--- @param available_models table # Available models.
 function State:refresh(available_providers, available_models)
   self:init_file_state(available_providers)
   for _, provider in ipairs(available_providers) do
@@ -85,8 +85,8 @@ end
 
 --- Sets the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
---- @param model table # Agent details.
---- @param atype string # Type of the agent ('chat' or 'command').
+--- @param model table # Model details.
+--- @param atype string # Type of the model ('chat' or 'command').
 function State:set_model(provider, model, atype)
   if atype == "chat" then
     self._state[provider].chat_model = model

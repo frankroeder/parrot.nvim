@@ -209,7 +209,7 @@ M.prepare_payload = function(messages, model_name, params)
     model = model_name,
   }
 
-  -- insert the agent model parameters
+  -- insert the model parameters
   for k, v in pairs(params) do
     if k == "temperature" then
       model_req[k] = math.max(0, math.min(2, v or 1))
