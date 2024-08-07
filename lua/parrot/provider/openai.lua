@@ -115,6 +115,48 @@ function OpenAI:check(model)
 end
 
 function OpenAI:get_available_models()
+	-- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+	local Job = require("plenary.job")
+	self:verify()
+	print("HERE")
+
+	Job:new({
+	  command = "curl",
+	  args = {
+	    "https://api.openai.com/v1/models",
+	    "-H", "Authorization: Bearer " .. self.api_key,
+	  },
+	  on_exit = function(job)
+	    print(vim.inspect(job:result()))
+	  end,
+	}):start()
+
+--   { "{", '  "object": "list",', '  "data": [', "    {", '      "id": "dall-e-3",', '      "object": "model",', '      "created": 1698785189,', '      "owned_by": "system"', "    },", "
+-- {", '      "id": "gpt-4-1106-preview",', '      "object": "model",', '      "created": 1698957206,', '      "owned_by": "system"', "    },", "    {", '      "id": "dall-e-2",', '      "o
+-- bject": "model",', '      "created": 1698798177,', '      "owned_by": "system"', "    },", "    {", '      "id": "tts-1-hd-1106",', '      "object": "model",', '      "created": 16990535
+-- 33,', '      "owned_by": "system"', "    },", "    {", '      "id": "tts-1-hd",', '      "object": "model",', '      "created": 1699046015,', '      "owned_by": "system"', "    },", "
+--  {", '      "id": "text-embedding-3-large",', '      "object": "model",', '      "created": 1705953180,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4-0125-previe
+-- w",', '      "object": "model",', '      "created": 1706037612,', '      "owned_by": "system"', "    },", "    {", '      "id": "babbage-002",', '      "object": "model",', '      "creat
+-- ed": 1692634615,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4-turbo-preview",', '      "object": "model",', '      "created": 1706037777,', '      "owned_by": "
+-- system"', "    },", "    {", '      "id": "gpt-4o",', '      "object": "model",', '      "created": 1715367049,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4o-20
+-- 24-05-13",', '      "object": "model",', '      "created": 1715368132,', '      "owned_by": "system"', "    },", "    {", '      "id": "text-embedding-3-small",', '      "object": "model
+-- ",', '      "created": 1705948997,', '      "owned_by": "system"', "    },", "    {", '      "id": "tts-1",', '      "object": "model",', '      "created": 1681940951,', '      "owned_by
+-- ": "openai-internal"', "    },", "    {", '      "id": "gpt-3.5-turbo",', '      "object": "model",', '      "created": 1677610602,', '      "owned_by": "openai"', "    },", "    {", '
+--     "id": "whisper-1",', '      "object": "model",', '      "created": 1677532384,', '      "owned_by": "openai-internal"', "    },", "    {", '      "id": "gpt-4o-2024-08-06",', '
+-- "object": "model",', '      "created": 1722814719,', '      "owned_by": "system"', "    },", "    {", '      "id": "text-embedding-ada-002",', '      "object": "model",', '      "created
+-- ": 1671217299,', '      "owned_by": "openai-internal"', "    },", "    {", '      "id": "gpt-3.5-turbo-16k",', '      "object": "model",', '      "created": 1683758102,', '      "owned_b
+-- y": "openai-internal"', "    },", "    {", '      "id": "davinci-002",', '      "object": "model",', '      "created": 1692634301,', '      "owned_by": "system"', "    },", "    {", '
+--    "id": "gpt-4-turbo-2024-04-09",', '      "object": "model",', '      "created": 1712601677,', '      "owned_by": "system"', "    },", "    {", '      "id": "tts-1-1106",', '      "obj
+-- ect": "model",', '      "created": 1699053241,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-3.5-turbo-0125",', '      "object": "model",', '      "created": 17060
+-- 48358,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4-turbo",', '      "object": "model",', '      "created": 1712361441,', '      "owned_by": "system"', "    },"
+-- , "    {", '      "id": "gpt-3.5-turbo-1106",', '      "object": "model",', '      "created": 1698959748,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-3.5-turbo-i
+-- nstruct-0914",', '      "object": "model",', '      "created": 1694122472,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-3.5-turbo-instruct",', '      "object": "m
+-- odel",', '      "created": 1692901427,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4o-mini-2024-07-18",', '      "object": "model",', '      "created": 172117271
+-- 7,', '      "owned_by": "system"', "    },", "    {", '      "id": "gpt-4o-mini",', '      "object": "model",', '      "created": 1721172741,', '      "owned_by": "system"', "    },", "
+--    {", '      "id": "gpt-4-0613",', '      "object": "model",', '      "created": 1686588896,', '      "owned_by": "openai"', "    },", "    {", '      "id": "gpt-4",', '      "object":
+-- "model",', '      "created": 1687882411,', '      "owned_by": "openai"', "    }", "  ]", "}" }
+
+
   return {
     "gpt-3.5-turbo",
     "gpt-3.5-turbo-0125",
