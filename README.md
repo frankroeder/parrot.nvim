@@ -10,6 +10,11 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 
 </div>
 
+> [!WARNING]
+> Version 0.4.x introduces breaking changes, including the removal of agents and
+> modifications to some hook functions. Please review the updated documentation
+> and adjust your implementation accordingly.
+
 > [!NOTE] ⚠️
 > This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
 > It is based on the brilliant work [gp.nvim](https://github.com/Robitx/gp.nvim) by https://github.com/Robitx.
@@ -95,7 +100,7 @@ Let the parrot fix your bugs.
 ```lua
 {
   "frankroeder/parrot.nvim",
-  tag = "v0.3.10",
+  tag = "v0.4.0",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   -- optionally include "rcarriga/nvim-notify" for beautiful notifications
   config = function()

@@ -90,28 +90,28 @@ describe("State", function()
     end)
   end)
 
-  describe("init_file_state", function()
+  describe("init_state", function()
     it("should initialize file state for each provider", function()
       async.run(function()
         local state = State:new("/tmp")
-        local providers = { "ollama", "mistral", "pplx", "anthropic", "openai" }
+        local providers = { "ollama", "mistral" }
 
-        state:init_state({ "ollama" }, { ollama = { chat = { "model1", "model2" }, command = { "model3", "model4" } } })
+        state:init_state(providers, { ollama = { "model1", "model2" }, mistral = { "model3", "model4" } })
 
         assert.are.same({
           current_provider = {
-            chat = "ollama",
-            command = "ollama",
+            chat = "",
+            command = "",
           },
           mistral = {
-            chat_model = "model1",
-            command_model = "model1",
+            chat_model = "model3",
+            command_model = "model3",
           },
           ollama = {
             chat_model = "model1",
             command_model = "model1",
           },
-        }, state.file_state)
+        }, state._state)
       end)
     end)
   end)
