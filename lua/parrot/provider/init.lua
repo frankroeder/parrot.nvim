@@ -34,11 +34,4 @@ M.init_provider = function(prov_name, endpoint, api_key)
   return ProviderClass:new(endpoint, api_key)
 end
 
-M.get_provider = function(state, providers)
-  local _state_prov = state:get_provider()
-  local endpoint = providers[_state_prov].endpoint
-  local api_key = providers[_state_prov].api_key
-  return M.init_provider(_state_prov, endpoint, api_key)
-end
-
 return M

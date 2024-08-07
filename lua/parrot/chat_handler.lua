@@ -6,7 +6,7 @@ local Queries = require("parrot.queries")
 local State = require("parrot.state")
 local chatutils = require("parrot.chat_utils")
 local ui = require("parrot.ui")
-local get_provider = require("parrot.provider").get_provider
+local init_provider = require("parrot.provider").init_provider
 local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
@@ -22,6 +22,10 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     _plugin_name = "parrot.nvim",
     options = options,
     providers = providers,
+    current_provider = {
+      chat = nil,
+      command = nil,
+    },
     pool = Pool:new(),
     queries = Queries:new(),
     commands = commands,
@@ -36,6 +40,40 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     available_providers = available_providers,
     available_models = available_models,
   }, self)
+end
+
+function ChatHandler:set_provider(selected_prov, is_chat)
+  local endpoint = self.providers[selected_prov].endpoint
+  local api_key = self.providers[selected_prov].api_key
+  local _prov = init_provider(selected_prov, endpoint, api_key)
+  if is_chat then
+    self.current_provider.chat = _prov
+  else
+    self.current_provider.command = _prov
+  end
+  self.state:set_provider(_prov.name, is_chat)
+  self.state:refresh(self.available_providers, self.available_models)
+  self:prepare_commands()
+end
+
+function ChatHandler:get_provider(is_chat)
+  local current_prov = nil
+  if is_chat then
+    current_prov = self.current_provider.chat
+  else
+    current_prov = self.current_provider.command
+  end
+
+  if not current_prov then
+    local prov = self.state:get_provider(is_chat)
+    self:set_provider(prov, is_chat)
+  end
+
+  if is_chat then
+    return self.current_provider.chat
+  else
+    return self.current_provider.command
+  end
 end
 
 function ChatHandler:buf_handler()
@@ -179,14 +217,10 @@ end
 
 ---@return table # { cmd_prefix, name, model, system_prompt, provider }
 function ChatHandler:get_model(type)
-  local prov = get_provider(self.state, self.providers)
+  local prov = self:get_provider(type == "chat")
   local model = self.state:get_model(prov.name, type)
-  local template = self.options.command_prompt_prefix_template
-  local cmd_prefix =
-    utils.template_render_from_list(template, { ["{{llm}}"] = self.state:get_model(prov.name, "chat").name })
   local system_prompt = self.options.system_prompt[type]
   return {
-    cmd_prefix = cmd_prefix,
     name = model,
     model = model,
     system_prompt = system_prompt,
@@ -222,7 +256,11 @@ function ChatHandler:prepare_commands()
           template = self.options.template_prepend
         end
       end
-      self:prompt(params, target, model_obj, "🤖 ~", utils.trim(template))
+      local cmd_prefix = utils.template_render_from_list(
+        self.options.command_prompt_prefix_template,
+        { ["{{llm}}"] = self:get_model("command").name }
+      )
+      self:prompt(params, target, model_obj, cmd_prefix, utils.trim(template))
     end
     self.commands[command] = command
     self:addCommand(command, function(params)
@@ -416,7 +454,7 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
   local filename = self.options.chat_dir .. "/" .. time .. ".md"
 
   if chat_prompt then
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf))
+    local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf), {})
     local fname = vim.api.nvim_buf_get_name(cbuf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
     chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent)
@@ -617,7 +655,7 @@ function ChatHandler:_chat_respond(params)
     model_name = model_name .. " & custom system prompt"
   end
 
-  local query_prov = get_provider(self.state, self.providers)
+  local query_prov = self:get_provider(true)
 
   local llm_prefix = self.options.llm_prefix
   local llm_suffix = "[{{llm}}]"
@@ -712,7 +750,7 @@ function ChatHandler:_chat_respond(params)
         -- insert last model response
         table.insert(messages, { role = "assistant", content = qt.response })
 
-        local topic_prov = get_provider(self.state, self.providers)
+        local topic_prov = self:get_provider(true)
 
         -- ask model to generate topic/title for the chat
         local topic_prompt = self.providers[topic_prov.name].topic_prompt
@@ -882,16 +920,14 @@ function ChatHandler:chat_finder()
   end
 end
 
-function ChatHandler:switch_provider(selected_prov)
+function ChatHandler:switch_provider(selected_prov, is_chat)
   if selected_prov == nil then
     logger.warning("Empty provider selection")
     return
   end
 
   if self.providers[selected_prov] then
-    self.state:set_provider(selected_prov)
-    self.state:refresh(self.available_providers, self.available_models)
-    self:prepare_commands()
+    self.set_provider(selected_prov, is_chat)
     logger.info("Switched to provider: " .. selected_prov)
     return
   else
@@ -903,8 +939,11 @@ end
 function ChatHandler:provider(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+  local buf = vim.api.nvim_get_current_buf()
+  local file_name = vim.api.nvim_buf_get_name(buf)
+  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
   if prov_arg ~= "" then
-    self:switch_provider(prov_arg)
+    self:switch_provider(prov_arg, is_chat)
   elseif has_fzf then
     fzf_lua.fzf_exec(self.available_providers, {
       prompt = "Provider selection ❯",
@@ -917,7 +956,7 @@ function ChatHandler:provider(params)
     vim.ui.select(self.available_providers, {
       prompt = "Select your provider:",
     }, function(selected_prov)
-      self:switch_provider(selected_prov)
+      self:switch_provider(selected_prov, is_chat)
     end)
   end
 end
@@ -940,10 +979,10 @@ function ChatHandler:switch_model(is_chat, selected_model, prov)
 end
 
 function ChatHandler:model(params)
-  local prov = get_provider(self.state, self.providers)
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
   local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
 
@@ -1130,9 +1169,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
 
     -- prepare messages
     local messages = {}
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(buf))
+    local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
-    local prov = get_provider(self.state, self.providers)
+    local prov = self:get_provider(true)
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
 
@@ -1248,16 +1287,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       spinner = Spinner:new(self.options.spinner_type)
       spinner:start("calling API...")
     end
-    local _type = ""
-    if is_chat then
-      _type = "chat"
-    else
-      _type = "command"
-    end
     self:query(
       buf,
       prov,
-      utils.prepare_payload(messages, model_obj.name, self.providers[prov.name].params[_type]),
+      utils.prepare_payload(messages, model_obj.name, self.providers[prov.name].params["command"]),
       handler,
       vim.schedule_wrap(function(qid)
         if self.options.enable_spinner and spinner then
@@ -1334,9 +1367,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   self.queries:cleanup(8, 60)
 
   local curl_params = vim.deepcopy(self.options.curl_params or {})
-  -- print("B4 PAYLOAD", vim.inspect(payload))
   payload = provider:preprocess_payload(payload)
-  -- print("PAYLOAD", vim.inspect(payload))
   local args = {
     "--no-buffer",
     "--silent",
