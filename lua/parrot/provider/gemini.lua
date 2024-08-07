@@ -27,8 +27,7 @@ function Gemini:new(endpoint, api_key)
 end
 
 function Gemini:set_model(model)
-  local _model = type(model) == "string" and model or model.model
-  self._model = _model
+  self._model = model
 end
 
 function Gemini:curl_params()

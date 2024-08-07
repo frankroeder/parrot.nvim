@@ -222,7 +222,6 @@ function ChatHandler:get_model(type)
   local system_prompt = self.options.system_prompt[type]
   return {
     name = model,
-    model = model,
     system_prompt = system_prompt,
     provider = prov,
   }
