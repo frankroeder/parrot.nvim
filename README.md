@@ -15,7 +15,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 > modifications to some hook functions. Please review the updated documentation
 > and adjust your implementation accordingly.
 
-> [!NOTE] ⚠️
+> [!NOTE]
 > This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
 > It is based on the brilliant work [gp.nvim](https://github.com/Robitx/gp.nvim) by https://github.com/Robitx.
 
