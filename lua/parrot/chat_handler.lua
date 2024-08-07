@@ -1280,7 +1280,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     end
 
     -- call the model and write the response
-		prov:set_model(model_obj.name)
+    prov:set_model(model_obj.name)
 
     local spinner = nil
     if self.options.enable_spinner then
