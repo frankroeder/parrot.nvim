@@ -202,19 +202,15 @@ end
 
 ---@param messages table
 ---@param model string | table | nil
-M.prepare_payload = function(messages, model)
+M.prepare_payload = function(messages, model_name, params)
   local model_req = {
     messages = messages,
     stream = true,
+    model = model_name,
   }
 
-  if type(model) == "string" then
-    model_req.model = model
-    return model_req
-  end
-
   -- insert the agent model parameters
-  for k, v in pairs(model) do
+  for k, v in pairs(params) do
     if k == "temperature" then
       model_req[k] = math.max(0, math.min(2, v or 1))
     elseif k == "top_p" then

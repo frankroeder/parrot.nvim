@@ -91,8 +91,7 @@ function Mistral:process_onexit(res)
   end
 end
 
-function Mistral:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function Mistral:check(model)
   return available_model_set[model]
 end
 

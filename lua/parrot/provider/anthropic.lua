@@ -100,8 +100,7 @@ function Anthropic:process_onexit(res)
   end
 end
 
-function Anthropic:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function Anthropic:check(model)
   return available_model_set[model]
 end
 

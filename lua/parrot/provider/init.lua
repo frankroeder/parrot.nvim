@@ -41,13 +41,4 @@ M.get_provider = function(state, providers)
   return M.init_provider(_state_prov, endpoint, api_key)
 end
 
-M.get_provider_agents = function(is_chat, state, providers, available_provider_agents)
-  local prov = M.get_provider(state, providers)
-  if is_chat then
-    return available_provider_agents[prov.name].chat
-  else
-    return available_provider_agents[prov.name].command
-  end
-end
-
 return M

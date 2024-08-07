@@ -107,8 +107,7 @@ function Groq:process_onexit(res)
   end
 end
 
-function Groq:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function Groq:check(model)
   return available_model_set[model]
 end
 

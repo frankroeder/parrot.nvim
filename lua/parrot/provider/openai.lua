@@ -110,8 +110,7 @@ function OpenAI:process_onexit(res)
   end
 end
 
-function OpenAI:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function OpenAI:check(model)
   return available_model_set[model]
 end
 

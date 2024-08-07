@@ -55,7 +55,8 @@ describe("utils", function()
     it("should prepare payload with string model", function()
       local messages = { { role = "user", content = "Hello" } }
       local model = "gpt-3.5-turbo"
-      local result = utils.prepare_payload(messages, model)
+      local params = {}
+      local result = utils.prepare_payload(messages, model, params)
       assert.are.same({
         messages = messages,
         stream = true,
@@ -65,8 +66,9 @@ describe("utils", function()
 
     it("should prepare payload with table model", function()
       local messages = { { role = "user", content = "Hello" } }
-      local model = { model = "gpt-4", temperature = 0.7, top_p = 0.9 }
-      local result = utils.prepare_payload(messages, model)
+      local model = "gpt-4"
+      local params = { temperature = 0.7, top_p = 0.9 }
+      local result = utils.prepare_payload(messages, model, params)
       assert.are.same({
         messages = messages,
         stream = true,
@@ -78,8 +80,9 @@ describe("utils", function()
 
     it("should clamp temperature and top_p values", function()
       local messages = { { role = "user", content = "Hello" } }
-      local model = { temperature = 3, top_p = 1.5 }
-      local result = utils.prepare_payload(messages, model)
+      local model = nil
+      local params = { temperature = 3, top_p = 1.5 }
+      local result = utils.prepare_payload(messages, model, params)
       assert.are.same({
         messages = messages,
         stream = true,

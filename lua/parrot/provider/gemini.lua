@@ -120,8 +120,7 @@ function Gemini:process_onexit(res)
   end
 end
 
-function Gemini:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function Gemini:check(model)
   return available_model_set[model]
 end
 

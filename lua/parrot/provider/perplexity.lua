@@ -95,8 +95,7 @@ function Perplexity:process_onexit(res)
   end
 end
 
-function Perplexity:check(agent)
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
+function Perplexity:check(model)
   return available_model_set[model]
 end
 

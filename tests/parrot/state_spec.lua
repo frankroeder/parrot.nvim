@@ -25,24 +25,24 @@ describe("State", function()
         vim.fn.filereadable.returns(1)
         require("parrot.file_utils").file_to_table.returns({
           ollama = {
-            command_agent = "Gemma-7B",
-            chat_agent = "Gemma-7B",
+            command_model = "Gemma-7B",
+            chat_model = "Gemma-7B",
           },
           mistral = {
-            command_agent = "Mistral-Medium",
-            chat_agent = "Open-Mixtral-8x7B",
+            command_model = "Mistral-Medium",
+            chat_model = "Open-Mixtral-8x7B",
           },
           pplx = {
-            command_agent = "Llama3-70B-Instruct",
-            chat_agent = "Llama3-Sonar-Large-32k-Chat",
+            command_model = "Llama3-70B-Instruct",
+            chat_model = "Llama3-Sonar-Large-32k-Chat",
           },
           anthropic = {
-            command_agent = "Claude-3.5-Sonnet",
-            chat_agent = "Claude-3-Haiku-Chat",
+            command_model = "Claude-3.5-Sonnet",
+            chat_model = "Claude-3-Haiku-Chat",
           },
           openai = {
-            command_agent = "CodeGPT4o",
-            chat_agent = "ChatGPT4",
+            command_model = "CodeGPT4o",
+            chat_model = "ChatGPT4",
           },
           provider = "anthropic",
         })
@@ -52,24 +52,24 @@ describe("State", function()
         assert.are.same("/tmp/state.json", state.state_file)
         assert.are.same({
           ollama = {
-            command_agent = "Gemma-7B",
-            chat_agent = "Gemma-7B",
+            command_model = "Gemma-7B",
+            chat_model = "Gemma-7B",
           },
           mistral = {
-            command_agent = "Mistral-Medium",
-            chat_agent = "Open-Mixtral-8x7B",
+            command_model = "Mistral-Medium",
+            chat_model = "Open-Mixtral-8x7B",
           },
           pplx = {
-            command_agent = "Llama3-70B-Instruct",
-            chat_agent = "Llama3-Sonar-Large-32k-Chat",
+            command_model = "Llama3-70B-Instruct",
+            chat_model = "Llama3-Sonar-Large-32k-Chat",
           },
           anthropic = {
-            command_agent = "Claude-3.5-Sonnet",
-            chat_agent = "Claude-3-Haiku-Chat",
+            command_model = "Claude-3.5-Sonnet",
+            chat_model = "Claude-3-Haiku-Chat",
           },
           openai = {
-            command_agent = "CodeGPT4o",
-            chat_agent = "ChatGPT4",
+            command_model = "CodeGPT4o",
+            chat_model = "ChatGPT4",
           },
           provider = "anthropic",
         }, state.file_state)
@@ -99,11 +99,11 @@ describe("State", function()
         state:init_file_state(providers)
 
         assert.are.same({
-          ollama = { chat_agent = nil, command_agent = nil },
-          mistral = { chat_agent = nil, command_agent = nil },
-          pplx = { chat_agent = nil, command_agent = nil },
-          anthropic = { chat_agent = nil, command_agent = nil },
-          openai = { chat_agent = nil, command_agent = nil },
+          ollama = { chat_model = nil, command_model = nil },
+          mistral = { chat_model = nil, command_model = nil },
+          pplx = { chat_model = nil, command_model = nil },
+          anthropic = { chat_model = nil, command_model = nil },
+          openai = { chat_model = nil, command_model = nil },
         }, state.file_state)
       end)
     end)
@@ -116,35 +116,35 @@ describe("State", function()
 
         state:init_provider_state("ollama")
 
-        assert.are.same({ ollama = { chat_agent = nil, command_agent = nil } }, state._state)
+        assert.are.same({ ollama = { chat_model = nil, command_model = nil } }, state._state)
       end)
     end)
   end)
 
-  describe("load_agents", function()
-    it("should load chat agent from file state if valid", function()
+  describe("load_models", function()
+    it("should load chat model from file state if valid", function()
       async.run(function()
         local state = State:new("/tmp")
-        state.file_state = { ollama = { chat_agent = "Gemma-7B" } }
-        state._state = { ollama = { chat_agent = nil } }
-        local available_agents = { ollama = { chat = { "Gemma-7B", "Llama2-7B" } } }
+        state.file_state = { ollama = { chat_model = "Gemma-7B" } }
+        state._state = { ollama = { chat_model = nil } }
+        local available_models = { ollama = { "Gemma-7B", "Llama2-7B" } }
 
-        state:load_agents("ollama", "chat_agent", available_agents)
+        state:load_models("ollama", "chat_model", available_models)
 
-        assert.are.same("Gemma-7B", state._state.ollama.chat_agent)
+        assert.are.same("Gemma-7B", state._state.ollama.chat_model)
       end)
     end)
 
-    it("should load default chat agent if file state is invalid", function()
+    it("should load default chat model if file state is invalid", function()
       async.run(function()
         local state = State:new("/tmp")
-        state.file_state = { ollama = { chat_agent = "invalid-model" } }
-        state._state = { ollama = { chat_agent = nil } }
-        local available_agents = { ollama = { chat = { "Gemma-7B", "Llama2-7B" } } }
+        state.file_state = { ollama = { chat_model = "invalid-model" } }
+        state._state = { ollama = { chat_model = nil } }
+        local available_models = { ollama = { "Gemma-7B", "Llama2-7B" } }
 
-        state:load_agents("ollama", "chat_agent", available_agents)
+        state:load_models("ollama", "chat_model", available_models)
 
-        assert.are.same("Gemma-7B", state._state.ollama.chat_agent)
+        assert.are.same("Gemma-7B", state._state.ollama.chat_model)
       end)
     end)
   end)
@@ -153,26 +153,26 @@ describe("State", function()
     before_each(setup_mocks)
     after_each(teardown_mocks)
 
-    it("should refresh state with available providers and agents", function()
+    it("should refresh state with available providers and models", function()
       async.run(function()
         local state = State:new("/tmp")
         local available_providers = { "ollama", "mistral", "pplx", "anthropic", "openai" }
-        local available_agents = {
-          ollama = { chat = { "Gemma-7B" }, command = { "Gemma-7B" } },
-          mistral = { chat = { "Open-Mixtral-8x7B" }, command = { "Mistral-Medium" } },
-          pplx = { chat = { "Llama3-Sonar-Large-32k-Chat" }, command = { "Llama3-70B-Instruct" } },
-          anthropic = { chat = { "Claude-3-Haiku-Chat" }, command = { "Claude-3.5-Sonnet" } },
-          openai = { chat = { "ChatGPT4" }, command = { "CodeGPT4o" } },
+        local available_models = {
+          ollama = { "Gemma-7B" },
+          mistral = { "Open-Mixtral-8x7B", "Mistral-Medium" },
+          pplx = { "Llama3-Sonar-Large-32k-Chat", "Llama3-70B-Instruct" },
+          anthropic = { "Claude-3-Haiku-Chat", "Claude-3.5-Sonnet" },
+          openai = { "ChatGPT4", "CodeGPT4o" },
         }
 
-        state:refresh(available_providers, available_agents)
+        state:refresh(available_providers, available_models)
 
         assert.are.same({
-          ollama = { chat_agent = "Gemma-7B", command_agent = "Gemma-7B" },
-          mistral = { chat_agent = "Open-Mixtral-8x7B", command_agent = "Mistral-Medium" },
-          pplx = { chat_agent = "Llama3-Sonar-Large-32k-Chat", command_agent = "Llama3-70B-Instruct" },
-          anthropic = { chat_agent = "Claude-3-Haiku-Chat", command_agent = "Claude-3.5-Sonnet" },
-          openai = { chat_agent = "ChatGPT4", command_agent = "CodeGPT4o" },
+          ollama = { chat_model = "Gemma-7B", command_model = "Gemma-7B" },
+          mistral = { chat_model = "Open-Mixtral-8x7B", command_model = "Open-Mixtral-8x7B" },
+          pplx = { chat_model = "Llama3-Sonar-Large-32k-Chat", command_model = "Llama3-Sonar-Large-32k-Chat" },
+          anthropic = { chat_model = "Claude-3-Haiku-Chat", command_model = "Claude-3-Haiku-Chat" },
+          openai = { chat_model = "ChatGPT4", command_model = "ChatGPT4" },
           provider = "ollama",
         }, state._state)
       end)
@@ -183,44 +183,106 @@ describe("State", function()
         local state = State:new("/tmp")
         state.file_state = {
           provider = "anthropic",
-          anthropic = { command_agent = "Claude-3-Haiku", chat_agent = "Claude-3-Haiku-Chat" },
-          openai = { command_agent = "CodeGPT3.5", chat_agent = "ChatGPT3.5" },
-          ollama = { command_agent = "Llama2-13B", chat_agent = "Llama2-13B" },
+          anthropic = { command_model = "Claude-3-Haiku", chat_model = "Claude-3-Haiku-Chat" },
+          openai = { command_model = "CodeGPT3.5", chat_model = "ChatGPT3.5" },
+          ollama = { command_model = "Llama2-13B", chat_model = "Llama2-13B" },
         }
 
         local available_providers = { "ollama", "openai" }
-        local available_agents = {
-          ollama = { chat = { "Gemma-7B" }, command = { "Gemma-7B" } },
-          openai = { chat = { "ChatGPT4" }, command = { "CodeGPT4o" } },
+        local available_models = {
+          ollama = { "Gemma-7B" },
+          openai = { "ChatGPT4", "CodeGPT4o" },
         }
 
-        state:refresh(available_providers, available_agents)
+        state:refresh(available_providers, available_models)
 
         assert.are.same({
-          ollama = { chat_agent = "Gemma-7B", command_agent = "Gemma-7B" },
-          openai = { chat_agent = "ChatGPT4", command_agent = "CodeGPT4o" },
+          ollama = { chat_model = "Gemma-7B", command_model = "Gemma-7B" },
+          openai = { chat_model = "ChatGPT4", command_model = "ChatGPT4" },
           provider = "ollama",
         }, state._state)
       end)
     end)
   end)
 
-  -- describe("save", function()
-  --   before_each(setup_mocks)
-  --   after_each(teardown_mocks)
-  --
-  --   it("should save the current state to a file", function()
-  --     async.run(function()
-  --       local state = State:new("/tmp")
-  --       state._state = {
-  --         ollama = { chat_agent = "Gemma-7B", command_agent = "Gemma-7B" },
-  --         provider = "ollama",
-  --       }
-  --
-  --       state:save()
-  --
-  --       assert.stub(require("parrot.file_utils").table_to_file).was_called_with("/tmp/state.json", state._state)
-  --     end)
-  --   end)
-  -- end)
+  describe("set_provider", function()
+    it("should set the current provider", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:set_provider("openai")
+        assert.are.same("openai", state._state.provider)
+      end)
+    end)
+  end)
+
+  describe("set_model", function()
+    it("should set the model for a specific provider and type", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:init_provider_state("openai")
+        state:set_model("openai", "ChatGPT4", "chat")
+        assert.are.same("ChatGPT4", state._state.openai.chat_model)
+      end)
+    end)
+  end)
+
+  describe("get_provider", function()
+    it("should get the current provider", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state._state.provider = "mistral"
+        assert.are.same("mistral", state:get_provider())
+      end)
+    end)
+  end)
+
+  describe("get_model", function()
+    it("should get the model for a specific provider and type", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:init_provider_state("anthropic")
+        state._state.anthropic.chat_model = "Claude-3-Haiku-Chat"
+        assert.are.same("Claude-3-Haiku-Chat", state:get_model("anthropic", "chat"))
+      end)
+    end)
+  end)
+
+  describe("set_last_chat", function()
+    it("should set the last opened chat file path", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:set_last_chat("/path/to/chat.json")
+        assert.are.same("/path/to/chat.json", state._state.last_chat)
+      end)
+    end)
+  end)
+
+  describe("get_last_chat", function()
+    it("should get the last opened chat file path", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state._state.last_chat = "/path/to/chat.json"
+        assert.are.same("/path/to/chat.json", state:get_last_chat())
+      end)
+    end)
+  end)
+
+  describe("save", function()
+    before_each(setup_mocks)
+    after_each(teardown_mocks)
+
+    it("should save the current state to a file", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state._state = {
+          ollama = { chat_model = "Gemma-7B", command_model = "Gemma-7B" },
+          provider = "ollama",
+        }
+
+        state:save()
+
+        assert.stub(require("parrot.file_utils").table_to_file).was_called_with(state._state, "/tmp/state.json")
+      end)
+    end)
+  end)
 end)

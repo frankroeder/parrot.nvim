@@ -147,17 +147,17 @@ describe("Ollama", function()
 
     it("should return false if ollama is not installed", function()
       ollama.ollama_installed = false
-      assert.is_false(ollama:check({ model = "model1" }))
+      assert.is_false(ollama:check("model1"))
       assert.spy(logger_mock.warning).was_called_with("ollama not found.")
     end)
 
     it("should return true if the model is found", function()
-      assert.is_true(ollama:check({ model = "model2" }))
+      assert.is_true(ollama:check("model2"))
     end)
 
     it("should prompt to download if the model is not found", function()
       Job_mock.new.returns({ start = function() end })
-      assert.is_true(ollama:check({ model = "new_model" }))
+      assert.is_true(ollama:check("new_model"))
     end)
   end)
 end)

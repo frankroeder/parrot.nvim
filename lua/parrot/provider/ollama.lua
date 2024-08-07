@@ -77,12 +77,11 @@ function Ollama:process_onexit(res)
   end
 end
 
-function Ollama:check(agent)
+function Ollama:check(model)
   if not self.ollama_installed then
     logger.warning("ollama not found.")
     return false
   end
-  local model = type(agent.model) == "string" and agent.model or agent.model.model
 
   local handle = io.popen("ollama list")
   local result = handle:read("*a")

@@ -6,6 +6,27 @@ local M = {
   ui = require("parrot.ui"),
   logger = require("parrot.logger"),
 }
+local system_chat_prompt = [[
+You are a versatile AI assistant with capabilities
+extending to general knowledge and coding support. When engaging
+with users, please adhere to the following guidelines to ensure
+the highest quality of interaction:
+
+- Admit when unsure by saying 'I don't know.'
+- Ask for clarification when needed.
+- Use first principles thinking to analyze queries.
+- Start with the big picture, then focus on details.
+- Apply the Socratic method to enhance understanding.
+- Include all necessary code in your responses.
+- Stay calm and confident with each task.
+]]
+
+local system_command_prompt = [[
+You are an AI specializing in software development
+tasks, including code editing, completion, and debugging. Your
+responses should strictly pertain to the code provided. Please ensure
+that your reply is solely focused on the code snippet in question.
+]]
 
 local topic_prompt = [[
 Summarize the topic of our conversation above
@@ -18,19 +39,40 @@ local defaults = {
       api_key = "",
       endpoint = "https://api.perplexity.ai/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "llama-3-8b-instruct",
+      topic = {
+        model = "llama-3-8b-instruct",
+        params = { maxOutputTokens = 64 },
+      },
+      params = {
+        chat = { temperature = 1.1, top_p = 1 },
+        command = { temperature = 1.1, top_p = 1 },
+      },
     },
     openai = {
       api_key = "",
       endpoint = "https://api.openai.com/v1/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "gpt-4o-mini",
+      topic = {
+        model = "gpt-4o-mini",
+        params = { maxOutputTokens = 64 },
+      },
+      params = {
+        chat = { temperature = 1.1, top_p = 1 },
+        command = { temperature = 1.1, top_p = 1 },
+      },
     },
     gemini = {
       api_key = "",
       endpoint = "https://generativelanguage.googleapis.com/v1beta/models/",
       topic_prompt = topic_prompt,
-      topic_model = { model = "gemini-1.5-flash", maxOutputTokens = 64 },
+      topic = {
+        model = "gemini-1.5-flash",
+        params = { maxOutputTokens = 64 },
+      },
+      params = {
+        chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+        command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+      },
     },
     ollama = {
       endpoint = "http://localhost:11434/api/chat",
@@ -39,13 +81,27 @@ local defaults = {
 			words without any opening phrase like "Sure, here is the summary",
 			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
 			]],
-      topic_model = "mistral:latest",
+      topic = {
+        model = "mistral:latest",
+        params = { max_tokens = 32 },
+      },
+      params = {
+        chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+        command = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+      },
     },
     anthropic = {
       api_key = "",
       endpoint = "https://api.anthropic.com/v1/messages",
       topic_prompt = "You only respond with 2 to 3 words to summarize the past conversation.",
-      topic_model = { model = "claude-3-sonnet-20240229", max_tokens = 32 },
+      topic = {
+        model = "claude-3-sonnet-20240229",
+        params = { max_tokens = 32 },
+      },
+      params = {
+        chat = { max_tokens = 4096 },
+        command = { max_tokens = 4096 },
+      },
     },
     mistral = {
       api_key = "",
@@ -55,17 +111,35 @@ local defaults = {
 			words without any opening phrase like "Sure, here is the summary",
 			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
 			]],
-      topic_model = "mistral-medium-latest",
+      topic = {
+        model = "mistral-medium-latest",
+        params = {},
+      },
+      params = {
+        chat = { temperature = 1.5, top_p = 1 },
+        command = { temperature = 1.5, top_p = 1 },
+      },
     },
     groq = {
       api_key = "",
       endpoint = "https://api.groq.com/openai/v1/chat/completions",
       topic_prompt = topic_prompt,
-      topic_model = "llama-3.1-8b-instant",
+      topic = {
+        model = "llama-3.1-8b-instant",
+        params = {},
+      },
+      params = {
+        chat = { temperature = 1.5, top_p = 1 },
+        command = { temperature = 1.5, top_p = 1 },
+      },
     },
   },
   cmd_prefix = "Prt",
   curl_params = {},
+  system_prompt = {
+    chat = system_chat_prompt,
+    command = system_command_prompt,
+  },
   state_dir = vim.fn.stdpath("data") .. "/parrot/persisted",
   chat_dir = vim.fn.stdpath("data") .. "/parrot/chats",
   chat_user_prefix = "🗨:",
@@ -262,6 +336,7 @@ function M.setup(opts)
     local _prov = init_provider(prov_name, "", "")
     available_models[prov_name] = _prov:get_available_models()
   end
+  M.available_models = available_models
 
   table.sort(M.available_providers)
   M.register_hooks(M.hooks, M.options)
@@ -293,6 +368,10 @@ end
 
 M.ChatNew = function(params, chat_prompt)
   M.chat_handler:chat_new(params, chat_prompt)
+end
+
+M.get_model = function(type)
+  M.chat_handler:get_model(type)
 end
 
 M.register_hooks = function(hooks, options)
@@ -335,13 +414,7 @@ M.add_default_commands = function(commands, hooks, options)
           if cmd == "Model" then
             local buf = vim.api.nvim_get_current_buf()
             local file_name = vim.api.nvim_buf_get_name(buf)
-            return ""
-            -- return get_provider_agents(
-            --   utils.is_chat(buf, file_name, options.chat_dir),
-            --   M.chat_handler.state,
-            --   M.chat_handler.providers,
-            --   M.available_provider_agents
-            -- )
+            return M.available_models[M.chat_handler.state:get_provider()]
           elseif cmd == "Provider" then
             return M.available_providers
           end

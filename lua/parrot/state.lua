@@ -29,10 +29,10 @@ function State:init_provider_state(provider)
   self._state[provider] = self._state[provider] or { chat_model = nil, command_model = nil }
 end
 
---- Loads agents for the specified provider and agent type.
+--- Loads model for the specified provider and type.
 --- @param provider string # Name of the provider.
---- @param model_type string # Type of agent (e.g., "chat_agent", "command_agent").
---- @param available_provider_agents table # A table containing available agents for all providers.
+--- @param model_type string # Type of model (e.g., "chat_model", "command_model").
+--- @param available_models table # A table containing available models for all providers.
 function State:load_models(provider, model_type, available_models)
   local state_model = self.file_state and self.file_state[provider] and self.file_state[provider][model_type]
   local is_valid_model = false
@@ -47,14 +47,15 @@ function State:load_models(provider, model_type, available_models)
     if state_model and is_valid_model then
       self._state[provider][model_type] = state_model
     else
-      self._state[provider][model_type] = model_type == "chat_model" and available_models[provider][1] or available_models[provider][1]
+      self._state[provider][model_type] = model_type == "chat_model" and available_models[provider][1]
+        or available_models[provider][1]
     end
   end
 end
 
---- Refreshes the state with available providers and their agents.
+--- Refreshes the state with available providers and their models.
 --- @param available_providers table # Available providers.
---- @param available_provider_agents table # Available provider agents.
+--- @param available_provider_agents table # Available models.
 function State:refresh(available_providers, available_models)
   self:init_file_state(available_providers)
   for _, provider in ipairs(available_providers) do
@@ -82,7 +83,7 @@ function State:set_provider(provider)
   self._state.provider = provider
 end
 
---- Sets the agent for a specific provider and agent type.
+--- Sets the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
 --- @param model table # Agent details.
 --- @param atype string # Type of the agent ('chat' or 'command').
@@ -100,10 +101,10 @@ function State:get_provider()
   return self._state.provider
 end
 
---- Gets the agent for a specific provider and agent type.
+--- Gets the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
---- @param atype string # Type of agent ('chat' or 'command').
---- @return table|nil # Returns the agent table or nil if not found.
+--- @param atype string # Type of model ('chat' or 'command').
+--- @return table|nil # Returns the model string
 function State:get_model(provider, mtype)
   if mtype == "chat" then
     return self._state[provider].chat_model
