@@ -100,4 +100,16 @@ function Perplexity:check(agent)
   return available_model_set[model]
 end
 
+function Perplexity:get_available_models()
+  return {
+    "llama-3.1-sonar-small-128k-chat",
+    "llama-3.1-sonar-small-128k-online",
+    "llama-3.1-sonar-large-128k-chat",
+    "llama-3.1-sonar-large-128k-online",
+    "llama-3.1-8b-instruct",
+    "llama-3.1-70b-instruct",
+    "mixtral-8x7b-instruct",
+  }
+end
+
 return Perplexity

@@ -18,7 +18,7 @@ end
 function State:init_file_state(available_providers)
   if next(self.file_state) == nil then
     for _, prov in ipairs(available_providers) do
-      self.file_state[prov] = { chat_agent = nil, command_agent = nil }
+      self.file_state[prov] = { chat_model = nil, command_model = nil }
     end
   end
 end
@@ -26,29 +26,28 @@ end
 --- Initializes state for a specific provider if it's not already initialized.
 --- @param provider string # Provider name to initialize state.
 function State:init_provider_state(provider)
-  self._state[provider] = self._state[provider] or { chat_agent = nil, command_agent = nil }
+  self._state[provider] = self._state[provider] or { chat_model = nil, command_model = nil }
 end
 
 --- Loads agents for the specified provider and agent type.
 --- @param provider string # Name of the provider.
---- @param agent_type string # Type of agent (e.g., "chat_agent", "command_agent").
+--- @param model_type string # Type of agent (e.g., "chat_agent", "command_agent").
 --- @param available_provider_agents table # A table containing available agents for all providers.
-function State:load_agents(provider, agent_type, available_provider_agents)
-  local state_agent = self.file_state and self.file_state[provider] and self.file_state[provider][agent_type]
-  local is_valid_agent = false
+function State:load_models(provider, model_type, available_models)
+  local state_model = self.file_state and self.file_state[provider] and self.file_state[provider][model_type]
+  local is_valid_model = false
 
-  if agent_type == "chat_agent" then
-    is_valid_agent = utils.contains(available_provider_agents[provider].chat, state_agent)
-  elseif agent_type == "command_agent" then
-    is_valid_agent = utils.contains(available_provider_agents[provider].command, state_agent)
+  if model_type == "chat_model" then
+    is_valid_model = utils.contains(available_models[provider], state_model)
+  elseif model_type == "command_model" then
+    is_valid_model = utils.contains(available_models[provider], state_model)
   end
 
-  if self._state[provider][agent_type] == nil then
-    if state_agent and is_valid_agent then
-      self._state[provider][agent_type] = state_agent
+  if self._state[provider][model_type] == nil then
+    if state_model and is_valid_model then
+      self._state[provider][model_type] = state_model
     else
-      self._state[provider][agent_type] = agent_type == "chat_agent" and available_provider_agents[provider].chat[1]
-        or available_provider_agents[provider].command[1]
+      self._state[provider][model_type] = model_type == "chat_model" and available_models[provider][1] or available_models[provider][1]
     end
   end
 end
@@ -56,12 +55,12 @@ end
 --- Refreshes the state with available providers and their agents.
 --- @param available_providers table # Available providers.
 --- @param available_provider_agents table # Available provider agents.
-function State:refresh(available_providers, available_provider_agents)
+function State:refresh(available_providers, available_models)
   self:init_file_state(available_providers)
   for _, provider in ipairs(available_providers) do
     self:init_provider_state(provider)
-    self:load_agents(provider, "chat_agent", available_provider_agents)
-    self:load_agents(provider, "command_agent", available_provider_agents)
+    self:load_models(provider, "chat_model", available_models)
+    self:load_models(provider, "command_model", available_models)
   end
   self._state.provider = self._state.provider or self.file_state.provider or available_providers[1]
   self._state.last_chat = self._state.last_chat or self.file_state.last_chat or nil
@@ -85,13 +84,13 @@ end
 
 --- Sets the agent for a specific provider and agent type.
 --- @param provider string # Provider name.
---- @param agent table # Agent details.
+--- @param model table # Agent details.
 --- @param atype string # Type of the agent ('chat' or 'command').
-function State:set_agent(provider, agent, atype)
+function State:set_model(provider, model, atype)
   if atype == "chat" then
-    self._state[provider].chat_agent = agent
+    self._state[provider].chat_model = model
   elseif atype == "command" then
-    self._state[provider].command_agent = agent
+    self._state[provider].command_model = model
   end
 end
 
@@ -105,11 +104,11 @@ end
 --- @param provider string # Provider name.
 --- @param atype string # Type of agent ('chat' or 'command').
 --- @return table|nil # Returns the agent table or nil if not found.
-function State:get_agent(provider, atype)
-  if atype == "chat" then
-    return self._state[provider].chat_agent
-  elseif atype == "command" then
-    return self._state[provider].command_agent
+function State:get_model(provider, mtype)
+  if mtype == "chat" then
+    return self._state[provider].chat_model
+  elseif mtype == "command" then
+    return self._state[provider].command_model
   end
 end
 

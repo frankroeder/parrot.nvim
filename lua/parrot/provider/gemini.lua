@@ -125,4 +125,11 @@ function Gemini:check(agent)
   return available_model_set[model]
 end
 
+function Gemini:get_available_models()
+  return {
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+  }
+end
+
 return Gemini

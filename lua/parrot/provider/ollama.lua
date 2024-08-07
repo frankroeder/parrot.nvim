@@ -125,4 +125,10 @@ function Ollama:check(agent)
   return false
 end
 
+function Ollama:get_available_models()
+  return {
+    "llama3",
+  }
+end
+
 return Ollama

@@ -96,4 +96,17 @@ function Mistral:check(agent)
   return available_model_set[model]
 end
 
+function Mistral:get_available_models()
+  return {
+    "codestral-latest",
+    "mistral-tiny",
+    "mistral-small-latest",
+    "mistral-medium-latest",
+    "mistral-large-latest",
+    "open-mistral-7b",
+    "open-mixtral-8x7b",
+    "open-mixtral-8x22b",
+  }
+end
+
 return Mistral

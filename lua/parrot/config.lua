@@ -1,6 +1,6 @@
 local utils = require("parrot.utils")
 local Chat = require("parrot.chat_handler")
-local get_provider_agents = require("parrot.provider").get_provider_agents
+local init_provider = require("parrot.provider").init_provider
 
 local M = {
   ui = require("parrot.ui"),
@@ -68,7 +68,6 @@ local defaults = {
   curl_params = {},
   state_dir = vim.fn.stdpath("data") .. "/parrot/persisted",
   chat_dir = vim.fn.stdpath("data") .. "/parrot/chats",
-  agents = require("parrot.agents"),
   chat_user_prefix = "🗨:",
   agent_prefix = "🦜:",
   chat_confirm_delete = true,
@@ -214,38 +213,9 @@ M.merge_providers = function(default_providers, user_providers)
   return result
 end
 
-M.merge_agent_type = function(default_agents, user_agents, user_providers)
-  local result = vim.deepcopy(user_agents) or {}
-  for _, default_agent in ipairs(default_agents) do
-    if user_providers[default_agent.provider] then
-      table.insert(result, vim.deepcopy(default_agent))
-    end
-  end
-  return result
-end
-
-M.merge_agents = function(default_agents, user_agents, user_providers)
-  return {
-    command = M.merge_agent_type(default_agents.command or {}, user_agents.command, user_providers),
-    chat = M.merge_agent_type(default_agents.chat or {}, user_agents.chat, user_providers),
-  }
-end
-
-M.index_agents_by_name = function(_agents)
-  local result = {}
-  for category, agent_list in pairs(_agents) do
-    result[category] = {}
-    for _, agent in ipairs(agent_list) do
-      result[category][agent.name] = agent
-    end
-  end
-  return result
-end
-
 M.loaded = false
 M.options = nil
 M.providers = nil
-M.agents = nil
 M.hooks = nil
 
 function M.setup(opts)
@@ -263,9 +233,6 @@ function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
   M.providers = M.merge_providers(defaults.providers, opts.providers)
   M.options.providers = nil
-  local agents = M.merge_agents(defaults.agents or {}, opts.agents or {}, M.providers)
-  M.agents = M.index_agents_by_name(agents)
-  M.options.agents = nil
   M.hooks = M.options.hooks
   M.options.hooks = nil
 
@@ -289,18 +256,14 @@ function M.setup(opts)
   end
 
   M.available_providers = vim.tbl_keys(M.providers)
-  M.available_provider_agents = vim.tbl_map(function()
-    return { chat = {}, command = {} }
-  end, M.providers)
 
-  for type, agts in pairs(M.agents) do
-    for agt_name, agt in pairs(agts) do
-      table.insert(M.available_provider_agents[agt.provider][type], agt_name)
-    end
+  available_models = {}
+  for _, prov_name in ipairs(M.available_providers) do
+    local _prov = init_provider(prov_name, "", "")
+    available_models[prov_name] = _prov:get_available_models()
   end
 
   table.sort(M.available_providers)
-  table.sort(M.available_provider_agents)
   M.register_hooks(M.hooks, M.options)
 
   M.cmd = {
@@ -312,10 +275,11 @@ function M.setup(opts)
     ChatDelete = "chat_delete",
     ChatResponde = "chat_respond",
     Context = "context",
-    Agent = "agent",
+    Model = "model",
     Provider = "provider",
   }
-  M.chat_handler = Chat:new(M.options, M.providers, M.agents, M.available_providers, M.available_provider_agents, M.cmd)
+
+  M.chat_handler = Chat:new(M.options, M.providers, M.available_providers, available_models, M.cmd)
   M.chat_handler:prepare_commands()
   M.add_default_commands(M.cmd, M.hooks, M.options)
   M.chat_handler:buf_handler()
@@ -323,20 +287,12 @@ function M.setup(opts)
   M.loaded = true
 end
 
-M.Prompt = function(params, target, agent, prompt, template)
-  M.chat_handler:prompt(params, target, agent, prompt, template)
+M.Prompt = function(params, target, prompt, template)
+  M.chat_handler:prompt(params, target, prompt, template)
 end
 
 M.ChatNew = function(params, chat_prompt)
   M.chat_handler:chat_new(params, chat_prompt)
-end
-
-M.get_chat_agent = function()
-  return M.chat_handler:get_chat_agent()
-end
-
-M.get_command_agent = function()
-  return M.chat_handler:get_command_agent()
 end
 
 M.register_hooks = function(hooks, options)
@@ -376,15 +332,16 @@ M.add_default_commands = function(commands, hooks, options)
           if completions[cmd] then
             return completions[cmd]
           end
-          if cmd == "Agent" then
+          if cmd == "Model" then
             local buf = vim.api.nvim_get_current_buf()
             local file_name = vim.api.nvim_buf_get_name(buf)
-            return get_provider_agents(
-              utils.is_chat(buf, file_name, options.chat_dir),
-              M.chat_handler.state,
-              M.chat_handler.providers,
-              M.available_provider_agents
-            )
+            return ""
+            -- return get_provider_agents(
+            --   utils.is_chat(buf, file_name, options.chat_dir),
+            --   M.chat_handler.state,
+            --   M.chat_handler.providers,
+            --   M.available_provider_agents
+            -- )
           elseif cmd == "Provider" then
             return M.available_providers
           end
