@@ -121,12 +121,12 @@ end
 
 --- Returns the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
---- @param mtype string # Type of model ('chat' or 'command').
+--- @param model_type string # Type of model ('chat' or 'command').
 --- @return table|nil # Returns the model string
-function State:get_model(provider, mtype)
-  if mtype == "chat" then
+function State:get_model(provider, model_type)
+  if model_type == "chat" then
     return self._state[provider].chat_model
-  elseif mtype == "command" then
+  elseif model_type == "command" then
     return self._state[provider].command_model
   end
 end

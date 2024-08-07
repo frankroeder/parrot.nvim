@@ -321,10 +321,6 @@ This plugin provides the following default key mappings:
 | `<C-g>s`     | Stop the current text generation via `PrtStop`              |
 | `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
 
-Refer to my personal lazy.nvim setup for further hooks and key bindings:
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
-
-```
 ### Adding a new command
 
 #### Ask a single-turn question and receive the answer in a popup window
@@ -372,10 +368,13 @@ require("parrot").setup {
 }
 ```
 
+Refer to my personal lazy.nvim setup for further hooks and key bindings:
+https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+
 ### Template Placeholders
 
 Users can utilize the following placeholders in their templates to inject
-specific content into the user messages:
+specific content into the user messages or custom system prompts:
 
 | Placeholder             | Content                              |
 |-------------------------|--------------------------------------|

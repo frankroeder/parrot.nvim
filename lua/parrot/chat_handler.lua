@@ -216,10 +216,10 @@ function ChatHandler:toggle_resolve(kind)
 end
 
 ---@return table # { cmd_prefix, name, model, system_prompt, provider }
-function ChatHandler:get_model(type)
-  local prov = self:get_provider(type == "chat")
-  local model = self.state:get_model(prov.name, type)
-  local system_prompt = self.options.system_prompt[type]
+function ChatHandler:get_model(model_type)
+  local prov = self:get_provider(model_type == "chat")
+  local model = self.state:get_model(prov.name, model_type)
+  local system_prompt = self.options.system_prompt[model_type]
   return {
     name = model,
     system_prompt = system_prompt,

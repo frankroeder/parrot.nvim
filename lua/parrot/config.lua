@@ -1,5 +1,5 @@
 local utils = require("parrot.utils")
-local Chat = require("parrot.chat_handler")
+local ChatHandler = require("parrot.chat_handler")
 local init_provider = require("parrot.provider").init_provider
 
 local M = {
@@ -349,7 +349,7 @@ function M.setup(opts)
     Provider = "provider",
   }
 
-  M.chat_handler = Chat:new(M.options, M.providers, M.available_providers, available_models, M.cmd)
+  M.chat_handler = ChatHandler:new(M.options, M.providers, M.available_providers, available_models, M.cmd)
   M.chat_handler:prepare_commands()
   M.add_default_commands(M.cmd, M.hooks, M.options)
   M.chat_handler:buf_handler()
@@ -365,8 +365,8 @@ M.ChatNew = function(params, chat_prompt)
   M.chat_handler:chat_new(params, chat_prompt)
 end
 
-M.get_model = function(type)
-  return M.chat_handler:get_model(type)
+M.get_model = function(model_type)
+  return M.chat_handler:get_model(model_type)
 end
 
 M.register_hooks = function(hooks, options)
