@@ -1169,7 +1169,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
-    local prov = self:get_provider(true)
+    local prov = self:get_provider(false)
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
 

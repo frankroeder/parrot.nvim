@@ -96,7 +96,7 @@ function Ollama:get_available_models()
       table.insert(names, model.name)
     end
   else
-    return { "No model found, please download" }
+    return { "Model not found. Please use 'ollama pull' to download one." }
   end
   return names
 end

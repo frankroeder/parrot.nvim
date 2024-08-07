@@ -38,9 +38,8 @@ Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://githu
 ## Demo
 
 Seamlessly switch between providers and models.
-TODO: replace
 <div align="left">
-    <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/da44ebb0-e705-4ea6-b7c0-1a93c6ba034f" width="100%">
+    <img src="https://github.com/user-attachments/assets/bc7f68f8-88e7-4ac3-9ee1-0c38da7f8d88" width="100%">
 </div>
 
 ---
@@ -162,7 +161,7 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtVnew`                 | Prompt the model to respond in a vsplit       |
 | `PrtTabnew`               | Prompt the model to respond in a new tab      |
 |  __Example Hooks__        | |
-| `PrtImplement`            | implements/translates the visual selection comment into code |
+| `PrtImplement`            | takes the visual selection as prompt to generate code |
 | `PrtAsk`                  | Ask the model a question                      |
 
 With `<target>`, we indicate the command to open the chat within one of the following target locations (defaults to `toggle_target`):
@@ -183,8 +182,30 @@ to consider a visual selection within an API request.
 
 ```lua
 {
-    -- The provider definitions with endpoints, api keys and models used for chat summarization
-    providers = ...
+    -- The provider definitions include endpoints, API keys, default parameters,
+    -- and topic model arguments for chat summarization, with an example provided for Anthropic.
+    providers = {
+      anthropic = {
+        api_key = os.getenv "ANTHROPIC_API_KEY",
+        endpoint = "https://api.anthropic.com/v1/messages",
+        topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
+        topic = {
+          model = "claude-3-haiku-20240307",
+          params = { max_tokens = 32 },
+        },
+        params = {
+          chat = { max_tokens = 4096 },
+          command = { max_tokens = 4096 },
+        },
+      },
+      ...
+    }
+
+    -- default system prompts used for the chat sessions and the command routines
+    system_prompt = {
+      chat = ...,
+      command = ...
+    },
 
     -- the prefix used for all commands
     cmd_prefix = "Prt",
@@ -373,7 +394,7 @@ require("parrot").setup {
     -- ...
     hooks = {
     	CompleteFullContext = function(prt, params)
-    	  local template = [[
+          local template = [[
           I have the following code from {{filename}}:
 
           ```{{filetype}}
@@ -388,9 +409,9 @@ require("parrot").setup {
           Please finish the code above carefully and logically.
           Respond just with the snippet of code that should be inserted.
           ]]
-    	  local model_obj = prt.get_model()
-    	  prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
-    	end,
+          local model_obj = prt.get_model()
+          prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
+        end,
     }
     -- ...
 }
@@ -416,7 +437,7 @@ require("parrot").setup {
           ```{{filetype}}
           {{filecontent}}
           ```
-				]]
+        ]]
         prt.ChatNew(params, chat_prompt)
       end,
     }

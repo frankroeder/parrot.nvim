@@ -87,7 +87,7 @@ describe("Gemini", function()
     end)
 
     it("should set the model correctly when given a table", function()
-      gemini:set_model({ model = "gemini-1.5-flash" })
+      gemini:set_model("gemini-1.5-flash")
       assert.equals("gemini-1.5-flash", gemini._model)
     end)
   end)

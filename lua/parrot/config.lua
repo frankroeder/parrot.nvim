@@ -93,9 +93,9 @@ local defaults = {
     anthropic = {
       api_key = "",
       endpoint = "https://api.anthropic.com/v1/messages",
-      topic_prompt = "You only respond with 2 to 3 words to summarize the past conversation.",
+      topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
       topic = {
-        model = "claude-3-sonnet-20240229",
+        model = "claude-3-haiku-20240307",
         params = { max_tokens = 32 },
       },
       params = {
@@ -107,7 +107,7 @@ local defaults = {
       api_key = "",
       endpoint = "https://api.mistral.ai/v1/chat/completions",
       topic_prompt = [[
-			Summarize the chat above and only provide a short headline of 2 to 3
+			Summarize the chat above and only provide a short headline of 3 to 4
 			words without any opening phrase like "Sure, here is the summary",
 			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
 			]],
