@@ -306,12 +306,12 @@ function M.setup(opts)
   M.options.hooks = nil
 
   -- resolve symlinks
-  local stat = vim.uv.fs_lstat(M.options.chat_dir)
-  if stat and stat.type == "link" then
+  local chat_dir_stat = vim.uv.fs_lstat(M.options.chat_dir)
+  if chat_dir_stat and chat_dir_stat.type == "link" then
     M.options.chat_dir = vim.fn.resolve(M.options.chat_dir)
   end
-  local stat = vim.uv.fs_lstat(M.options.state_dir)
-  if stat and stat.type == "link" then
+  local state_dir_stat = vim.uv.fs_lstat(M.options.state_dir)
+  if state_dir_stat  and state_dir_stat  .type == "link" then
     M.options.state_dir = vim.fn.resolve(M.options.state_dir)
   end
 

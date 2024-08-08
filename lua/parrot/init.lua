@@ -2,7 +2,7 @@ local M = {}
 
 M.did_setup = false
 
----@param opts? wk.Opts
+---@param opts? table
 function M.setup(opts)
   M.did_setup = true
   require("parrot.config").setup(opts)

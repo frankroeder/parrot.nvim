@@ -17,7 +17,6 @@ function Queries:add(qid, data)
 end
 
 --- Returns an iterator function for the queries in the collection.
---- @return function # An iterator function for the queries.
 function Queries:pairs()
   return pairs(self._queries)
 end

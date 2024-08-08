@@ -201,7 +201,8 @@ M.template_render = function(template, command, selection, filetype, filename, f
 end
 
 ---@param messages table
----@param model string | table | nil
+---@param model_name string
+---@param params table
 M.prepare_payload = function(messages, model_name, params)
   local model_req = {
     messages = messages,
@@ -273,7 +274,7 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
   local selection = table.concat(lines, "\n")
   if selection ~= "" then
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf))
+    local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf), {})
     local fname = vim.api.nvim_buf_get_name(origin_buf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(origin_buf, 0, -1, false), "\n")
     local multifilecontent = M.get_all_buffer_content()

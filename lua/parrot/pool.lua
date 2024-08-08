@@ -47,7 +47,6 @@ function Pool:is_empty()
 end
 
 --- Returns an iterator function for the processes in the pool.
---- @return function # An iterator function for the processes.
 function Pool:ipairs()
   return ipairs(self._processes)
 end
