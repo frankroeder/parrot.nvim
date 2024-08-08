@@ -983,11 +983,12 @@ function ChatHandler:model(params)
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+  local fetch_online = true
 
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
   elseif has_fzf then
-    fzf_lua.fzf_exec(prov:get_available_models(), {
+    fzf_lua.fzf_exec(prov:get_available_models(fetch_online), {
       prompt = "Model selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       complete = function(selection)
@@ -1000,7 +1001,7 @@ function ChatHandler:model(params)
       end,
     })
   else
-    vim.ui.select(prov:get_available_models(), {
+    vim.ui.select(prov:get_available_models(fetch_online), {
       prompt = "Select your model:",
     }, function(selected_model)
       self:switch_model(is_chat, selected_model, prov)

@@ -91,10 +91,9 @@ function OpenAI:process_onexit(res)
   end
 end
 
-function OpenAI:get_available_models()
+function OpenAI:get_available_models(online)
   -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
-
-  if self:verify() then
+  if online and self:verify() then
     Job:new({
       command = "curl",
       args = {

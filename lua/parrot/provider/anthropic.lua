@@ -39,7 +39,7 @@ function Anthropic:preprocess_payload(payload)
   if payload.messages[1].role == "system" then
     local system_prompt = payload.messages[1].content
     -- remove the first message that serves as the system prompt as anthropic
-    -- expects the system prompt to be part of the curl request and not the messages
+    -- expects the system prompt to be part of the curl request body and not the messages
     table.remove(payload.messages, 1)
     payload.system = system_prompt
   end

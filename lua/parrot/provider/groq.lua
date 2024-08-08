@@ -93,8 +93,8 @@ function Groq:process_onexit(res)
   end
 end
 
-function Groq:get_available_models()
-  if self:verify() then
+function Groq:get_available_models(online)
+  if online and self:verify() then
     Job:new({
       command = "curl",
       args = {

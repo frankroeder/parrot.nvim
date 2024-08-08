@@ -79,27 +79,30 @@ end
 
 function Ollama:get_available_models()
   -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
-  local job = Job:new({
-    command = "curl",
-    args = { "-H", "Content-Type: application/json", "http://localhost:11434/api/tags" },
-  }):sync()
+  if vim.fn.executable("ollama") then
+    local job = Job:new({
+      command = "curl",
+      args = { "-H", "Content-Type: application/json", "http://localhost:11434/api/tags" },
+    }):sync()
 
-  local parsed_response = utils.parse_raw_response(job)
-  local success, parsed_data = pcall(vim.json.decode, parsed_response)
-  if not success then
-    logger.error("Error parsing JSON:" .. vim.inspect(parsed_data))
-    return {}
-  end
-  local names = {}
-  if parsed_data.models then
-    for _, model in ipairs(parsed_data.models) do
-      table.insert(names, model.name)
+    local parsed_response = utils.parse_raw_response(job)
+    local success, parsed_data = pcall(vim.json.decode, parsed_response)
+    if not success then
+      logger.error("Error parsing JSON:" .. vim.inspect(parsed_data))
+      return {}
     end
-  else
-    logger.error("No models found. Please use 'ollama pull' to download one.")
-    return {}
+    local names = {}
+    if parsed_data.models then
+      for _, model in ipairs(parsed_data.models) do
+        table.insert(names, model.name)
+      end
+    else
+      logger.error("No models found. Please use 'ollama pull' to download one.")
+      return {}
+    end
+    return names
   end
-  return names
+  return {}
 end
 
 return Ollama
