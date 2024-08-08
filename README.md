@@ -13,7 +13,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 > [!WARNING]
 > Version 0.4.x introduces breaking changes, including the removal of agents and
 > modifications to some hook functions. Please review the updated documentation
-> and adjust your implementation accordingly.
+> and adjust your configuration accordingly.
 
 > [!NOTE]
 > This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
