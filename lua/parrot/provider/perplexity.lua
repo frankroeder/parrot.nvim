@@ -31,8 +31,8 @@ end
 function Perplexity:set_model(_) end
 
 function Perplexity:preprocess_payload(payload)
-  -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
+    -- strip whitespace from ends of content
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
   return utils.filter_payload_parameters(available_api_parameters, payload)

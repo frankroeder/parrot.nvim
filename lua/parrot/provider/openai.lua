@@ -37,8 +37,8 @@ end
 function OpenAI:set_model(_) end
 
 function OpenAI:preprocess_payload(payload)
-  -- strip whitespace from ends of content
   for _, message in ipairs(payload.messages) do
+    -- strip whitespace from ends of content
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
   return utils.filter_payload_parameters(available_api_parameters, payload)
@@ -103,6 +103,7 @@ function OpenAI:get_available_models(online)
       },
       on_exit = function(job)
         local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
         local ids = {}
         for _, item in ipairs(vim.json.decode(parsed_response).data) do
           table.insert(ids, item.id)

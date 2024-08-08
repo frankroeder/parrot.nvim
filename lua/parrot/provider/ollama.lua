@@ -10,7 +10,6 @@ local available_api_parameters = {
   -- optional
   ["mirostat"] = true,
   ["mirostat_tau"] = true,
-  ["mirostat_tau"] = true,
   ["num_ctx"] = true,
   ["repeat_last_n"] = true,
   ["repeat_penalty"] = true,
@@ -79,13 +78,14 @@ end
 
 function Ollama:get_available_models()
   -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
-  if vim.fn.executable("ollama") then
+  if self.ollama_installed then
     local job = Job:new({
       command = "curl",
       args = { "-H", "Content-Type: application/json", "http://localhost:11434/api/tags" },
     }):sync()
 
     local parsed_response = utils.parse_raw_response(job)
+    self:process_onexit(parsed_response)
     local success, parsed_data = pcall(vim.json.decode, parsed_response)
     if not success then
       logger.error("Error parsing JSON:" .. vim.inspect(parsed_data))

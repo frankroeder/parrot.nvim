@@ -5,10 +5,9 @@ local Anthropic = require("parrot.provider.anthropic")
 local Perplexity = require("parrot.provider.perplexity")
 local Mistral = require("parrot.provider.mistral")
 local Groq = require("parrot.provider.groq")
+local logger = require("parrot.logger")
 
-local M = {
-  logger = require("parrot.logger"),
-}
+local M = {}
 
 ---@param prov_name string # name of the provider
 ---@param endpoint string # API endpoint for the provider
@@ -27,10 +26,9 @@ M.init_provider = function(prov_name, endpoint, api_key)
 
   local ProviderClass = providers[prov_name]
   if not ProviderClass then
-    M.logger.error("Unknown provider " .. prov_name)
+    logger.error("Unknown provider " .. prov_name)
     return {}
   end
-
   return ProviderClass:new(endpoint, api_key)
 end
 

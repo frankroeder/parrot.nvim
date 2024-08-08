@@ -106,6 +106,7 @@ function Groq:get_available_models(online)
       },
       on_exit = function(job)
         local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
         local ids = {}
         for _, item in ipairs(vim.json.decode(parsed_response).data) do
           table.insert(ids, item.id)
