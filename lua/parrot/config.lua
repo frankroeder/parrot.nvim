@@ -145,6 +145,7 @@ local defaults = {
   chat_user_prefix = "🗨:",
   llm_prefix = "🦜:",
   chat_confirm_delete = true,
+  online_model_selection = false,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
   chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },

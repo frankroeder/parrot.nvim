@@ -983,7 +983,7 @@ function ChatHandler:model(params)
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
-  local fetch_online = true
+  local fetch_online = self.options.online_model_selection
 
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)

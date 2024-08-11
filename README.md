@@ -234,6 +234,9 @@ to consider a visual selection within an API request.
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
 
+    -- When available, call API for model selection
+    online_model_selection = false,
+
     -- Local chat buffer shortcuts
     chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
     chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
