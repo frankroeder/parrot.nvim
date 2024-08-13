@@ -148,8 +148,8 @@ function Groq:get_available_models(online)
     }):start()
   end
   return {
-    "llama-3.1-405b-reasoning",
     "llama-3.1-70b-versatile",
+    "llama-3.1-405b-reasoning",
     "llama-3.1-8b-instant",
     "llama3-groq-70b-8192-tool-use-preview",
     "llama3-groq-8b-8192-tool-use-preview",
