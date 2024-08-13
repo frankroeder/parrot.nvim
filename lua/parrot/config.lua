@@ -312,7 +312,7 @@ function M.setup(opts)
     M.options.chat_dir = vim.fn.resolve(M.options.chat_dir)
   end
   local state_dir_stat = vim.uv.fs_lstat(M.options.state_dir)
-  if state_dir_stat  and state_dir_stat  .type == "link" then
+  if state_dir_stat and state_dir_stat.type == "link" then
     M.options.state_dir = vim.fn.resolve(M.options.state_dir)
   end
 
