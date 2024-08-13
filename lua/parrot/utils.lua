@@ -2,12 +2,14 @@ local pft = require("plenary.filetype")
 
 local M = {}
 
---- Trim leading whitespace and tabs from a string.
+-- Trim leading whitespace and tabs from a string.
 ---@param str string # The input string to be trimmed.
+---@return string # The trimmed string.
 M.trim = function(str)
   return str:gsub("^[\t ]+", ""):gsub("\n[\t ]+", "\n")
 end
 
+-- Feed keys to Neovim.
 ---@param keys string # string of keystrokes
 ---@param mode string # string of vim mode ('n', 'i', 'c', etc.), default is 'n'
 M.feedkeys = function(keys, mode)
@@ -16,6 +18,7 @@ M.feedkeys = function(keys, mode)
   vim.api.nvim_feedkeys(keys, mode, true)
 end
 
+-- Set keymap for multiple buffers.
 ---@param buffers table # table of buffers
 ---@param mode table | string # mode(s) to set keymap for
 ---@param key string # shortcut key
@@ -33,6 +36,7 @@ M.set_keymap = function(buffers, mode, key, callback, desc)
   end
 end
 
+-- Create an autocommand for specified events and buffers.
 ---@param events string | table # events to listen to
 ---@param buffers table | nil # buffers to listen to (nil for all buffers)
 ---@param callback function # callback to call
@@ -54,6 +58,7 @@ M.autocmd = function(events, buffers, callback, gid)
   end
 end
 
+-- Delete all buffers with a given file name.
 ---@param file_name string # name of the file for which to delete buffers
 M.delete_buffer = function(file_name)
   -- iterate over buffer list and close all buffers with the same name
@@ -64,6 +69,7 @@ M.delete_buffer = function(file_name)
   end
 end
 
+-- Generate a unique UUID.
 ---@return string # returns unique uuid
 M.uuid = function()
   local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
@@ -73,6 +79,7 @@ M.uuid = function()
   end)
 end
 
+-- Create a new augroup with a unique name.
 ---@param name string # name of the augroup
 ---@param opts table | nil # options for the augroup
 ---@return number # returns augroup id
@@ -80,6 +87,7 @@ M.create_augroup = function(name, opts)
   return vim.api.nvim_create_augroup(name .. "_" .. M.uuid(), opts or { clear = true })
 end
 
+-- Find the last line with content in a buffer.
 ---@param buf number # buffer number
 ---@return number # returns the first line with content of specified buffer
 M.last_content_line = function(buf)
@@ -96,6 +104,7 @@ M.last_content_line = function(buf)
   return 0
 end
 
+-- Move the cursor to a specific line in a buffer and window.
 ---@param line number # line number
 ---@param buf number # buffer number
 ---@param win number | nil # window number
@@ -114,20 +123,25 @@ M.cursor_to_line = function(line, buf, win)
   vim.api.nvim_win_set_cursor(win, { line, 0 })
 end
 
+-- Check if a string starts with a given substring.
 ---@param str string # string to check
 ---@param start string # string to check for
+---@return boolean
 M.starts_with = function(str, start)
   return str:sub(1, #start) == start
 end
 
+-- Check if a string ends with a given substring.
 ---@param str string # string to check
 ---@param ending string # string to check for
+---@return boolean
 M.ends_with = function(str, ending)
   return ending == "" or str:sub(-#ending) == ending
 end
 
+-- Get the buffer number for a file with a given name.
 ---@param file_name string # name of the file for which to get buffer
----@return number | nil # buffer number
+---@return number | nil
 M.get_buffer = function(file_name)
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(b) then
@@ -139,6 +153,7 @@ M.get_buffer = function(file_name)
   return nil
 end
 
+-- Join the current change with the previous one in the undo history.
 ---@param buf number # buffer number
 M.undojoin = function(buf)
   if not buf or not vim.api.nvim_buf_is_loaded(buf) then
@@ -153,7 +168,11 @@ M.undojoin = function(buf)
   end
 end
 
--- returns rendered template with specified key replaced by value
+-- Replace a key in a template string with a given value.
+---@param template string # The template string
+---@param key string # The key to replace
+---@param value string|table # The value to replace the key with
+---@return string # The rendered template
 M.template_replace = function(template, key, value)
   if template == nil then
     return nil
@@ -173,6 +192,7 @@ M.template_replace = function(template, key, value)
   return template
 end
 
+-- Render a template by replacing multiple keys with their corresponding values.
 ---@param template string | nil # template string
 ---@param key_value_pairs table # table with key value pairs
 ---@return string | nil # returns rendered template with keys replaced by values from key_value_pairs
@@ -188,6 +208,15 @@ M.template_render_from_list = function(template, key_value_pairs)
   return template
 end
 
+-- Render a template with specific placeholders.
+---@param template string # The template string
+---@param command string # The command
+---@param selection string # The selected text
+---@param filetype string # The file type
+---@param filename string # The file name
+---@param filecontent string # The file content
+---@param multifilecontent string # The content of multiple files
+---@return string # The rendered template
 M.template_render = function(template, command, selection, filetype, filename, filecontent, multifilecontent)
   local key_value_pairs = {
     ["{{command}}"] = command,
@@ -200,9 +229,11 @@ M.template_render = function(template, command, selection, filetype, filename, f
   return M.template_render_from_list(template, key_value_pairs)
 end
 
----@param messages table
----@param model_name string
----@param params table
+-- Prepare the payload for a model request.
+---@param messages table # The messages to include in the request
+---@param model_name string # The name of the model
+---@param params table # Additional parameters for the request
+---@return table
 M.prepare_payload = function(messages, model_name, params)
   local model_req = {
     messages = messages,
@@ -231,10 +262,11 @@ M.prepare_payload = function(messages, model_name, params)
   return model_req
 end
 
+-- Check if a buffer is a chat file.
 ---@param buf number # buffer number
 ---@param file_name string # name of the file
 ---@param chat_dir string # directory path for chat files
----@return boolean # returns true if file is a chat file
+---@return boolean
 M.is_chat = function(buf, file_name, chat_dir)
   if not M.starts_with(file_name, chat_dir) then
     return false
@@ -252,6 +284,8 @@ M.is_chat = function(buf, file_name, chat_dir)
   return true
 end
 
+-- Get the content of all loaded buffers.
+---@return string
 M.get_all_buffer_content = function()
   local buffers = vim.api.nvim_list_bufs()
   local content = {}
@@ -266,9 +300,11 @@ M.get_all_buffer_content = function()
   return table.concat(content, "\n\n")
 end
 
+-- Append selected text to a target buffer.
 ---@param params table # table with command args
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
+---@param template_selection string # template for formatting the selection
 M.append_selection = function(params, origin_buf, target_buf, template_selection)
   -- prepare selection
   local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
@@ -294,9 +330,10 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
 end
 
---- @param table table<string, any> # the table to check
---- @param valid_keys string[] # valid key names to look for
---- @return boolean # true if at least one valid key is found, false otherwise
+-- Check if a table has at least one of the specified valid keys.
+---@param table table<string, any> # the table to check
+---@param valid_keys string[] # valid key names to look for
+---@return boolean
 M.has_valid_key = function(table, valid_keys)
   for _, key in ipairs(valid_keys) do
     if table[key] ~= nil then
@@ -306,6 +343,10 @@ M.has_valid_key = function(table, valid_keys)
   return false
 end
 
+-- Check if a table contains a specific value.
+---@param table table # The table to search
+---@param val any # The value to search for
+---@return boolean
 M.contains = function(table, val)
   for i = 1, #table do
     if table[i] == val then
@@ -315,6 +356,10 @@ M.contains = function(table, val)
   return false
 end
 
+-- Filter payload parameters based on valid parameters.
+---@param valid_parameters table
+---@param payload table
+---@return table
 M.filter_payload_parameters = function(valid_parameters, payload)
   local new_payload = {}
   for key, value in pairs(valid_parameters) do
@@ -332,6 +377,9 @@ M.filter_payload_parameters = function(valid_parameters, payload)
   return new_payload
 end
 
+-- Parse a raw response, converting it to a string if necessary.
+---@param response string|table|nil # The raw response to parse
+---@return string|nil
 M.parse_raw_response = function(response)
   if response ~= nil then
     if type(response) == "table" then

@@ -2,6 +2,7 @@ local ui = require("parrot.ui")
 local utils = require("parrot.utils")
 
 local M = {}
+
 ---@param params table | string # table with args or string args
 ---@return number # buf target
 M.resolve_buf_target = function(params)
@@ -113,6 +114,7 @@ M.create_handler = function(queries, buf, win, line, first_undojoin, prefix, cur
     end
   end)
 end
+
 ---@param buf number | nil # buffer number
 M.prep_md = function(buf)
   -- disable swapping for this buffer and set filetype to markdown

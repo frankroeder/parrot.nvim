@@ -4,7 +4,7 @@ local Queries = {}
 Queries.__index = Queries
 
 --- Creates a new Queries instance.
---- @return table # A new Queries instance.
+--- @return table
 function Queries:new()
   return setmetatable({ _queries = {} }, self)
 end

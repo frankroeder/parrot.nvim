@@ -68,7 +68,7 @@ describe("Anthropic", function()
 
       anthropic:process_onexit(input)
 
-      assert.spy(logger_mock.error).was_called_with("Anthropic - message:invalid x-api-key type:authentication_error")
+      assert.spy(logger_mock.error).was_called_with("Anthropic - message: invalid x-api-key type: authentication_error")
     end)
   end)
 

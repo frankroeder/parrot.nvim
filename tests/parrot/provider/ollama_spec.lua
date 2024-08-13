@@ -31,7 +31,7 @@ describe("Ollama", function()
 
       assert
         .spy(logger_mock.error)
-        .was_called_with("Ollama - code: model 'llama5:latest' not found, try pulling it first")
+        .was_called_with("Ollama - error: model 'llama5:latest' not found, try pulling it first")
     end)
 
     it("should not log anything for successful responses", function()

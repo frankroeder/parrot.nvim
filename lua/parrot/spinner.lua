@@ -3,7 +3,7 @@ Spinner.__index = Spinner
 
 --- Creates a new Spinner instance.
 --- @param spinner_type string # The type of spinner to use.
---- @return table # A new Spinner instance.
+--- @return table
 function Spinner:new(spinner_type)
   local instance = setmetatable({}, self)
   instance.spinner_type = spinner_type

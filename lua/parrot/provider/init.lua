@@ -11,8 +11,8 @@ local M = {}
 
 ---@param prov_name string # name of the provider
 ---@param endpoint string # API endpoint for the provider
----@param api_key string # API key for authentication
----@return table # returns initialized provider instance or nil
+---@param api_key string|table # API key or routine for authentication
+---@return table # returns initialized provider
 M.init_provider = function(prov_name, endpoint, api_key)
   local providers = {
     ollama = Ollama,

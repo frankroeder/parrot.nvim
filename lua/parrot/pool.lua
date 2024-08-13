@@ -2,20 +2,20 @@ local Pool = {}
 Pool.__index = Pool
 
 --- Creates a new Pool instance.
---- @return table # A new Pool instance.
+--- @return table
 function Pool:new()
   return setmetatable({ _processes = {} }, self)
 end
 
 --- Adds a process to the pool.
 --- @param job table # A plenary job.
---- @param buf number|nil # The buffer number, optional.
+--- @param buf number|nil # The buffer number (optional)
 function Pool:add(job, buf)
   table.insert(self._processes, { job = job, buf = buf })
 end
 
 --- Checks if there is no other process running for the given buffer.
---- @param buf number|nil # The buffer number, optional.
+--- @param buf number|nil # The buffer number (optional)
 --- @return boolean # True if no other process is running for the buffer, false otherwise.
 function Pool:unique_for_buffer(buf)
   if buf == nil then
@@ -41,7 +41,7 @@ function Pool:remove(pid)
 end
 
 --- Checks if the pool is empty.
---- @return boolean # True if the pool is empty, false otherwise.
+--- @return boolean
 function Pool:is_empty()
   return next(self._processes) == nil
 end

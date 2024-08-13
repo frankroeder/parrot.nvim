@@ -39,7 +39,7 @@ describe("Gemini", function()
 
       assert
         .spy(logger_mock.error)
-        .was_called_with("GEMINI - code: 400 message:API key not valid. Please pass a valid API key. status:INVALID_ARGUMENT")
+        .was_called_with("GEMINI - code: 400 message: API key not valid. Please pass a valid API key. status: INVALID_ARGUMENT")
     end)
   end)
 

@@ -2,35 +2,44 @@ local logger = require("parrot.logger")
 local utils = require("parrot.utils")
 local Job = require("plenary.job")
 
+---@class Groq
+---@field endpoint string
+---@field api_key string|table
+---@field name string
 local Groq = {}
 Groq.__index = Groq
 
+-- Available API parameters for Groq
 -- https://console.groq.com/docs/api-reference#chat-create
-local available_api_parameters = {
+local AVAILABLE_API_PARAMETERS = {
   -- required
-  ["model"] = true,
-  ["messages"] = true,
+  model = true,
+  messages = true,
   -- optional
-  ["frequency_penalty"] = true,
-  ["logit_bias"] = true,
-  ["logprobs"] = true,
-  ["max_tokens"] = true,
-  ["n"] = true,
-  ["parallel_tool_calls"] = true,
-  ["presence_penalty"] = true,
-  ["response_format"] = true,
-  ["seed"] = true,
-  ["stop"] = true,
-  ["stream"] = true,
-  ["stream_options"] = true,
-  ["temperature"] = true,
-  ["tool_choice"] = true,
-  ["tools"] = true,
-  ["top_logprobs"] = true,
-  ["top_p"] = true,
-  ["user"] = true,
+  frequency_penalty = true,
+  logit_bias = true,
+  logprobs = true,
+  max_tokens = true,
+  n = true,
+  parallel_tool_calls = true,
+  presence_penalty = true,
+  response_format = true,
+  seed = true,
+  stop = true,
+  stream = true,
+  stream_options = true,
+  temperature = true,
+  tool_choice = true,
+  tools = true,
+  top_logprobs = true,
+  top_p = true,
+  user = true,
 }
 
+-- Creates a new Groq instance
+---@param endpoint string
+---@param api_key string|table
+---@return Groq
 function Groq:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
@@ -39,15 +48,21 @@ function Groq:new(endpoint, api_key)
   }, self)
 end
 
-function Groq:set_model(_) end
+-- Placeholder for setting model (not implemented)
+function Groq:set_model(model) end
 
+-- Preprocesses the payload before sending to the API
+---@param payload table
+---@return table
 function Groq:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-  return utils.filter_payload_parameters(available_api_parameters, payload)
+  return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
 
+-- Returns the curl parameters for the API request
+---@return table
 function Groq:curl_params()
   return {
     self.endpoint,
@@ -56,29 +71,41 @@ function Groq:curl_params()
   }
 end
 
+-- Verifies the API key or executes a routine to retrieve it
+---@return boolean
 function Groq:verify()
   if type(self.api_key) == "table" then
     local command = table.concat(self.api_key, " ")
     local handle = io.popen(command)
     if handle then
       self.api_key = handle:read("*a"):gsub("%s+", "")
+      handle:close()
+      return true
     else
-      logger.error("Error verifying api key of " .. self.name)
+      logger.error("Error verifying API key of " .. self.name)
+      return false
     end
-    handle:close()
-    return true
-  elseif self.api_key and string.match(self.api_key, "%S") then
+  elseif self.api_key and self.api_key:match("%S") then
     return true
   else
-    logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
 end
 
+-- Processes the stdout from the API response
+---@param response string
+---@return string|nil
 function Groq:process_stdout(response)
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
     local success, content = pcall(vim.json.decode, response)
-    if success and content.choices then
+    if
+      success
+      and content.choices
+      and content.choices[1]
+      and content.choices[1].delta
+      and content.choices[1].delta.content
+    then
       return content.choices[1].delta.content
     else
       logger.debug("Could not process response " .. response)
@@ -86,6 +113,8 @@ function Groq:process_stdout(response)
   end
 end
 
+-- Processes the onexit event from the API response
+---@param res string
 function Groq:process_onexit(res)
   local success, parsed = pcall(vim.json.decode, res)
   if success and parsed.error then
@@ -93,6 +122,9 @@ function Groq:process_onexit(res)
   end
 end
 
+-- Returns the list of available models
+---@param online boolean
+---@return string[]
 function Groq:get_available_models(online)
   if online and self:verify() then
     Job:new({

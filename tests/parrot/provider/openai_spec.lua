@@ -31,7 +31,7 @@ describe("OpenAI", function()
       openai:process_onexit(input)
 
       assert.spy(logger_mock.error).was_called_with(
-        "OpenAI - code: invalid_api_key message:Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys. type:invalid_request_error"
+        "OpenAI - code: invalid_api_key message: Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys. type: invalid_request_error"
       )
     end)
 

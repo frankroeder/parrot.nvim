@@ -6,7 +6,7 @@ State.__index = State
 
 --- Creates a new State instance.
 --- @param state_dir string # Directory where the state file is located.
---- @return table # Returns a new state instance.
+--- @return table
 function State:new(state_dir)
   local state_file = state_dir .. "/state.json"
   local file_state = vim.fn.filereadable(state_file) ~= 0 and futils.file_to_table(state_file) or {}
@@ -14,7 +14,7 @@ function State:new(state_dir)
 end
 
 --- Initializes file state for each provider if it's empty.
---- @param available_providers table # A table of available providers.
+--- @param available_providers table
 function State:init_file_state(available_providers)
   self.file_state.current_provider = self.file_state.current_provider or { chat = "", command = "" }
   if next(self.file_state) == nil then
@@ -39,7 +39,7 @@ end
 --- Loads model for the specified provider and type.
 --- @param provider string # Name of the provider.
 --- @param model_type string # Type of model (e.g., "chat_model", "command_model").
---- @param available_models table # A table containing available models for all providers.
+--- @param available_models table
 function State:load_models(provider, model_type, available_models)
   local state_model = self.file_state and self.file_state[provider] and self.file_state[provider][model_type]
   local is_valid_model = false
@@ -60,8 +60,8 @@ function State:load_models(provider, model_type, available_models)
 end
 
 --- Refreshes the state with available providers and their models.
---- @param available_providers table # Available providers.
---- @param available_models table # Available models.
+--- @param available_providers table
+--- @param available_models table
 function State:refresh(available_providers, available_models)
   self:init_file_state(available_providers)
   self:init_state(available_providers, available_models)
@@ -88,7 +88,7 @@ function State:save()
 end
 
 --- Sets the current provider.
---- @param provider string # Name of the provider to set.
+--- @param provider string # Name of the provider
 function State:set_provider(provider, is_chat)
   if is_chat then
     self._state.current_provider.chat = provider
@@ -98,7 +98,7 @@ function State:set_provider(provider, is_chat)
 end
 
 --- Gets the current provider.
---- @return string|nil # Returns the current provider name, or nil if not set.
+--- @return string|nil
 function State:get_provider(is_chat)
   if is_chat then
     return self.file_state.current_provider.chat or self._state.current_provider.chat
@@ -109,7 +109,7 @@ end
 
 --- Sets the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
---- @param model table # Model details.
+--- @param model string # Provider model name
 --- @param atype string # Type of the model ('chat' or 'command').
 function State:set_model(provider, model, atype)
   if atype == "chat" then
@@ -122,7 +122,7 @@ end
 --- Returns the model for a specific provider and interaction type.
 --- @param provider string # Provider name.
 --- @param model_type string # Type of model ('chat' or 'command').
---- @return table|nil # Returns the model string
+--- @return table|nil
 function State:get_model(provider, model_type)
   if model_type == "chat" then
     return self._state[provider].chat_model or self.file_state[provider].chat_model
@@ -138,7 +138,7 @@ function State:set_last_chat(chat_file_path)
 end
 
 --- Returns the last opened chat file path.
---- @return string|nil # Returns the last opened chat file path.
+--- @return string|nil
 function State:get_last_chat()
   return self._state.last_chat
 end

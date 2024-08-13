@@ -2,30 +2,39 @@ local logger = require("parrot.logger")
 local utils = require("parrot.utils")
 local Job = require("plenary.job")
 
+---@class OpenAI
+---@field endpoint string
+---@field api_key string|table
+---@field name string
 local OpenAI = {}
 OpenAI.__index = OpenAI
 
--- https://platform.openai.com/docs/api-reference/chat/create
-local available_api_parameters = {
+-- Available API parameters for OpenAI
+-- https://platform.openai.com/docs/api-reference/chat
+local AVAILABLE_API_PARAMETERS = {
   -- required
-  ["messages"] = true,
-  ["model"] = true,
+  messages = true,
+  model = true,
   -- optional
-  ["frequency_penalty"] = true,
-  ["logit_bias"] = true,
-  ["logprobs"] = true,
-  ["top_logprobs"] = true,
-  ["max_tokens"] = true,
-  ["presence_penalty"] = true,
-  ["seed"] = true,
-  ["stop"] = true,
-  ["stream"] = true,
-  ["temperature"] = true,
-  ["top_p"] = true,
-  ["tools"] = true,
-  ["tool_choice"] = true,
+  frequency_penalty = true,
+  logit_bias = true,
+  logprobs = true,
+  top_logprobs = true,
+  max_tokens = true,
+  presence_penalty = true,
+  seed = true,
+  stop = true,
+  stream = true,
+  temperature = true,
+  top_p = true,
+  tools = true,
+  tool_choice = true,
 }
 
+-- Creates a new OpenAI instance
+---@param endpoint string
+---@param api_key string|table
+---@return OpenAI
 function OpenAI:new(endpoint, api_key)
   return setmetatable({
     endpoint = endpoint,
@@ -34,16 +43,21 @@ function OpenAI:new(endpoint, api_key)
   }, self)
 end
 
+-- Placeholder for setting model (not implemented)
 function OpenAI:set_model(_) end
 
+-- Preprocesses the payload before sending to the API
+---@param payload table
+---@return table
 function OpenAI:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
-    -- strip whitespace from ends of content
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
-  return utils.filter_payload_parameters(available_api_parameters, payload)
+  return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
 
+-- Returns the curl parameters for the API request
+---@return table
 function OpenAI:curl_params()
   return {
     self.endpoint,
@@ -52,47 +66,68 @@ function OpenAI:curl_params()
   }
 end
 
+-- Verifies the API key or executes a routine to retrieve it
+---@return boolean
 function OpenAI:verify()
   if type(self.api_key) == "table" then
     local command = table.concat(self.api_key, " ")
     local handle = io.popen(command)
     if handle then
       self.api_key = handle:read("*a"):gsub("%s+", "")
+      handle:close()
+      return true
     else
-      logger.error("Error verifying api key of " .. self.name)
+      logger.error("Error verifying API key of " .. self.name)
+      return false
     end
-    handle:close()
-    return true
-  elseif self.api_key and string.match(self.api_key, "%S") then
+  elseif self.api_key and self.api_key:match("%S") then
     return true
   else
-    logger.error("Error with api key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
     return false
   end
 end
 
+-- Processes the stdout from the API response
+---@param response string
+---@return string|nil
 function OpenAI:process_stdout(response)
   if response:match("chat%.completion%.chunk") or response:match("chat%.completion") then
     local success, content = pcall(vim.json.decode, response)
-    if success and content.choices then
+    if
+      success
+      and content.choices
+      and content.choices[1]
+      and content.choices[1].delta
+      and content.choices[1].delta.content
+    then
       return content.choices[1].delta.content
     else
-      logger.debug("Could not process response " .. response)
+      logger.debug("Could not process response: " .. response)
     end
   end
 end
 
+-- Processes the onexit event from the API response
+---@param res string
 function OpenAI:process_onexit(res)
   local success, parsed = pcall(vim.json.decode, res)
   if success and parsed.error and parsed.error.message then
     logger.error(
-      "OpenAI - code: " .. parsed.error.code .. " message:" .. parsed.error.message .. " type:" .. parsed.error.type
+      string.format(
+        "OpenAI - code: %s message: %s type: %s",
+        parsed.error.code,
+        parsed.error.message,
+        parsed.error.type
+      )
     )
   end
 end
 
+-- Returns the list of available models
+---@param online boolean Whether to fetch models online
+---@return string[]
 function OpenAI:get_available_models(online)
-  -- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
   if online and self:verify() then
     Job:new({
       command = "curl",
@@ -105,8 +140,11 @@ function OpenAI:get_available_models(online)
         local parsed_response = utils.parse_raw_response(job:result())
         self:process_onexit(parsed_response)
         local ids = {}
-        for _, item in ipairs(vim.json.decode(parsed_response).data) do
-          table.insert(ids, item.id)
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.data then
+          for _, item in ipairs(decoded.data) do
+            table.insert(ids, item.id)
+          end
         end
         return ids
       end,
@@ -128,6 +166,7 @@ function OpenAI:get_available_models(online)
     "gpt-4-turbo-preview",
     "gpt-4o",
     "gpt-4o-2024-05-13",
+    "gpt-4o-2024-08-06",
     "gpt-4o-mini",
     "gpt-4o-mini-2024-07-18",
   }
