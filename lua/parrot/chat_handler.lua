@@ -1315,7 +1315,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       return
     end
 
-    local input_function = self.options.user_input_ui == "custom" and ui.input
+    local input_function = self.options.user_input_ui == "buffer" and ui.input
       or self.options.user_input_ui == "native" and vim.ui.input
     if input_function then
       input_function({ prompt = prompt }, function(input)
