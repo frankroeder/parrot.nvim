@@ -50,6 +50,8 @@ function Anthropic:preprocess_payload(payload)
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
   if payload.messages[1] and payload.messages[1].role == "system" then
+    -- remove the first message that serves as the system prompt as anthropic
+    -- expects the system prompt to be part of the API call body and not the messages
     payload.system = payload.messages[1].content
     table.remove(payload.messages, 1)
   end
@@ -85,7 +87,7 @@ function Anthropic:verify()
   elseif self.api_key and self.api_key:match("%S") then
     return true
   else
-    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key))
     return false
   end
 end

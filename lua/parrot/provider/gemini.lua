@@ -68,7 +68,6 @@ function Gemini:preprocess_payload(payload)
   return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
 
-
 -- Returns the curl parameters for the API request
 ---@return table
 function Gemini:curl_params()
@@ -98,7 +97,7 @@ function Gemini:verify()
   elseif self.api_key and self.api_key:match("%S") then
     return true
   else
-    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key))
     return false
   end
 end

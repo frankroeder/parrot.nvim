@@ -83,7 +83,7 @@ function OpenAI:verify()
   elseif self.api_key and self.api_key:match("%S") then
     return true
   else
-    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key) .. " run :checkhealth parrot")
+    logger.error("Error with API key " .. self.name .. " " .. vim.inspect(self.api_key))
     return false
   end
 end
