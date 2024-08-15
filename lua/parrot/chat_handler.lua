@@ -39,6 +39,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     },
     available_providers = available_providers,
     available_models = available_models,
+    last_selection = nil,
   }, self)
 end
 
@@ -1009,6 +1010,23 @@ function ChatHandler:model(params)
   end
 end
 
+function ChatHandler:regenerate(params)
+  logger.debug("PREV STATS")
+  logger.debug(self.last_selection)
+  logger.debug(self.last_first_line)
+  logger.debug(self.last_last_line)
+  if self.last_first_line == nil and self.last_last_line == nil then
+    return logger.error(
+      "No previous rewrite made: " .. self.last_first_line(" ") .. self.last_last_line .. " " .. self.last_selection
+    )
+  end
+  params.line1 = self.last_first_line
+  params.line2 = self.last_last_line
+  local model_obj = self:get_model("command")
+  local template = self.options.template_rewrite
+  self:prompt(params, ui.Target.rewrite, model_obj, nil, utils.trim(template))
+end
+
 function ChatHandler:prompt(params, target, model_obj, prompt, template)
   -- enew, new, vnew, tabnew should be resolved into table
   if type(target) == "function" then
@@ -1033,7 +1051,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
   local end_line = start_line
 
   -- handle range
-  if params.range == 2 then
+  if self.last_selection == nil and params.range == 2 then
     start_line = params.line1
     end_line = params.line2
     local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
@@ -1070,12 +1088,21 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       logger.warning("Please select some text to rewrite")
       return
     end
+
+    self.last_selection = selection
+  else
+    start_line = params.line1
+    end_line = params.line2
+    selection = self.last_selection
   end
 
   self._selection_first_line = start_line
   self._selection_last_line = end_line
 
   local callback = function(command)
+    if self.last_command then
+      command = self.last_command
+    end
     -- dummy handler
     local handler = function() end
     -- default on_exit strips trailing backticks if response was markdown snippet
@@ -1171,6 +1198,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
     local prov = self:get_provider(false)
+    self.last_command = command
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
 
@@ -1429,6 +1457,8 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
           qt.response = qt.response .. content
           buffer = buffer .. content
           handler(qid, content)
+          self.last_first_line = qt.first_line
+          self.last_last_line = qt.last_line - 1
         end
       end
     end,

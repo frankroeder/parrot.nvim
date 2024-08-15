@@ -349,6 +349,7 @@ function M.setup(opts)
     Context = "context",
     Model = "model",
     Provider = "provider",
+    Regenerate = "regenerate",
   }
 
   M.chat_handler = ChatHandler:new(M.options, M.providers, M.available_providers, available_models, M.cmd)
