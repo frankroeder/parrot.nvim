@@ -39,7 +39,12 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     },
     available_providers = available_providers,
     available_models = available_models,
-    last_selection = nil,
+    history = {
+      last_selection = nil,
+      last_command = nil,
+      last_line1 = nil,
+      last_line2 = nil,
+    },
   }, self)
 end
 
@@ -264,6 +269,14 @@ function ChatHandler:prepare_commands()
     end
     self.commands[command] = command
     self:addCommand(command, function(params)
+      if command ~= "Retry" then
+        self.history = {
+          last_selection = nil,
+          last_command = nil,
+          last_line1 = nil,
+          last_line2 = nil,
+        }
+      end
       cmd(params)
     end)
   end
@@ -1010,21 +1023,28 @@ function ChatHandler:model(params)
   end
 end
 
-function ChatHandler:regenerate(params)
-  logger.debug("PREV STATS")
-  logger.debug(self.last_selection)
-  logger.debug(self.last_first_line)
-  logger.debug(self.last_last_line)
-  if self.last_first_line == nil and self.last_last_line == nil then
-    return logger.error(
-      "No previous rewrite made: " .. self.last_first_line(" ") .. self.last_last_line .. " " .. self.last_selection
-    )
+function ChatHandler:retry(params)
+  if self.history.last_line1 == nil and self.history.last_line2 == nil then
+    return logger.error("No history available to retry: " .. vim.inspect(self.history))
   end
-  params.line1 = self.last_first_line
-  params.line2 = self.last_last_line
+  vim.api.nvim_command("normal! u")
+  logger.debug("ChatHandler:retry - `self.history`: " .. vim.inspect(self.history))
+  params.line1 = self.history.last_line1
+  params.line2 = self.history.last_line2
+  params.range = 2
   local model_obj = self:get_model("command")
-  local template = self.options.template_rewrite
-  self:prompt(params, ui.Target.rewrite, model_obj, nil, utils.trim(template))
+  local template = ""
+  -- rewrite needs custom template
+  if self.history.last_target == ui.Target.rewrite then
+    template = self.options.template_rewrite
+  elseif self.history.last_target == ui.Target.append then
+    template = self.options.template_append
+  elseif self.history.last_target == ui.Target.prepend then
+    template = self.options.template_prepend
+  else
+    logger.error("Invalid last target" .. self.history.last_target)
+  end
+  self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template))
 end
 
 function ChatHandler:prompt(params, target, model_obj, prompt, template)
@@ -1051,7 +1071,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
   local end_line = start_line
 
   -- handle range
-  if self.last_selection == nil and params.range == 2 then
+  if params.range == 2 then
     start_line = params.line1
     end_line = params.line2
     local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
@@ -1088,20 +1108,18 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       logger.warning("Please select some text to rewrite")
       return
     end
-
-    self.last_selection = selection
-  else
-    start_line = params.line1
-    end_line = params.line2
-    selection = self.last_selection
+    self.history.last_target = target
+    self.history.last_line1 = start_line
+    self.history.last_line2 = end_line
+    self.history.last_selection = selection
   end
 
   self._selection_first_line = start_line
   self._selection_last_line = end_line
 
   local callback = function(command)
-    if self.last_command then
-      command = self.last_command
+    if self.history.last_command then
+      command = self.history.last_command
     end
     -- dummy handler
     local handler = function() end
@@ -1198,7 +1216,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
     local prov = self:get_provider(false)
-    self.last_command = command
+    self.history.last_command = command
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
 
@@ -1216,6 +1234,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local user_prompt =
       utils.template_render(template, command, selection, filetype, filename, filecontent, multifilecontent)
     table.insert(messages, { role = "user", content = user_prompt })
+    logger.debug("ChatHandler:prompt - `user_prompt`: " .. user_prompt)
 
     -- cancel possible visual mode before calling the model
     utils.feedkeys("<esc>", "xn")
@@ -1457,8 +1476,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
           qt.response = qt.response .. content
           buffer = buffer .. content
           handler(qid, content)
-          self.last_first_line = qt.first_line
-          self.last_last_line = qt.last_line - 1
         end
       end
     end,

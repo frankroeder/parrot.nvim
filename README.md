@@ -88,6 +88,13 @@ Let the parrot fix your bugs.
 </div>
 </details>
 
+<details>
+<summary>Retry your latest rewrite, append or prepend with `PrtRetry`.</summary>
+<div align="left">
+    <img src="https://github.com/user-attachments/assets/a46f5c95-10fc-492d-a1d9-4e794b43599d" width="100%">
+</div>
+</details>
+
 ## Getting Started
 
 ### Dependencies
@@ -165,6 +172,7 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtEnew`                 | Prompt the model to respond in a new buffer   |
 | `PrtVnew`                 | Prompt the model to respond in a vsplit       |
 | `PrtTabnew`               | Prompt the model to respond in a new tab      |
+| `PrtRetry`                | Repeats the last rewrite/append/prepend       |
 |  __Example Hooks__        | |
 | `PrtImplement`            | takes the visual selection as prompt to generate code |
 | `PrtAsk`                  | Ask the model a question                      |
