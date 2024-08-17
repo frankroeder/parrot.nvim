@@ -371,6 +371,10 @@ M.get_model = function(model_type)
   return M.chat_handler:get_model(model_type)
 end
 
+M.get_status_info = function()
+  return M.chat_handler:get_status_info()
+end
+
 M.register_hooks = function(hooks, options)
   -- register user commands
   for hook, _ in pairs(hooks) do

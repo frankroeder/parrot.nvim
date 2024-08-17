@@ -42,6 +42,14 @@ function ChatHandler:new(options, providers, available_providers, available_mode
   }, self)
 end
 
+function ChatHandler:get_status_info()
+  local buf = vim.api.nvim_get_current_buf()
+  local file_name = vim.api.nvim_buf_get_name(buf)
+  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local model_obj = self:get_model(is_chat and "chat" or "command")
+  return { is_chat = is_chat, prov = self.current_provider, model = model_obj.name }
+end
+
 function ChatHandler:set_provider(selected_prov, is_chat)
   local endpoint = self.providers[selected_prov].endpoint
   local api_key = self.providers[selected_prov].api_key
