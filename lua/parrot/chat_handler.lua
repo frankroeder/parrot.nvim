@@ -464,7 +464,8 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
     local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf), {})
     local fname = vim.api.nvim_buf_get_name(cbuf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
-    chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent)
+    local multifilecontent = utils.get_all_buffer_content()
+    chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent, multifilecontent)
     chat_prompt = "- system: " .. utils.trim(chat_prompt):gsub("\n", " ") .. "\n"
   else
     chat_prompt = ""
@@ -662,7 +663,7 @@ function ChatHandler:_chat_respond(params)
     model_name = model_name .. " & custom system prompt"
   end
 
-  local query_prov = self:get_provider(true)
+  local query_prov = model_obj.provider
   query_prov:set_model(model_obj.name)
 
   local llm_prefix = self.options.llm_prefix
@@ -758,7 +759,7 @@ function ChatHandler:_chat_respond(params)
         -- insert last model response
         table.insert(messages, { role = "assistant", content = qt.response })
 
-        local topic_prov = self:get_provider(true)
+        local topic_prov = model_obj.provider
 
         -- ask model to generate topic/title for the chat
         local topic_prompt = self.providers[topic_prov.name].topic_prompt
@@ -1178,7 +1179,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
-    local prov = self:get_provider(false)
+    local prov = model_obj.provider
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
 
