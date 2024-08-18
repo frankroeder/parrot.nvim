@@ -30,7 +30,7 @@ that your reply is solely focused on the code snippet in question.
 
 local topic_prompt = [[
 Summarize the topic of our conversation above
-in two or three words. Respond only with those words.
+in three or four words. Respond only with those words.
 ]]
 
 local defaults = {
@@ -77,10 +77,10 @@ local defaults = {
     ollama = {
       endpoint = "http://localhost:11434/api/chat",
       topic_prompt = [[
-			Summarize the chat above and only provide a short headline of 2 to 3
-			words without any opening phrase like "Sure, here is the summary",
-			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
-			]],
+      Summarize the chat above and only provide a short headline of 2 to 3
+      words without any opening phrase like "Sure, here is the summary",
+      "Sure! Here's a shortheadline summarizing the chat" or anything similar.
+      ]],
       topic = {
         model = "mistral:latest",
         params = { max_tokens = 32 },
@@ -107,10 +107,10 @@ local defaults = {
       api_key = "",
       endpoint = "https://api.mistral.ai/v1/chat/completions",
       topic_prompt = [[
-			Summarize the chat above and only provide a short headline of 3 to 4
-			words without any opening phrase like "Sure, here is the summary",
-			"Sure! Here's a shortheadline summarizing the chat" or anything similar.
-			]],
+      Summarize the chat above and only provide a short headline of 3 to 4
+      words without any opening phrase like "Sure, here is the summary",
+      "Sure! Here's a shortheadline summarizing the chat" or anything similar.
+      ]],
       topic = {
         model = "mistral-medium-latest",
         params = {},
@@ -178,14 +178,14 @@ local defaults = {
 
   {{user}}]],
   template_selection = [[
-	I have the following content from {{filename}}:
+  I have the following content from {{filename}}:
 
-	```{{filetype}}
-	{{selection}}
-	```
+  ```{{filetype}}
+  {{selection}}
+  ```
 
-	{{command}}
-	]],
+  {{command}}
+  ]],
   template_rewrite = [[
   I have the following content from {{filename}}:
 
@@ -198,29 +198,29 @@ local defaults = {
   DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
   ]],
   template_append = [[
-	I have the following content from {{filename}}:
+  I have the following content from {{filename}}:
 
-	```{{filetype}}
-	{{selection}}
-	```
+  ```{{filetype}}
+  {{selection}}
+  ```
 
-	{{command}}
-	Respond exclusively with the snippet that should be appended after the selection above.
-	DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
-	DO NOT REPEAT ANY CODE FROM ABOVE!!!
-	]],
+  {{command}}
+  Respond exclusively with the snippet that should be appended after the selection above.
+  DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
+  DO NOT REPEAT ANY CODE FROM ABOVE!!!
+  ]],
   template_prepend = [[
-	I have the following content from {{filename}}:
+  I have the following content from {{filename}}:
 
-	```{{filetype}}
-	{{selection}}
-	```
+  ```{{filetype}}
+  {{selection}}
+  ```
 
-	{{command}}
-	Respond exclusively with the snippet that should be prepended before the selection above.
-	DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
-	DO NOT REPEAT ANY CODE FROM ABOVE!!!
-	]],
+  {{command}}
+  Respond exclusively with the snippet that should be prepended before the selection above.
+  DO NOT RESPOND WITH ANY TYPE OF COMMENTS, JUST THE CODE!!!
+  DO NOT REPEAT ANY CODE FROM ABOVE!!!
+  ]],
   template_command = "{{command}}",
 
   hooks = {
@@ -245,15 +245,15 @@ local defaults = {
     -- PrtImplement rewrites the provided selection/range based on comments in it
     Implement = function(parrot, params)
       local template = [[
-			Consider the following content from {{filename}}:
+      Consider the following content from {{filename}}:
 
-			```{{filetype}}
-			{{selection}}
-			```
+      ```{{filetype}}
+      {{selection}}
+      ```
 
-			Please rewrite this according to the contained instructions.
-			Respond exclusively with the snippet that should replace the selection above.
-			]]
+      Please rewrite this according to the contained instructions.
+      Respond exclusively with the snippet that should replace the selection above.
+      ]]
       local model_obj = parrot.get_model("command")
       parrot.logger.info("Implementing selection with model: " .. model_obj.name)
       parrot.Prompt(params, parrot.ui.Target.rewrite, model_obj, nil, template)
@@ -261,13 +261,13 @@ local defaults = {
     -- PrtAsk simply provides an answer to a question within a popup window
     Ask = function(parrot, params)
       local template = [[
-			In light of your existing knowledge base, please generate a response that
-			is succinct and directly addresses the question posed. Prioritize accuracy
-			and relevance in your answer, drawing upon the most recent information
-			available to you. Aim to deliver your response in a concise manner,
-			focusing on the essence of the inquiry.
-			Question: {{command}}
-			]]
+      In light of your existing knowledge base, please generate a response that
+      is succinct and directly addresses the question posed. Prioritize accuracy
+      and relevance in your answer, drawing upon the most recent information
+      available to you. Aim to deliver your response in a concise manner,
+      focusing on the essence of the inquiry.
+      Question: {{command}}
+      ]]
       local model_obj = parrot.get_model("command")
       parrot.logger.info("Asking model: " .. model_obj.name)
       parrot.Prompt(params, parrot.ui.Target.popup, model_obj, "🤖 Ask ~ ", template)
@@ -370,6 +370,10 @@ end
 
 M.get_model = function(model_type)
   return M.chat_handler:get_model(model_type)
+end
+
+M.get_status_info = function()
+  return M.chat_handler:get_status_info()
 end
 
 M.register_hooks = function(hooks, options)

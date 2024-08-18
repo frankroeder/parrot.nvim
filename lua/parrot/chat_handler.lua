@@ -48,6 +48,14 @@ function ChatHandler:new(options, providers, available_providers, available_mode
   }, self)
 end
 
+function ChatHandler:get_status_info()
+  local buf = vim.api.nvim_get_current_buf()
+  local file_name = vim.api.nvim_buf_get_name(buf)
+  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local model_obj = self:get_model(is_chat and "chat" or "command")
+  return { is_chat = is_chat, prov = self.current_provider, model = model_obj.name }
+end
+
 function ChatHandler:set_provider(selected_prov, is_chat)
   local endpoint = self.providers[selected_prov].endpoint
   local api_key = self.providers[selected_prov].api_key
@@ -221,7 +229,7 @@ function ChatHandler:toggle_resolve(kind)
   return self._toggle_kind.unknown
 end
 
----@return table # { cmd_prefix, name, model, system_prompt, provider }
+---@return table # { name, system_prompt, provider }
 function ChatHandler:get_model(model_type)
   local prov = self:get_provider(model_type == "chat")
   local model = self.state:get_model(prov.name, model_type)
@@ -470,7 +478,8 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
     local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf), {})
     local fname = vim.api.nvim_buf_get_name(cbuf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
-    chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent)
+    local multifilecontent = utils.get_all_buffer_content()
+    chat_prompt = utils.template_render(chat_prompt, "", "", filetype, fname, filecontent, multifilecontent)
     chat_prompt = "- system: " .. utils.trim(chat_prompt):gsub("\n", " ") .. "\n"
   else
     chat_prompt = ""
@@ -668,7 +677,7 @@ function ChatHandler:_chat_respond(params)
     model_name = model_name .. " & custom system prompt"
   end
 
-  local query_prov = self:get_provider(true)
+  local query_prov = model_obj.provider
   query_prov:set_model(model_obj.name)
 
   local llm_prefix = self.options.llm_prefix
@@ -764,7 +773,7 @@ function ChatHandler:_chat_respond(params)
         -- insert last model response
         table.insert(messages, { role = "assistant", content = qt.response })
 
-        local topic_prov = self:get_provider(true)
+        local topic_prov = model_obj.provider
 
         -- ask model to generate topic/title for the chat
         local topic_prompt = self.providers[topic_prov.name].topic_prompt
@@ -873,7 +882,7 @@ function ChatHandler:chat_finder()
         local filename = filename_from_selection(selected)
         if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
           futils.delete_file(self.options.chat_dir .. "/" .. filename, self.options.chat_dir)
-          logger.info(filename .. " deleted.state")
+          logger.info(filename .. " deleted")
         end
       end,
       -- TODO: Fix bug, currently not possible --
@@ -1214,7 +1223,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
     local messages = {}
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
-    local prov = self:get_provider(false)
+    local prov = model_obj.provider
     self.history.last_command = command
     local sys_prompt = utils.template_render(model_obj.system_prompt, command, selection, filetype, filename)
     sys_prompt = sys_prompt or ""
