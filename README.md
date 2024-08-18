@@ -7,7 +7,6 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 [Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
 
 <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
-
 </div>
 
 > [!WARNING]
@@ -15,30 +14,29 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 > modifications to some hook functions. Please review the updated documentation
 > and adjust your configuration accordingly.
 
-> [!NOTE]
-> This repository is still a work in progress, as large parts of the code are still being simplified and restructured.
-> It is based on the brilliant work [gp.nvim](https://github.com/Robitx/gp.nvim) by https://github.com/Robitx.
-
-I started this repository because a perplexity subscription provides $5 of API credits every month for free.
-Instead of letting them go to waste, I modified my favorite GPT plugin, [gp.nvim](https://github.com/Robitx/gp.nvim), to meet my needs - a new Neovim plugin was born! 🔥
-
-Unlike [gp.nvim](https://github.com/Robitx/gp.nvim), [parrot.nvim](https://github.com/frankroeder/parrot.nvim) prioritizes a seamless out-of-the-box experience by simplifying functionality and focusing solely on text generation, excluding the integration of DALL-E and Whisper.
 
 ## Features
 
-- Persistent conversations as markdown files stored within the Neovim standard path or a user-defined location
-- Custom hooks for inline text editing and to start chats with predefined prompts
+[parrot.nvim](https://github.com/frankroeder/parrot.nvim) offers a seamless out-of-the-box experience, providing tight integration of current LLM APIs into your Neovim workflows, with a focus solely on text generation.
+The selected core features include on-demand text completion and editing, as well as chat-like sessions within native Neovim buffers.
+
+- Persistent conversations stored as markdown files within Neovim's standard path or a user-defined location
+- Custom hooks for inline text editing based on user instructions and chats with predefined system prompts
 - Support for multiple providers:
     + [Anthropic API](https://www.anthropic.com/api)
-    + [perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
+    + [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
     + [OpenAI API](https://platform.openai.com/)
     + [Mistral API](https://docs.mistral.ai/api/)
     + [Gemini API](https://ai.google.dev/gemini-api/docs)
-    + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + [Groq API](https://console.groq.com)
-- Flexible support for providing API credentials from various sources, such as environment variables, bash commands, and your favorite password manager CLI (lazy evaluation)
-- Provide repository-specific instructions with a `.parrot.md` file with the command `PrtContext`
+    + Local and offline serving via [ollama](https://github.com/ollama/ollama)
+- Flexible API credential management from various sources:
+    + Environment variables
+    + Bash commands
+    + Password manager CLIs (lazy evaluation)
+- Repository-specific instructions via `.parrot.md` file using the `PrtContext` command
 - **No** autocompletion and **no** hidden requests in the background to analyze your files
+
 
 ## Demo
 
@@ -91,38 +89,72 @@ Let the parrot fix your bugs.
 ## Getting Started
 
 ### Dependencies
-- [`neovim`](https://github.com/neovim/neovim/releases)
-- [`fzf`](https://github.com/junegunn/fzf)
-- [`plenary`](https://github.com/nvim-lua/plenary.nvim)
-- [`ripgrep`](https://github.com/BurntSushi/ripgrep)
 
-### lazy.nvim
+This plugin requires the latest version of Neovim and relies on a carefully selected set of established plugins.
+
+- [`neovim 0.10+`](https://github.com/neovim/neovim/releases)
+- [`plenary`](https://github.com/nvim-lua/plenary.nvim)
+- [`ripgrep`](https://github.com/BurntSushi/ripgrep) (optional)
+- [`fzf`](https://github.com/junegunn/fzf) (optional, requires ripgrep)
+
+### Installation
+
+<details>
+  <summary>lazy.nvim</summary>
+
+
 ```lua
 {
   "frankroeder/parrot.nvim",
-  tag = "v0.5.0",
+  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim" },
+  opts = {}
+}
+```
+
+</details>
+
+<details>
+  <summary>Packer</summary>
+
+```lua
+require("packer").startup(function()
+  use({
+    "frankroeder/parrot.nvim",
+    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'}
+    config = function()
+      require("parrot").setup()
+    end,
+  })
+end)
+```
+
+</details>
+
+<details>
+  <summary>Neovim native package</summary>
+
+```sh
+git clone --depth=1 https://github.com/frankroeder/parrot.nvim.git \
+  "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/pack/parrot/start/parrot.nvim
+```
+
+</details>
+
+### Setup
+
+The minimal requirement is to at least set up one provider, hence one from the selection below.
+
+```lua
+{
+  "frankroeder/parrot.nvim",
   dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   -- optionally include "rcarriga/nvim-notify" for beautiful notifications
   config = function()
     require("parrot").setup {
       -- Providers must be explicitly added to make them available.
       providers = {
-        pplx = {
-          api_key = os.getenv "PERPLEXITY_API_KEY",
-          -- OPTIONAL
-          -- gpg command
-          -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/pplx_api_key.txt.gpg"  },
-          -- macOS security tool
-          -- api_key = { "/usr/bin/security", "find-generic-password", "-s pplx-api-key", "-w" },
-        },
-        openai = {
-          api_key = os.getenv "OPENAI_API_KEY",
-        },
         anthropic = {
           api_key = os.getenv "ANTHROPIC_API_KEY",
-        },
-        mistral = {
-          api_key = os.getenv "MISTRAL_API_KEY",
         },
         gemini = {
           api_key = os.getenv "GEMINI_API_KEY",
@@ -130,7 +162,17 @@ Let the parrot fix your bugs.
         groq = {
           api_key = os.getenv "GROQ_API_KEY",
         },
-        ollama = {} -- provide an empty list to make provider available
+        mistral = {
+          api_key = os.getenv "MISTRAL_API_KEY",
+        },
+        pplx = {
+          api_key = os.getenv "PERPLEXITY_API_KEY",
+        },
+        -- provide an empty list to make provider available (no API key required)
+        ollama = {}
+        openai = {
+          api_key = os.getenv "OPENAI_API_KEY",
+        },
       },
     }
   end,
@@ -141,7 +183,7 @@ Let the parrot fix your bugs.
 
 Below are the available commands that can be configured as keybindings.
 These commands are included in the default setup.
-Additional useful commands are implemented through hooks (see my example configuration).
+Additional useful commands are implemented through hooks (see below).
 
 ### General
 | Command                   | Description                                   |
@@ -166,7 +208,7 @@ Additional useful commands are implemented through hooks (see my example configu
 | `PrtVnew`                 | Prompt the model to respond in a vsplit       |
 | `PrtTabnew`               | Prompt the model to respond in a new tab      |
 |  __Example Hooks__        | |
-| `PrtImplement`            | takes the visual selection as prompt to generate code |
+| `PrtImplement`            | Takes the visual selection as prompt to generate code |
 | `PrtAsk`                  | Ask the model a question                      |
 
 With `<target>`, we indicate the command to open the chat within one of the following target locations (defaults to `toggle_target`):
@@ -191,13 +233,21 @@ to consider a visual selection within an API request.
     -- and topic model arguments for chat summarization, with an example provided for Anthropic.
     providers = {
       anthropic = {
-        api_key = os.getenv "ANTHROPIC_API_KEY",
+        api_key = os.getenv("ANTHROPIC_API_KEY"),
+        -- OPTIONAL: Alternative methods to retrieve API key
+        -- Using GPG for decryption:
+        -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/anthropic_api_key.txt.gpg" },
+        -- Using macOS Keychain:
+        -- api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
         endpoint = "https://api.anthropic.com/v1/messages",
         topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
+        -- usually a cheap and fast model to generate the chat topic based on
+        -- the whole chat history
         topic = {
           model = "claude-3-haiku-20240307",
           params = { max_tokens = 32 },
         },
+        -- default parameters for the actual model
         params = {
           chat = { max_tokens = 4096 },
           command = { max_tokens = 4096 },
@@ -243,7 +293,7 @@ to consider a visual selection within an API request.
     chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
     chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 
-    -- Option to move the chat to the end of the file after finished respond
+    -- Option to move the cursor to the end of the file after finished respond
     chat_free_cursor = false,
 
      -- use prompt buftype for chats (:h prompt-buffer)
@@ -376,13 +426,13 @@ require("parrot").setup {
 }
 ```
 
-Refer to my personal lazy.nvim setup for further hooks and key bindings:
-https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua
+Refer to my [personal lazy.nvim setup](https://github.com/frankroeder/dotfiles/blob/master/nvim/lua/plugins/parrot.lua) or
+those of [other users](https://github.com/search?utf8=%E2%9C%93&q=frankroeder%2Fparrot.nvim+language%3ALua&type=code&l=Lua) for further hooks and key bindings.
 
 ### Template Placeholders
 
-Users can utilize the following placeholders in their templates to inject
-specific content into the user messages or custom system prompts:
+Users can utilize the following placeholders in their hook and system templates to inject
+additional context:
 
 | Placeholder             | Content                              |
 |-------------------------|--------------------------------------|
@@ -472,8 +522,8 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 
   -- add to lueline section
   require('lualine').setup {
-      sections = {
-        lualine_a = { parrot_status }
+    sections = {
+      lualine_a = { parrot_status }
   }
 
 ```
