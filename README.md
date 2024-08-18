@@ -504,7 +504,7 @@ require("parrot").setup {
 
 ## Statusline Support
 
-Knowing the current chat or command agent can be shown using your favorite statusline plugin.
+Knowing the current chat or command model can be shown using your favorite statusline plugin.
 Below, we provide an example for [lualine](https://github.com/nvim-lualine/lualine.nvim):
 
 ```lua
