@@ -528,6 +528,20 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 
 ```
 
+## Bonus
+
+Access parrot.nvim directly from your terminal:
+
+```bash
+command nvim -c "PrtChatNew"
+```
+
+Also works by piping content directly into the chat:
+
+```bash
+ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
+```
+
 ## Roadmap
 
 - Add status line integration/ notifications for summary of tokens used or money spent
