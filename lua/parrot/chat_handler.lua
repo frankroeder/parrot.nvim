@@ -1034,7 +1034,6 @@ function ChatHandler:retry(params)
   params.range = 2
   local model_obj = self:get_model("command")
   local template = ""
-  -- rewrite needs custom template
   if self.history.last_target == ui.Target.rewrite then
     template = self.options.template_rewrite
   elseif self.history.last_target == ui.Target.append then
