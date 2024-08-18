@@ -85,6 +85,7 @@ M.find_repo_instructions = function()
 end
 
 ---@param file string | nil # name of the file to delete
+---@param target_dir string # target directory for the file
 M.delete_file = function(file, target_dir)
   if not file then
     logger.error("No file specified for deletion.")
@@ -104,6 +105,9 @@ M.delete_file = function(file, target_dir)
   end
 end
 
+--- Reads the content of a file at the specified path.
+--- @param path string The path to the file to be read
+--- @return string The content of the file, or an empty string if the file cannot be opened
 M.read_file = function(path)
   local file = io.open(path, "r")
   if not file then
@@ -114,6 +118,10 @@ M.read_file = function(path)
   return content
 end
 
+--- Writes content to a file at the specified path.
+--- @param path string
+--- @param content string
+--- @return boolean
 M.write_file = function(path, content)
   local file = io.open(path, "w")
   if not file then

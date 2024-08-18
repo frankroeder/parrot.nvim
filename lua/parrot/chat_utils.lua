@@ -115,7 +115,7 @@ M.create_handler = function(queries, buf, win, line, first_undojoin, prefix, cur
   end)
 end
 
----@param buf number | nil # buffer number
+---@param buf number | nil
 M.prep_md = function(buf)
   -- disable swapping for this buffer and set filetype to markdown
   vim.api.nvim_command("setlocal noswapfile")

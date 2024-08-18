@@ -223,7 +223,7 @@ function ChatHandler:toggle_resolve(kind)
   return self._toggle_kind.unknown
 end
 
----@return table # { cmd_prefix, name, model, system_prompt, provider }
+---@return table # { name, system_prompt, provider }
 function ChatHandler:get_model(model_type)
   local prov = self:get_provider(model_type == "chat")
   local model = self.state:get_model(prov.name, model_type)
@@ -867,7 +867,7 @@ function ChatHandler:chat_finder()
         local filename = filename_from_selection(selected)
         if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
           futils.delete_file(self.options.chat_dir .. "/" .. filename, self.options.chat_dir)
-          logger.info(filename .. " deleted.state")
+          logger.info(filename .. " deleted")
         end
       end,
       -- TODO: Fix bug, currently not possible --
