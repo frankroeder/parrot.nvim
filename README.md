@@ -560,7 +560,7 @@ ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
 
 ## Related Projects
 
-- [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
+- [parrot.nvim](https://github.com/frankroeder/parrot.nvim) is a fork of an earlier version of [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
 - [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
 
 ## Star History
