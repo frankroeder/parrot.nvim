@@ -1,6 +1,11 @@
+New changes made follow the very same MIT license.
+Copyright (c) 2024 Frank Röder ( https://github.com/frankroeder )
+
+Original license when forking the repository (commit 17b775abbf8bdf0fcea8149fd339a69f729ebb6f):
+===
 MIT License
 
-Copyright (c) 2024 Frank Röder ( https://github.com/frankroeder )
+Copyright (c) 2023 Tibor Schmidt ( https://github.com/Robitx )
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

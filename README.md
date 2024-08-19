@@ -19,6 +19,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 
 [parrot.nvim](https://github.com/frankroeder/parrot.nvim) offers a seamless out-of-the-box experience, providing tight integration of current LLM APIs into your Neovim workflows, with a focus solely on text generation.
 The selected core features include on-demand text completion and editing, as well as chat-like sessions within native Neovim buffers.
+While this project is still under development, a substantial part of the code is based on an early fork of the brilliant work by Tibor Schmidt's [gp.nvim](https://github.com/Robitx/gp.nvim).
 
 - Persistent conversations stored as markdown files within Neovim's standard path or a user-defined location
 - Custom hooks for inline text editing based on user instructions and chats with predefined system prompts
@@ -127,7 +128,7 @@ This plugin requires the latest version of Neovim and relies on a carefully sele
 require("packer").startup(function()
   use({
     "frankroeder/parrot.nvim",
-    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'}
+    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'},
     config = function()
       require("parrot").setup()
     end,
@@ -195,17 +196,18 @@ Additional useful commands are implemented through hooks (see below).
 ### General
 | Command                   | Description                                   |
 | ------------------------- | ----------------------------------------------|
-| `PrtChatNew <target>`     | open a new chat                               |
-| `PrtChatToggle <target>`  | toggle chat (open last chat or new one)       |
-| `PrtChatPaste <target>`   | paste visual selection into the latest chat   |
-| `PrtInfo`                 | print plugin config                           |
-| `PrtContext <target>`     | edits the local context file                  |
-| `PrtChatFinder`           | fuzzy search chat files using fzf             |
-| `PrtChatDelete`           | delete the current chat file                  |
-| `PrtChatRespond`          | trigger chat respond (in chat file)           |
-| `PrtStop`                 | interrupt ongoing respond                     |
-| `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf)  |
-| `PrtModel <model>`        | switch the model (empty arg triggers fzf)     |
+| `PrtChatNew <target>`     | Open a new chat                               |
+| `PrtChatToggle <target>`  | Toggle chat (open last chat or new one)       |
+| `PrtChatPaste <target>`   | Paste visual selection into the latest chat   |
+| `PrtInfo`                 | Print plugin config                           |
+| `PrtContext <target>`     | Edits the local context file                  |
+| `PrtChatFinder`           | Fuzzy search chat files using fzf             |
+| `PrtChatDelete`           | Delete the current chat file                  |
+| `PrtChatRespond`          | Trigger chat respond (in chat file)           |
+| `PrtStop`                 | Interrupt ongoing respond                     |
+| `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
+| `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
+| `PrtStatus`               | Prints current provider and model selection   |
 |  __Interactive__          | |
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
 | `PrtAppend`               | Append text to the visual selection based on a provided prompt    |
@@ -512,7 +514,7 @@ require("parrot").setup {
 
 ## Statusline Support
 
-Knowing the current chat or command agent can be shown using your favorite statusline plugin.
+Knowing the current chat or command model can be shown using your favorite statusline plugin.
 Below, we provide an example for [lualine](https://github.com/nvim-lualine/lualine.nvim):
 
 ```lua
@@ -536,6 +538,20 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 
 ```
 
+## Bonus
+
+Access parrot.nvim directly from your terminal:
+
+```bash
+command nvim -c "PrtChatNew"
+```
+
+Also works by piping content directly into the chat:
+
+```bash
+ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
+```
+
 ## Roadmap
 
 - Add status line integration/ notifications for summary of tokens used or money spent
@@ -554,7 +570,7 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 
 ## Related Projects
 
-- [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
+- [parrot.nvim](https://github.com/frankroeder/parrot.nvim) is a fork of an earlier version of [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
 - [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
 
 ## Star History
