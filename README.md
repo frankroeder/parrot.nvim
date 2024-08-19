@@ -19,6 +19,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 
 [parrot.nvim](https://github.com/frankroeder/parrot.nvim) offers a seamless out-of-the-box experience, providing tight integration of current LLM APIs into your Neovim workflows, with a focus solely on text generation.
 The selected core features include on-demand text completion and editing, as well as chat-like sessions within native Neovim buffers.
+While this project is still under development, a substantial part of the code is based on an early fork of the brilliant work by Tibor Schmidt's [gp.nvim](https://github.com/Robitx/gp.nvim).
 
 - Persistent conversations stored as markdown files within Neovim's standard path or a user-defined location
 - Custom hooks for inline text editing based on user instructions and chats with predefined system prompts
