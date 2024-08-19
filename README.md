@@ -121,7 +121,7 @@ This plugin requires the latest version of Neovim and relies on a carefully sele
 require("packer").startup(function()
   use({
     "frankroeder/parrot.nvim",
-    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'}
+    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'},
     config = function()
       require("parrot").setup()
     end,
@@ -189,17 +189,18 @@ Additional useful commands are implemented through hooks (see below).
 ### General
 | Command                   | Description                                   |
 | ------------------------- | ----------------------------------------------|
-| `PrtChatNew <target>`     | open a new chat                               |
-| `PrtChatToggle <target>`  | toggle chat (open last chat or new one)       |
-| `PrtChatPaste <target>`   | paste visual selection into the latest chat   |
-| `PrtInfo`                 | print plugin config                           |
-| `PrtContext <target>`     | edits the local context file                  |
-| `PrtChatFinder`           | fuzzy search chat files using fzf             |
-| `PrtChatDelete`           | delete the current chat file                  |
-| `PrtChatRespond`          | trigger chat respond (in chat file)           |
-| `PrtStop`                 | interrupt ongoing respond                     |
-| `PrtProvider <provider>`  | switch the provider (empty arg triggers fzf)  |
-| `PrtModel <model>`        | switch the model (empty arg triggers fzf)     |
+| `PrtChatNew <target>`     | Open a new chat                               |
+| `PrtChatToggle <target>`  | Toggle chat (open last chat or new one)       |
+| `PrtChatPaste <target>`   | Paste visual selection into the latest chat   |
+| `PrtInfo`                 | Print plugin config                           |
+| `PrtContext <target>`     | Edits the local context file                  |
+| `PrtChatFinder`           | Fuzzy search chat files using fzf             |
+| `PrtChatDelete`           | Delete the current chat file                  |
+| `PrtChatRespond`          | Trigger chat respond (in chat file)           |
+| `PrtStop`                 | Interrupt ongoing respond                     |
+| `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
+| `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
+| `PrtStatus`               | Prints current provider and model selection   |
 |  __Interactive__          | |
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
 | `PrtAppend`               | Append text to the visual selection based on a provided prompt    |

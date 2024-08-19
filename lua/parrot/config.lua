@@ -242,6 +242,12 @@ local defaults = {
     Log = function(parrot, _)
       vim.cmd("edit " .. vim.fn.fnameescape(parrot.logger._logfile))
     end,
+    Status = function(parrot, _)
+      local status_info = parrot.get_status_info()
+      local provider = status_info.is_chat and status_info.prov.chat or status_info.prov.command
+      local status = string.format("%s (%s)", provider.name, status_info.model)
+      parrot.logger.info(string.format("Current provider: %s", status))
+    end,
     -- PrtImplement rewrites the provided selection/range based on comments in it
     Implement = function(parrot, params)
       local template = [[
