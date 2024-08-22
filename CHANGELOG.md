@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/frankroeder/parrot.nvim/compare/v0.5.0...v0.6.0) (2024-08-22)
+
+
+### Features
+
+* add status line support ([3ac1d28](https://github.com/frankroeder/parrot.nvim/commit/3ac1d2885428a573b4851bbc07735465a2019351))
+* **commands:** implement the retry command ([29f7701](https://github.com/frankroeder/parrot.nvim/commit/29f7701585e02abc363df0691c37f6699494bd03))
+
+
+### Bug Fixes
+
+* add `PrtStatus` command ([322a45e](https://github.com/frankroeder/parrot.nvim/commit/322a45ead223c4698f52ba5d03e745fe330a7ab5))
+* add missing multifilecontent support for chat prompts ([b8f221e](https://github.com/frankroeder/parrot.nvim/commit/b8f221efdde7c0294917ecb96829e1e1fe6986b2))
+* Neovim version check ([a4fd3f3](https://github.com/frankroeder/parrot.nvim/commit/a4fd3f3a55a258c689cd97f0b85a0f267bc239e3))
+* revert wrong license change ([1a7192c](https://github.com/frankroeder/parrot.nvim/commit/1a7192c3842f55578f787ff08766d7d4e713f701))
+
 ## [0.5.0](https://github.com/frankroeder/parrot.nvim/compare/v0.4.2...v0.5.0) (2024-08-14)
 
 
