@@ -177,7 +177,7 @@ The minimal requirement is to at least set up one provider, hence one from the s
           api_key = os.getenv "PERPLEXITY_API_KEY",
         },
         -- provide an empty list to make provider available (no API key required)
-        ollama = {}
+        ollama = {},
         openai = {
           api_key = os.getenv "OPENAI_API_KEY",
         },
