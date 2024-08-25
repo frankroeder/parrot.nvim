@@ -1442,7 +1442,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     table.insert(curl_params, parg)
   end
 
-  local buffer = ""
   local job = Job:new({
     command = "curl",
     args = curl_params,
@@ -1482,7 +1481,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
         local content = provider:process_stdout(raw_json)
         if content then
           qt.response = qt.response .. content
-          buffer = buffer .. content
           handler(qid, content)
         end
       end
