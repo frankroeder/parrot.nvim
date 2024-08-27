@@ -1,4 +1,5 @@
 local OpenAI = require("parrot.provider.openai")
+local utils = require("parrot.utils")
 
 local GitHub = setmetatable({}, { __index = OpenAI })
 GitHub.__index = GitHub
