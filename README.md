@@ -31,6 +31,7 @@ While this project is still under development, a substantial part of the code is
     + [Gemini API](https://ai.google.dev/gemini-api/docs)
     + [Groq API](https://console.groq.com)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
+    + [GitHub Models](https://github.com/marketplace/models)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -180,6 +181,9 @@ The minimal requirement is to at least set up one provider, hence one from the s
         ollama = {},
         openai = {
           api_key = os.getenv "OPENAI_API_KEY",
+        },
+        github = {
+          api_key = os.getenv "GITHUB_TOKEN",
         },
       },
     }
