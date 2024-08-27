@@ -5,6 +5,7 @@ local Mistral = require("parrot.provider.mistral")
 local Ollama = require("parrot.provider.ollama")
 local OpenAI = require("parrot.provider.openai")
 local Perplexity = require("parrot.provider.perplexity")
+local GitHub = require("parrot.provider.github")
 local logger = require("parrot.logger")
 
 local M = {}
@@ -17,6 +18,7 @@ M.init_provider = function(prov_name, endpoint, api_key)
   local providers = {
     anthropic = Anthropic,
     gemini = Gemini,
+    github = GitHub,
     groq = Groq,
     mistral = Mistral,
     ollama = Ollama,

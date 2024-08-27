@@ -133,6 +133,19 @@ local defaults = {
         command = { temperature = 1.5, top_p = 1 },
       },
     },
+    github = {
+      api_key = "",
+      endpoint = "https://models.inference.ai.azure.com/chat/completions",
+      topic_prompt = topic_prompt,
+      topic = {
+        model = "gpt-4o-mini",
+        params = {},
+      },
+      params = {
+        chat = { temperature = 1.5, top_p = 1 },
+        command = { temperature = 1.5, top_p = 1 },
+      },
+    },
   },
   cmd_prefix = "Prt",
   curl_params = {},
