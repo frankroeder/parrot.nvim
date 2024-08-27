@@ -3,10 +3,35 @@ local OpenAI = require("parrot.provider.openai")
 local GitHub = setmetatable({}, { __index = OpenAI })
 GitHub.__index = GitHub
 
+-- Available API parameters for GitHub models
+local AVAILABLE_API_PARAMETERS = {
+  -- required
+  messages = true,
+  model = true,
+  -- optional
+  max_tokens = true,
+  temperature = true,
+  top_p = true,
+  stop = true,
+  best_of = true,
+  presence_penalty = true,
+  stream = true,
+}
+
 function GitHub:new(endpoint, api_key)
   local instance = OpenAI.new(self, endpoint, api_key)
   instance.name = "github"
   return setmetatable(instance, self)
+end
+
+-- Preprocesses the payload before sending to the API
+---@param payload table
+---@return table
+function GitHub:preprocess_payload(payload)
+  for _, message in ipairs(payload.messages) do
+    message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
 
 -- Returns the list of available models
