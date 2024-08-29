@@ -6,27 +6,17 @@ local M = {}
 ---@param params table | string # table with args or string args
 ---@return number # buf target
 M.resolve_buf_target = function(params)
-  local args = ""
-  if type(params) == "table" then
-    args = params.args or ""
-  else
-    args = params
-  end
-
-  if args == "popup" then
-    return ui.BufTarget.popup
-  elseif args == "split" then
-    return ui.BufTarget.split
-  elseif args == "vsplit" then
-    return ui.BufTarget.vsplit
-  elseif args == "tabnew" then
-    return ui.BufTarget.tabnew
-  else
-    return ui.BufTarget.current
-  end
+  local args = type(params) == "table" and (params.args or "") or params
+  local target_map = {
+    popup = ui.BufTarget.popup,
+    split = ui.BufTarget.split,
+    vsplit = ui.BufTarget.vsplit,
+    tabnew = ui.BufTarget.tabnew,
+  }
+  return target_map[args] or ui.BufTarget.current
 end
-
 -- response handler
+---@param queries table
 ---@param buf number | nil # buffer to insert response into
 ---@param win number | nil # window to insert response into
 ---@param line number | nil # line to insert response into
@@ -35,100 +25,103 @@ end
 ---@param cursor boolean # whether to move cursor to the end of the response
 M.create_handler = function(queries, buf, win, line, first_undojoin, prefix, cursor)
   buf = buf or vim.api.nvim_get_current_buf()
+  win = win or vim.api.nvim_get_current_win()
   prefix = prefix or ""
-  local first_line = line or vim.api.nvim_win_get_cursor(win)[1] - 1
+  local first_line = line or (vim.api.nvim_win_get_cursor(win)[1] - 1)
   local finished_lines = 0
   local skip_first_undojoin = not first_undojoin
 
   local hl_handler_group = "PrtHandlerStandout"
-  vim.cmd("highlight default link " .. hl_handler_group .. " CursorLine")
+  vim.api.nvim_set_hl(0, hl_handler_group, { link = "CursorLine" })
 
   local ns_id = vim.api.nvim_create_namespace("PrtHandler_" .. utils.uuid())
-
   local ex_id = vim.api.nvim_buf_set_extmark(buf, ns_id, first_line, 0, {
     strict = false,
     right_gravity = false,
   })
 
   local response = ""
-  return vim.schedule_wrap(function(qid, chunk)
-    local qt = queries:get(qid)
-    if not qt then
-      return
-    end
-    -- if buf is not valid, stop
+
+  local function update_buffer(qid, chunk)
     if not vim.api.nvim_buf_is_valid(buf) then
       return
     end
-    -- undojoin takes previous change into account, so skip it for the first chunk
-    if skip_first_undojoin then
+
+    vim.api.nvim_buf_call(buf, function()
+      if not skip_first_undojoin then
+        vim.cmd("undojoin")
+      end
       skip_first_undojoin = false
-    else
-      utils.undojoin(buf)
+
+      first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
+
+      -- Clean previous response and append new chunk
+      local line_count = #vim.split(response, "\n")
+      vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + line_count, false, {})
+      response = response .. chunk
+      vim.cmd("undojoin")
+
+      -- Prepend prefix to each line and update buffer
+      local lines = vim.tbl_map(function(l)
+        return prefix .. l
+      end, vim.split(response, "\n", { plain = true }))
+      local unfinished_lines = vim.list_slice(lines, finished_lines + 1)
+      vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
+
+      -- Update highlighting
+      local new_finished_lines = math.max(0, #lines - 1)
+      for i = finished_lines, new_finished_lines - 1 do
+        vim.api.nvim_buf_add_highlight(buf, ns_id, hl_handler_group, first_line + i, 0, -1)
+      end
+      finished_lines = new_finished_lines
+
+      -- Update query table
+      local end_line = first_line + #lines
+      if queries:get(qid) then
+        queries:get(qid).first_line = first_line
+        queries:get(qid).last_line = end_line - 1
+        queries:get(qid).ns_id = ns_id
+        queries:get(qid).ex_id = ex_id
+      end
+
+      -- Move cursor if needed
+      if cursor then
+        utils.cursor_to_line(end_line, buf, win)
+      end
+    end)
+  end
+
+  return vim.schedule_wrap(function(qid, chunk)
+    if not queries:get(qid) then
+      return
     end
-
-    if not qt.ns_id then
-      qt.ns_id = ns_id
-    end
-
-    if not qt.ex_id then
-      qt.ex_id = ex_id
-    end
-
-    first_line = vim.api.nvim_buf_get_extmark_by_id(buf, ns_id, ex_id, {})[1]
-
-    -- clean previous response
-    local line_count = #vim.split(response, "\n")
-    vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + line_count, false, {})
-
-    -- append new response
-    response = response .. chunk
-    utils.undojoin(buf)
-
-    -- prepend prefix to each line
-    local lines = vim.split(response, "\n")
-    for i, l in ipairs(lines) do
-      lines[i] = prefix .. l
-    end
-
-    local unfinished_lines = {}
-    for i = finished_lines + 1, #lines do
-      table.insert(unfinished_lines, lines[i])
-    end
-
-    vim.api.nvim_buf_set_lines(buf, first_line + finished_lines, first_line + finished_lines, false, unfinished_lines)
-
-    local new_finished_lines = math.max(0, #lines - 1)
-    for i = finished_lines, new_finished_lines do
-      vim.api.nvim_buf_add_highlight(buf, qt.ns_id, hl_handler_group, first_line + i, 0, -1)
-    end
-    finished_lines = new_finished_lines
-
-    local end_line = first_line + #vim.split(response, "\n")
-    qt.first_line = first_line
-    qt.last_line = end_line - 1
-
-    -- move cursor to the end of the response
-    if cursor then
-      utils.cursor_to_line(end_line, buf, win)
-    end
+    update_buffer(qid, chunk)
   end)
 end
 
 ---@param buf number | nil
 M.prep_md = function(buf)
-  vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
-  vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
-
-  -- better text wrapping
-  vim.api.nvim_command("setlocal wrap linebreak")
-  -- auto save on TextChanged, InsertLeave
-  vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
-
-  -- register shortcuts local to this buffer
   buf = buf or vim.api.nvim_get_current_buf()
+  local buf_options = {
+    swapfile = false,
+    filetype = "markdown",
+  }
+  local win_options = {
+    wrap = true,
+    linebreak = true,
+  }
+  for option, value in pairs(buf_options) do
+    vim.api.nvim_buf_set_option(buf, option, value)
+  end
+  for option, value in pairs(win_options) do
+    vim.api.nvim_win_set_option(0, option, value)
+  end
 
-  -- ensure normal mode
+  vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave" }, {
+    buffer = buf,
+    command = "silent! write",
+  })
+
   vim.api.nvim_command("stopinsert")
   utils.feedkeys("<esc>", "xn")
 end

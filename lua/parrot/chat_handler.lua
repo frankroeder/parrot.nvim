@@ -12,7 +12,6 @@ local Job = require("plenary.job")
 local pft = require("plenary.filetype")
 
 local ChatHandler = {}
-
 ChatHandler.__index = ChatHandler
 
 function ChatHandler:new(options, providers, available_providers, available_models, commands)
@@ -22,20 +21,17 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     _plugin_name = "parrot.nvim",
     options = options,
     providers = providers,
-    current_provider = {
-      chat = nil,
-      command = nil,
-    },
+    current_provider = { chat = nil, command = nil },
     pool = Pool:new(),
     queries = Queries:new(),
     commands = commands,
     state = state,
     _toggle = {},
     _toggle_kind = {
-      unknown = 0, -- unknown toggle
-      chat = 1, -- chat toggle
-      popup = 2, -- popup toggle
-      context = 3, -- context toggle
+      unknown = 0,
+      chat = 1,
+      popup = 2,
+      context = 3,
     },
     available_providers = available_providers,
     available_models = available_models,
@@ -60,64 +56,55 @@ function ChatHandler:set_provider(selected_prov, is_chat)
   local endpoint = self.providers[selected_prov].endpoint
   local api_key = self.providers[selected_prov].api_key
   local _prov = init_provider(selected_prov, endpoint, api_key)
-  if is_chat then
-    self.current_provider.chat = _prov
-  else
-    self.current_provider.command = _prov
-  end
+  self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
 end
 
 function ChatHandler:get_provider(is_chat)
-  local current_prov = nil
-  if is_chat then
-    current_prov = self.current_provider.chat
-  else
-    current_prov = self.current_provider.command
-  end
-
+  local current_prov = self.current_provider[is_chat and "chat" or "command"]
   if not current_prov then
     local prov = self.state:get_provider(is_chat)
+    if not prov then
+      logger.error("No provider found for " .. (is_chat and "chat" or "command"))
+      return nil
+    end
     self:set_provider(prov, is_chat)
+    current_prov = self.current_provider[is_chat and "chat" or "command"]
   end
-
-  if is_chat then
-    return self.current_provider.chat
-  else
-    return self.current_provider.command
-  end
+  return current_prov
 end
 
 function ChatHandler:buf_handler()
   local gid = utils.create_augroup("PrtBufHandler", { clear = true })
-
   utils.autocmd({ "BufEnter" }, nil, function(event)
     local buf = event.buf
-
-    if not vim.api.nvim_buf_is_valid(buf) then
-      return
+    if vim.api.nvim_buf_is_valid(buf) then
+      local file_name = vim.api.nvim_buf_get_name(buf)
+      self:prep_chat(buf, file_name)
+      self:prep_context(buf, file_name)
     end
-
-    local file_name = vim.api.nvim_buf_get_name(buf)
-
-    self:prep_chat(buf, file_name)
-    self:prep_context(buf, file_name)
   end, gid)
 end
 
 function ChatHandler:prep_chat(buf, file_name)
-  if not utils.is_chat(buf, file_name, self.options.chat_dir) then
-    return
-  end
-
-  if buf ~= vim.api.nvim_get_current_buf() then
+  if not utils.is_chat(buf, file_name, self.options.chat_dir) or buf ~= vim.api.nvim_get_current_buf() then
     return
   end
 
   chatutils.prep_md(buf)
 
+  self:setup_chat_prompt(buf)
+  self:setup_chat_commands(buf)
+  self:setup_chat_shortcuts(buf)
+
+  -- remember last opened chat file
+  self.state:set_last_chat(file_name)
+  self.state:refresh(self.available_providers, self.available_models)
+end
+
+function ChatHandler:setup_chat_prompt(buf)
   if self.options.chat_prompt_buf_type then
     vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
     vim.fn.prompt_setprompt(buf, "")
@@ -125,8 +112,9 @@ function ChatHandler:prep_chat(buf, file_name)
       self:chat_respond({ args = "" })
     end)
   end
+end
 
-  -- setup chat specific commands
+function ChatHandler:setup_chat_commands(buf)
   local range_commands = {
     {
       command = "ChatRespond",
@@ -142,21 +130,26 @@ function ChatHandler:prep_chat(buf, file_name)
     },
   }
   for _, rc in ipairs(range_commands) do
-    local cmd = self.options.cmd_prefix .. rc.command .. "<cr>"
-    for _, mode in ipairs(rc.modes) do
-      if mode == "n" or mode == "i" then
-        utils.set_keymap({ buf }, mode, rc.shortcut, function()
-          vim.api.nvim_command(self.options.cmd_prefix .. rc.command)
-          -- go to normal mode
-          vim.api.nvim_command("stopinsert")
-          utils.feedkeys("<esc>", "xn")
-        end, rc.comment)
-      else
-        utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
-      end
+    self:setup_chat_command(buf, rc)
+  end
+end
+
+function ChatHandler:setup_chat_command(buf, command_info)
+  local cmd = self.options.cmd_prefix .. command_info.command .. "<cr>"
+  for _, mode in ipairs(command_info.modes) do
+    if mode == "n" or mode == "i" then
+      utils.set_keymap({ buf }, mode, command_info.shortcut, function()
+        vim.api.nvim_command(self.options.cmd_prefix .. command_info.command)
+        vim.api.nvim_command("stopinsert")
+        utils.feedkeys("<esc>", "xn")
+      end, command_info.comment)
+    else
+      utils.set_keymap({ buf }, mode, command_info.shortcut, ":<C-u>'<,'>" .. cmd, command_info.comment)
     end
   end
+end
 
+function ChatHandler:setup_chat_shortcuts(buf)
   local ds = self.options.chat_shortcut_delete
   utils.set_keymap({ buf }, ds.modes, ds.shortcut, function()
     self:chat_delete()
@@ -166,10 +159,6 @@ function ChatHandler:prep_chat(buf, file_name)
   utils.set_keymap({ buf }, ss.modes, ss.shortcut, function()
     self:stop()
   end, "Parrot Chat Stop")
-
-  -- remember last opened chat file
-  self.state:set_last_chat(file_name)
-  self.state:refresh(self.available_providers, self.available_models)
 end
 
 function ChatHandler:prep_context(buf, file_name)
@@ -1392,7 +1381,6 @@ end
 ---@param handler function # response handler
 ---@param on_exit function | nil # optional on_exit handler
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
-  -- make sure handler is a function
   if type(handler) ~= "function" then
     logger.error(
       string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
@@ -1401,6 +1389,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   end
 
   if not provider:verify() then
+    logger.error("Provider verification failed")
     return
   end
 
@@ -1448,8 +1437,11 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     on_exit = function(response, exit_code)
       logger.debug("on_exit: " .. vim.inspect(response:result()))
       if exit_code ~= 0 then
-        logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
-        on_exit(qid)
+        logger.error("An error occurred calling curl: " .. table.concat(curl_params, " "))
+        if on_exit then
+          on_exit(qid)
+        end
+        return
       end
       local result = response:result()
       result = utils.parse_raw_response(result)
@@ -1459,11 +1451,13 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
         response.handle:close()
       end
 
-      on_exit(qid)
+      if on_exit then
+        on_exit(qid)
+      end
       local qt = self.queries:get(qid)
-      if qt.ns_id and qt.buf then
+      if qt and qt.ns_id and qt.buf then
         vim.schedule(function()
-          vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
+          pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
         end)
       end
       self.pool:remove(response.pid)
