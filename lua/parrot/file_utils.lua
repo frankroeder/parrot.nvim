@@ -58,13 +58,15 @@ end
 ---@return string # returns the path of the git root dir or an empty string if not found
 M.find_git_root = function()
   local cwd = vim.fn.expand("%:p:h")
-  local git_dir = cwd .. "/.git"
-  while cwd ~= "/" do
-    if vim.fn.isdirectory(git_dir) == 1 then
+  while cwd ~= "" do
+    if vim.fn.isdirectory(cwd .. "/.git") == 1 then
       return cwd
     end
-    cwd = vim.fn.fnamemodify(cwd, ":h")
-    git_dir = cwd .. "/.git"
+    local parent = vim.fn.fnamemodify(cwd, ":h")
+    if parent == cwd then
+      break
+    end
+    cwd = parent
   end
   return ""
 end
