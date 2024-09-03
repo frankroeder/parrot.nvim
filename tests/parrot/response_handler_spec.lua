@@ -8,6 +8,7 @@ describe("ResponseHandler", function()
     mock_vim = {
       api = {
         nvim_get_current_buf = stub.new().returns(1),
+        nvim_get_current_win = stub.new().returns(1),
         nvim_create_namespace = stub.new().returns(1),
         nvim_buf_set_extmark = stub.new().returns(1),
         nvim_buf_is_valid = stub.new().returns(true),
@@ -43,7 +44,7 @@ describe("ResponseHandler", function()
   it("should create a new ResponseHandler with default values", function()
     local handler = ResponseHandler:new(mock_queries)
     assert.are.same(1, handler.buffer)
-    assert.are.same(nil, handler.window)
+    assert.are.same(vim.api.nvim_get_current_win(), handler.window)
     assert.are.same("", handler.prefix)
     assert.are.same(false, handler.cursor)
     assert.are.same(0, handler.first_line)

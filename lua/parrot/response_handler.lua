@@ -26,10 +26,10 @@ ResponseHandler.__index = ResponseHandler
 function ResponseHandler:new(queries, buffer, window, line, first_undojoin, prefix, cursor)
   local self = setmetatable({}, ResponseHandler)
   self.buffer = buffer or vim.api.nvim_get_current_buf()
-  self.window = window
+  self.window = window or vim.api.nvim_get_current_win()
   self.prefix = prefix or ""
   self.cursor = cursor or false
-  self.first_line = line or vim.api.nvim_win_get_cursor(window)[1] - 1
+  self.first_line = line or (self.window and vim.api.nvim_win_get_cursor(self.window)[1] - 1 or 0)
   self.finished_lines = 0
   self.response = ""
   self.queries = queries
