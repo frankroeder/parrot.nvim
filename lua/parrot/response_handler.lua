@@ -29,7 +29,7 @@ function ResponseHandler:new(queries, buffer, window, line, first_undojoin, pref
   self.window = window
   self.prefix = prefix or ""
   self.cursor = cursor or false
-  self.first_line = line or (window and vim.api.nvim_win_get_cursor(window)[1] - 1 or 0)
+  self.first_line = line or vim.api.nvim_win_get_cursor(window)[1] - 1
   self.finished_lines = 0
   self.response = ""
   self.queries = queries
@@ -78,6 +78,7 @@ end
 function ResponseHandler:update_response(chunk)
   if chunk ~= nil then
     self.response = self.response .. chunk
+    utils.undojoin(self.buffer)
   end
 end
 

@@ -778,7 +778,7 @@ function ChatHandler:_chat_respond(params)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)
-        local topic_resp_handler = ResponseHandler:new(self.queries, topic_buf, nil, 0, false, "", false_free_cursor)
+        local topic_resp_handler = ResponseHandler:new(self.queries, topic_buf, nil, 0, false, "", false)
         local topic_handler = topic_resp_handler:create_handler()
         topic_prov:set_model(self.providers[topic_prov.name].topic.model)
 
