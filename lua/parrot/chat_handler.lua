@@ -10,6 +10,7 @@ local init_provider = require("parrot.provider").init_provider
 local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
+local ResponseHandler = require("parrot.response_handler")
 
 local ChatHandler = {}
 
@@ -731,15 +732,9 @@ function ChatHandler:_chat_respond(params)
     buf,
     query_prov,
     utils.prepare_payload(messages, model_obj.name, self.providers[query_prov.name].params["chat"]),
-    chatutils.create_handler(
-      self.queries,
-      buf,
-      win,
-      utils.last_content_line(buf),
-      true,
-      "",
-      not self.options.chat_free_cursor
-    ),
+    ResponseHandler
+      :new(self.queries, buf, win, utils.last_content_line(buf), true, "", not self.options.chat_free_cursor)
+      :create_handler(),
     vim.schedule_wrap(function(qid)
       if self.options.enable_spinner and spinner then
         spinner:stop()
@@ -783,7 +778,8 @@ function ChatHandler:_chat_respond(params)
 
         -- prepare invisible buffer for the model to write to
         local topic_buf = vim.api.nvim_create_buf(false, true)
-        local topic_handler = chatutils.create_handler(self.queries, topic_buf, nil, 0, false, "", false)
+        local topic_resp_handler = ResponseHandler:new(self.queries, topic_buf, nil, 0, false, "", false)
+        local topic_handler = topic_resp_handler:create_handler()
         topic_prov:set_model(self.providers[topic_prov.name].topic.model)
 
         local topic_spinner = nil
@@ -1257,21 +1253,21 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       -- delete selection
       vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
       -- prepare handler
-      handler = chatutils.create_handler(self.queries, buf, win, start_line - 1, true, prefix, cursor)
+      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
     elseif target == ui.Target.append then
       -- move cursor to the end of the selection
       vim.api.nvim_win_set_cursor(0, { end_line, 0 })
       -- put newline after selection
       vim.api.nvim_put({ "" }, "l", true, true)
       -- prepare handler
-      handler = chatutils.create_handler(self.queries, buf, win, end_line, true, prefix, cursor)
+      handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor):create_handler()
     elseif target == ui.Target.prepend then
       -- move cursor to the start of the selection
       vim.api.nvim_win_set_cursor(0, { start_line, 0 })
       -- put newline before selection
       vim.api.nvim_put({ "" }, "l", false, true)
       -- prepare handler
-      handler = chatutils.create_handler(self.queries, buf, win, start_line - 1, true, prefix, cursor)
+      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
       -- create a new buffer
@@ -1299,7 +1295,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       -- better text wrapping
       vim.api.nvim_command("setlocal wrap linebreak")
       -- prepare handler
-      handler = chatutils.create_handler(self.queries, buf, win, 0, false, "", false)
+      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", false):create_handler()
       self:toggle_add(self._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
     elseif type(target) == "table" then
       if target.type == ui.Target.new().type then
@@ -1331,7 +1327,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
       local ft = target.filetype or filetype
       vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
 
-      handler = chatutils.create_handler(self.queries, buf, win, 0, false, "", cursor)
+      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor):create_handler()
     end
 
     -- call the model and write the response
