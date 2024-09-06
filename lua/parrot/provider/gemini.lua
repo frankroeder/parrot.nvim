@@ -1,5 +1,6 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
+local Job = require("plenary.job")
 
 ---@class Gemini
 ---@field endpoint string
@@ -142,12 +143,32 @@ end
 
 ---Returns the list of available models
 ---@return string[]
-function Gemini:get_available_models()
-  return {
+function Gemini:get_available_models(online)
+  local ids = {
     "gemini-1.5-flash",
     "gemini-1.5-pro",
     "gemini-1.0-pro",
   }
+  if online and self:verify() then
+    local job = Job:new({
+      command = "curl",
+      args = { "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
+        ids = {}
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.models then
+          for _, item in ipairs(decoded.models) do
+            table.insert(ids, string.sub(item.name, 8))
+          end
+        end
+      end,
+    })
+    job:start()
+    job:wait()
+  end
+  return ids
 end
 
 return Gemini

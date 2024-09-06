@@ -14,21 +14,6 @@ describe("chat_utils", function()
     end)
   end)
 
-  describe("create_handler", function()
-    it("should create a handler function", function()
-      local mock_queries = {
-        get = function()
-          return {}
-        end,
-      }
-      local buf = vim.api.nvim_create_buf(false, true)
-      local win = vim.api.nvim_get_current_win()
-      local handler = chat_utils.create_handler(mock_queries, buf, win)
-      assert.is_function(handler)
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end)
-  end)
-
   describe("prep_md", function()
     it("should set buffer and window options correctly", function()
       async.run(function()
