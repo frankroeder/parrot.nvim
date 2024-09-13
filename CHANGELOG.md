@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/frankroeder/parrot.nvim/compare/v0.6.0...v0.7.0) (2024-09-11)
+
+
+### Features
+
+* add github model beta support ([6f36955](https://github.com/frankroeder/parrot.nvim/commit/6f36955a2174af95c3cf98165e907cdf60f289bb))
+* **provider:** add gemini online model support ([be975ee](https://github.com/frankroeder/parrot.nvim/commit/be975ee542c8c24ebb90f154e25e2c89633b5d2d))
+
+
+### Bug Fixes
+
+* add missing import ([4a50b58](https://github.com/frankroeder/parrot.nvim/commit/4a50b58ce0036009ffc7419df2c2619e8a09496e))
+* **responsehandler:** address bug ([075294c](https://github.com/frankroeder/parrot.nvim/commit/075294c1a9da6e35727007c4105590b8768d3681))
+* **responsehandler:** window handling ([f2cbfc5](https://github.com/frankroeder/parrot.nvim/commit/f2cbfc592e1a5c470a840abdba5abc4940911f55))
+
 ## [0.6.0](https://github.com/frankroeder/parrot.nvim/compare/v0.5.0...v0.6.0) (2024-08-22)
 
 
