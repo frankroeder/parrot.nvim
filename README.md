@@ -44,21 +44,21 @@ While this project is still under development, a substantial part of the code is
 
 Seamlessly switch between providers and models.
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/bc7f68f8-88e7-4ac3-9ee1-0c38da7f8d88" width="100%">
+    <img src="https://github.com/user-attachments/assets/0df0348f-85c0-4a2d-ba1f-ede2738c6d02" width="100%">
 </div>
 
 ---
 
 Trigger code completions based on comments.
 <div align="left">
-    <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/dc5a0790-b9a2-45ff-90c8-e67eb02f26f3" width="100%">
+    <img src="https://github.com/user-attachments/assets/197f99ac-9854-4fe9-bddb-394c1b64f6b6" width="100%">
 </div>
 
 ---
 
 Let the parrot fix your bugs.
 <div align="left">
-    <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/a77fa8b2-9714-42da-bafe-645b540931ab" width="100%">
+    <img src="https://github.com/user-attachments/assets/d3a0b261-a9dd-45e6-b508-dc5280594b06" width="100%">
 </div>
 
 ---
@@ -66,7 +66,7 @@ Let the parrot fix your bugs.
 <details>
 <summary>Rewrite a visual selection with `PrtRewrite`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/624f265a-1f5a-41b2-a015-2631700d0d23" width="100%">
+    <img src="https://github.com/user-attachments/assets/c3d38702-7558-4e9e-96a3-c43312a543d0" width="100%">
 </div>
 </details>
 
@@ -75,7 +75,7 @@ Let the parrot fix your bugs.
 <details>
 <summary>Append code with the visual selection as context with `PrtAppend`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/9798759d-cb47-48a5-bcf1-3969377dbaa2" width="100%">
+    <img src="https://github.com/user-attachments/assets/80af02fa-cd88-4023-8a55-f2d3c0a2f28e" width="100%">
 </div>
 </details>
 
@@ -84,14 +84,14 @@ Let the parrot fix your bugs.
 <details>
 <summary>Add comments to a function with `PrtPrepend`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/7a4f20a0-baff-413a-9ff1-62df9f53ae28" width="100%">
+    <img src="https://github.com/user-attachments/assets/9a6bfe66-4bc7-4b63-8694-67bf9c23c064" width="100%">
 </div>
 </details>
 
 <details>
 <summary>Retry your latest rewrite, append or prepend with `PrtRetry`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/a46f5c95-10fc-492d-a1d9-4e794b43599d" width="100%">
+    <img src="https://github.com/user-attachments/assets/03442f34-687b-482e-b7f1-7812f70739cc" width="100%">
 </div>
 </details>
 
@@ -363,21 +363,21 @@ to consider a visual selection within an API request.
 <details>
 <summary>With `user_input_ui = "native"`, use `vim.ui.input` as slim input interface.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/014ad6ad-6367-41d1-ac57-229563540061" width="100%">
+    <img src="https://github.com/user-attachments/assets/c2fe3bde-a35a-4f2a-957b-687e4f6f2e5c" width="100%">
 </div>
 </details>
 
 <details>
 <summary>With `user_input_ui = "buffer"`, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/3390a4c1-cb60-4f2a-8bd9-0f47f6ec6e55" width="100%">
+    <img src="https://github.com/user-attachments/assets/63e6e1c4-a2ab-4c60-9b43-332e4b581360" width="100%">
 </div>
 </details>
 
 <details>
 <summary>The spinner is a useful indicator for providers that take longer to respond.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/39828992-ad2c-4010-be66-e3a03038a980" width="100%">
+    <img src="https://github.com/user-attachments/assets/ebcd27cb-da00-4150-a0f8-1d2e1afa0acb" width="100%">
 </div>
 </details>
 
