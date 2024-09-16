@@ -67,7 +67,13 @@ function ResponseHandler:handle_chunk(qid, chunk)
   self.first_line = vim.api.nvim_buf_get_extmark_by_id(self.buffer, self.ns_id, self.ex_id, {})[1]
 
   local line_count = #vim.split(self.response, "\n")
-  vim.api.nvim_buf_set_lines(self.buffer, self.first_line + self.finished_lines, self.first_line + line_count, false, {})
+  vim.api.nvim_buf_set_lines(
+    self.buffer,
+    self.first_line + self.finished_lines,
+    self.first_line + line_count,
+    false,
+    {}
+  )
 
   self:update_response(chunk)
   self:update_buffer()

@@ -510,6 +510,9 @@ function ChatHandler:chat_new(params, chat_prompt)
     return self:_new_chat(params, true, chat_prompt)
   end
 
+  if params.args == "" then
+    params.args = self.options.toggle_target
+  end
   return self:_new_chat(params, false, chat_prompt)
 end
 
