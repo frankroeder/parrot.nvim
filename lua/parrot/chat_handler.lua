@@ -782,6 +782,16 @@ function ChatHandler:_chat_respond(params)
           topic_spinner = Spinner:new(self.options.spinner_type)
           topic_spinner:start("summarizing...")
         end
+        logger.debug(vim.inspect({
+          location = "ChatHandler:query",
+          messages = messages,
+          topic_prov = topic_prov,
+          payload = utils.prepare_payload(
+            messages,
+            self.providers[topic_prov.name].topic.model,
+            self.providers[topic_prov.name].topic.params
+          ),
+        }))
         -- call the model
         self:query(
           nil,
