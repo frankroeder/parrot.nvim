@@ -9,16 +9,20 @@ local Perplexity = {}
 Perplexity.__index = Perplexity
 
 -- Available API parameters for Perplexity
--- https://docs.perplexity.ai/reference/post_chat_completions
+-- https://docs.perplexity.ai/api-reference/chat-completions
 local AVAILABLE_API_PARAMETERS = {
   -- required
-  messages = true,
   model = true,
+  messages = true,
   -- optional
   max_tokens = true,
   temperature = true,
   top_p = true,
   return_citations = true,
+  search_domain_filter = true,
+  return_images = true,
+  return_related_questions = true,
+  search_recency_filter = true,
   top_k = true,
   stream = true,
   presence_penalty = true,
