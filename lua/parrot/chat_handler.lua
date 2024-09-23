@@ -263,18 +263,10 @@ function ChatHandler:prepare_commands()
         self.options.command_prompt_prefix_template,
         { ["{{llm}}"] = self:get_model("command").name }
       )
-      self:prompt(params, target, model_obj, cmd_prefix, utils.trim(template))
+      self:prompt(params, target, model_obj, cmd_prefix, utils.trim(template), true)
     end
     self.commands[command] = command
     self:addCommand(command, function(params)
-      if command ~= "Retry" then
-        self.history = {
-          last_selection = nil,
-          last_command = nil,
-          last_line1 = nil,
-          last_line2 = nil,
-        }
-      end
       cmd(params)
     end)
   end
@@ -507,6 +499,9 @@ function ChatHandler:chat_new(params, chat_prompt)
     return self:_new_chat(params, true, chat_prompt)
   end
 
+  if params.args == "" then
+    params.args = self.options.toggle_target
+  end
   return self:_new_chat(params, false, chat_prompt)
 end
 
@@ -776,6 +771,16 @@ function ChatHandler:_chat_respond(params)
           topic_spinner = Spinner:new(self.options.spinner_type)
           topic_spinner:start("summarizing...")
         end
+        logger.debug(vim.inspect({
+          location = "ChatHandler:query",
+          messages = messages,
+          topic_prov = topic_prov,
+          payload = utils.prepare_payload(
+            messages,
+            self.providers[topic_prov.name].topic.model,
+            self.providers[topic_prov.name].topic.params
+          ),
+        }))
         -- call the model
         self:query(
           nil,
@@ -1037,13 +1042,23 @@ function ChatHandler:retry(params)
   else
     logger.error("Invalid last target" .. self.history.last_target)
   end
-  self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template))
+  self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
 end
 
-function ChatHandler:prompt(params, target, model_obj, prompt, template)
+function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_history)
   -- enew, new, vnew, tabnew should be resolved into table
   if type(target) == "function" then
     target = target()
+  end
+
+  logger.debug("ChatHandler:prompt - `reset_history`: " .. vim.inspect(reset_history))
+  if reset_history == nil or reset_history then
+    self.history = {
+      last_selection = nil,
+      last_command = nil,
+      last_line1 = nil,
+      last_line2 = nil,
+    }
   end
 
   target = target or ui.Target.enew()
@@ -1112,6 +1127,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template)
 
   local callback = function(command)
     if self.history.last_command then
+      logger.debug("LAST COMMAND in use " .. self.history.last_command)
       command = self.history.last_command
     end
     -- dummy handler

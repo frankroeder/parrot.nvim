@@ -57,7 +57,6 @@ function Perplexity:curl_params()
     self.endpoint,
     "-H",
     "authorization: Bearer " .. self.api_key,
-    "content-type: text/event-stream",
   }
 end
 

@@ -464,25 +464,25 @@ receives the full file context and the selected code snippet as input.
 require("parrot").setup {
     -- ...
     hooks = {
-    	CompleteFullContext = function(prt, params)
-          local template = [[
-          I have the following code from {{filename}}:
+      CompleteFullContext = function(prt, params)
+        local template = [[
+        I have the following code from {{filename}}:
 
-          ```{{filetype}}
-          {{filecontent}}
-          ```
+        ```{{filetype}}
+        {filecontent}}
+        ```
 
-          Please look at the following section specifically:
-          ```{{filetype}}
-          {{selection}}
-          ```
+        Please look at the following section specifically:
+        ```{{filetype}}
+        {{selection}}
+        ```
 
-          Please finish the code above carefully and logically.
-          Respond just with the snippet of code that should be inserted.
-          ]]
-          local model_obj = prt.get_model()
-          prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
-        end,
+        Please finish the code above carefully and logically.
+        Respond just with the snippet of code that should be inserted.
+        ]]
+        local model_obj = prt.get_model("command")
+        prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
+      end,
     }
     -- ...
 }

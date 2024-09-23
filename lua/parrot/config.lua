@@ -40,7 +40,7 @@ local defaults = {
       endpoint = "https://api.perplexity.ai/chat/completions",
       topic_prompt = topic_prompt,
       topic = {
-        model = "llama-3-8b-instruct",
+        model = "llama-3.1-70b-instruct",
         params = { maxOutputTokens = 64 },
       },
       params = {

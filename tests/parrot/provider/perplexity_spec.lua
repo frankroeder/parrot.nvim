@@ -112,7 +112,6 @@ describe("Perplexity", function()
         "https://api.perplexity.ai/chat/completions",
         "-H",
         "authorization: Bearer test_api_key",
-        "content-type: text/event-stream",
       }
 
       local result = perplexity:curl_params()
