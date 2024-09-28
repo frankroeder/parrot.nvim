@@ -113,14 +113,19 @@ function Ollama:get_available_models()
   local parsed_response = utils.parse_raw_response(job)
   self:process_onexit(parsed_response)
 
+  if parsed_response == "" then
+    logger.debug("Ollama server not running.")
+    return {}
+  end
+
   local success, parsed_data = pcall(vim.json.decode, parsed_response)
   if not success then
-    logger.error("Error parsing JSON: " .. vim.inspect(parsed_data))
+    logger.error("Ollama - Error parsing JSON: " .. vim.inspect(parsed_data))
     return {}
   end
 
   if not parsed_data.models then
-    logger.error("No models found. Please use 'ollama pull' to download one.")
+    logger.error("Ollama - No models found. Please use 'ollama pull' to download one.")
     return {}
   end
 
