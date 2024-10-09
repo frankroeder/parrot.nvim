@@ -126,8 +126,26 @@ end
 ---@param online boolean
 ---@return string[]
 function Groq:get_available_models(online)
+  local ids = {
+    "gemma-7b-it",
+    "gemma2-9b-it",
+    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama-3.2-11b-text-preview",
+    "llama-3.2-1b-preview",
+    "llama-3.2-3b-preview",
+    "llama-3.2-90b-text-preview",
+    "llama-guard-3-8b",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "llama3-groq-70b-8192-tool-use-preview",
+    "llama3-groq-8b-8192-tool-use-preview",
+    "llava-v1.5-7b-4096-preview",
+    "mixtral-8x7b-32768",
+    "whisper-large-v3",
+  }
   if online and self:verify() then
-    Job:new({
+    local job = Job:new({
       command = "curl",
       args = {
         "https://api.groq.com/openai/v1/models",
@@ -139,27 +157,17 @@ function Groq:get_available_models(online)
       on_exit = function(job)
         local parsed_response = utils.parse_raw_response(job:result())
         self:process_onexit(parsed_response)
-        local ids = {}
+        ids = {}
         for _, item in ipairs(vim.json.decode(parsed_response).data) do
           table.insert(ids, item.id)
         end
         return ids
       end,
-    }):start()
+    })
+    job:start()
+    job:wait()
   end
-  return {
-    "llama-3.1-70b-versatile",
-    "llama-3.1-405b-reasoning",
-    "llama-3.1-8b-instant",
-    "llama3-groq-70b-8192-tool-use-preview",
-    "llama3-groq-8b-8192-tool-use-preview",
-    "llama-guard-3-8b",
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "mixtral-8x7b-32768",
-    "gemma-7b-it",
-    "gemma2-9b-it",
-  }
+  return ids
 end
 
 return Groq

@@ -16,12 +16,12 @@ end
 --- Initializes file state for each provider if it's empty.
 --- @param available_providers table
 function State:init_file_state(available_providers)
-  self.file_state.current_provider = self.file_state.current_provider or { chat = "", command = "" }
   if next(self.file_state) == nil then
     for _, prov in ipairs(available_providers) do
       self.file_state[prov] = { chat_model = nil, command_model = nil }
     end
   end
+  self.file_state.current_provider = self.file_state.current_provider or { chat = "", command = "" }
 end
 
 --- Initializes state for a specific provider if it's not already initialized.

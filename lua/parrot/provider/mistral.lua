@@ -9,6 +9,7 @@ local Mistral = {}
 Mistral.__index = Mistral
 
 -- Available API parameters for Mistral
+-- https://docs.mistral.ai/api/
 local AVAILABLE_API_PARAMETERS = {
   -- required
   model = true,
@@ -17,9 +18,11 @@ local AVAILABLE_API_PARAMETERS = {
   temperature = true,
   top_p = true,
   max_tokens = true,
+  min_tokens = true,
   stream = true,
-  safe_prompt = true,
+  stop = true,
   random_seed = true,
+  safe_prompt = true,
 }
 
 -- Creates a new Mistral instance

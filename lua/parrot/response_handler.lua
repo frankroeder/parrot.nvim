@@ -36,7 +36,7 @@ function ResponseHandler:new(queries, buffer, window, line, first_undojoin, pref
   self.skip_first_undojoin = not first_undojoin
 
   self.hl_handler_group = "PrtHandlerStandout"
-  vim.cmd("highlight default link " .. self.hl_handler_group .. " CursorLine")
+  vim.api.nvim_set_hl(0, self.hl_handler_group, { link = "CursorLine" })
 
   self.ns_id = vim.api.nvim_create_namespace("PrtHandler_" .. utils.uuid())
   self.ex_id = vim.api.nvim_buf_set_extmark(self.buffer, self.ns_id, self.first_line, 0, {

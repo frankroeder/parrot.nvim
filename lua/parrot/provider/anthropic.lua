@@ -14,8 +14,8 @@ local AVAILABLE_API_PARAMETERS = {
   -- required
   model = true,
   messages = true,
-  -- optional
   max_tokens = true,
+  -- optional
   metadata = true,
   stop_sequences = true,
   stream = true,
