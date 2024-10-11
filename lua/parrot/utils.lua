@@ -25,14 +25,14 @@ end
 ---@param callback function|string Callback or string to set keymap
 ---@param desc string|nil Optional description for keymap
 function M.set_keymap(buffers, mode, key, callback, desc)
-  local opts = {
-    noremap = true,
-    silent = true,
-    nowait = true,
-    desc = desc,
-  }
   for _, buf in ipairs(buffers) do
-    opts.buffer = buf
+    local opts = {
+      noremap = true,
+      silent = true,
+      nowait = true,
+      buffer = buf,
+      desc = desc,
+    }
     vim.keymap.set(mode, key, callback, opts)
   end
 end
@@ -43,16 +43,20 @@ end
 ---@param callback function Callback to call
 ---@param gid number Augroup id
 function M.autocmd(events, buffers, callback, gid)
-  local opts = {
-    group = gid,
-    callback = vim.schedule_wrap(callback),
-  }
   if buffers then
     for _, buf in ipairs(buffers) do
-      opts.buffer = buf
+      local opts = {
+        group = gid,
+        buffer = buf,
+        callback = vim.schedule_wrap(callback),
+      }
       vim.api.nvim_create_autocmd(events, opts)
     end
   else
+    local opts = {
+      group = gid,
+      callback = vim.schedule_wrap(callback),
+    }
     vim.api.nvim_create_autocmd(events, opts)
   end
 end
