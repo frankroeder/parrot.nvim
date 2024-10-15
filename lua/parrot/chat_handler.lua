@@ -23,20 +23,17 @@ function ChatHandler:new(options, providers, available_providers, available_mode
     _plugin_name = "parrot.nvim",
     options = options,
     providers = providers,
-    current_provider = {
-      chat = nil,
-      command = nil,
-    },
+    current_provider = { chat = nil, command = nil },
     pool = Pool:new(),
     queries = Queries:new(),
     commands = commands,
     state = state,
     _toggle = {},
     _toggle_kind = {
-      unknown = 0, -- unknown toggle
-      chat = 1, -- chat toggle
-      popup = 2, -- popup toggle
-      context = 3, -- context toggle
+      unknown = 0,
+      chat = 1,
+      popup = 2,
+      context = 3,
     },
     available_providers = available_providers,
     available_models = available_models,
@@ -49,6 +46,8 @@ function ChatHandler:new(options, providers, available_providers, available_mode
   }, self)
 end
 
+-- Retrieves status information about the current buffer.
+---@return table { is_chat = boolean, prov = table | nil, model = string }
 function ChatHandler:get_status_info()
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
@@ -57,40 +56,36 @@ function ChatHandler:get_status_info()
   return { is_chat = is_chat, prov = self.current_provider, model = model_obj.name }
 end
 
+--- Sets the current provider for chat or command.
+---@param selected_prov string Selected provider name.
+---@param is_chat boolean True for chat provider, false for command provider.
 function ChatHandler:set_provider(selected_prov, is_chat)
   local endpoint = self.providers[selected_prov].endpoint
   local api_key = self.providers[selected_prov].api_key
   local _prov = init_provider(selected_prov, endpoint, api_key)
-  if is_chat then
-    self.current_provider.chat = _prov
-  else
-    self.current_provider.command = _prov
-  end
+  self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
 end
 
 function ChatHandler:get_provider(is_chat)
-  local current_prov = nil
-  if is_chat then
-    current_prov = self.current_provider.chat
-  else
-    current_prov = self.current_provider.command
-  end
-
+  local current_prov = self.current_provider[is_chat and "chat" or "command"]
   if not current_prov then
     local prov = self.state:get_provider(is_chat)
+    if not prov then
+      logger.error(string.format("No provider found for %s", is_chat and "chat" or "command"))
+      return nil
+    end
     self:set_provider(prov, is_chat)
+    current_prov = self.current_provider[is_chat and "chat" or "command"]
   end
-
-  if is_chat then
-    return self.current_provider.chat
-  else
-    return self.current_provider.command
-  end
+  return current_prov
 end
 
+--- Retrieves the current provider for chat or command.
+---@param is_chat boolean True for chat provider, false for command provider.
+---@return table | nil Provider table or nil if not found.
 function ChatHandler:buf_handler()
   local gid = utils.create_augroup("PrtBufHandler", { clear = true })
 
@@ -173,6 +168,8 @@ function ChatHandler:prep_chat(buf, file_name)
   self.state:refresh(self.available_providers, self.available_models)
 end
 
+---@param buf number Buffer number.
+---@param file_name string Name of the context file.
 function ChatHandler:prep_context(buf, file_name)
   if not utils.ends_with(file_name, ".parrot.md") then
     return
@@ -230,11 +227,17 @@ function ChatHandler:toggle_resolve(kind)
   return self._toggle_kind.unknown
 end
 
----@return table # { name, system_prompt, provider }
+--- Retrieves the model information based on the model type.
+---@param model_type string "chat" or "command".
+---@return table { name, system_prompt, provider }
 function ChatHandler:get_model(model_type)
   local prov = self:get_provider(model_type == "chat")
+  if not prov then
+    logger.error("Provider not available for model type: " .. model_type)
+    return {}
+  end
   local model = self.state:get_model(prov.name, model_type)
-  local system_prompt = self.options.system_prompt[model_type]
+  local system_prompt = self.options.system_prompt[model_type] or ""
   return {
     name = model,
     system_prompt = system_prompt,
@@ -289,8 +292,8 @@ function ChatHandler:addCommand(command, cmd)
   end
 end
 
--- stop receiving responses for all processes and create a new pool
----@param signal number | nil # signal to send to the process
+--- Stops all ongoing processes by killing associated jobs.
+---@param signal number | nil Signal to send to the processes.
 function ChatHandler:stop(signal)
   if self.pool:is_empty() then
     return
@@ -305,6 +308,8 @@ function ChatHandler:stop(signal)
   self.pool = Pool:new()
 end
 
+--- Context command
+---@param params table Parameters for the context action.
 function ChatHandler:context(params)
   self:toggle_close(self._toggle_kind.popup)
   -- if there is no selection, try to close context toggle
@@ -347,6 +352,12 @@ function ChatHandler:context(params)
   utils.feedkeys("G", "xn")
 end
 
+--- Opens a buffer
+---@param file_name string Name of the file to open.
+---@param target number Buffer target.
+---@param kind number Kind of toggle.
+---@param toggle boolean Whether to toggle the buffer.
+---@return number Buffer number.
 function ChatHandler:open_buf(file_name, target, kind, toggle)
   target = target or ui.BufTarget.current
 
@@ -453,6 +464,11 @@ function ChatHandler:open_buf(file_name, target, kind, toggle)
   return buf
 end
 
+--- Creates a new chat file.
+---@param params table Parameters for creating a new chat.
+---@param toggle boolean Whether to toggle the chat buffer.
+---@param chat_prompt string Optional chat prompt.
+---@return number # buffer number
 function ChatHandler:_new_chat(params, toggle, chat_prompt)
   self:toggle_close(self._toggle_kind.popup)
 
@@ -499,7 +515,10 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
   return buf
 end
 
----@return number # buffer number
+--- Creates a new chat.
+---@param params table Parameters for creating a new chat.
+---@param chat_prompt string Optional chat prompt.
+---@return number # buffer number.
 function ChatHandler:chat_new(params, chat_prompt)
   -- if chat toggle is open, close it and start a new one
   if self:toggle_close(self._toggle_kind.chat) then
@@ -540,6 +559,8 @@ function ChatHandler:chat_toggle(params)
   self:_new_chat(params, true)
 end
 
+--- Pastes selected text into the last chat.
+---@param params table Parameters for pasting.
 function ChatHandler:chat_paste(params)
   -- if there is no selection, do nothing
   if params.range ~= 2 then
@@ -605,6 +626,8 @@ function ChatHandler:chat_delete()
   end)
 end
 
+--- Handles chat responses
+---@param params table Parameters for responding.
 function ChatHandler:_chat_respond(params)
   local buf = vim.api.nvim_get_current_buf()
   local win = vim.api.nvim_get_current_win()
@@ -836,6 +859,8 @@ function ChatHandler:_chat_respond(params)
   )
 end
 
+--- Command to generate chat response
+---@param params table Parameters for responding.
 function ChatHandler:chat_respond(params)
   if params.args == "" then
     self:_chat_respond(params)
@@ -943,6 +968,9 @@ function ChatHandler:chat_finder()
   end
 end
 
+--- Switches the current provider.
+---@param selected_prov string Selected provider name.
+---@param is_chat boolean True for chat provider, false for command provider.
 function ChatHandler:switch_provider(selected_prov, is_chat)
   if selected_prov == nil then
     logger.warning("Empty provider selection")
@@ -954,11 +982,19 @@ function ChatHandler:switch_provider(selected_prov, is_chat)
     logger.info("Switched to provider: " .. selected_prov)
     return
   else
-    logger.error("Provider not found: " .. selected_prov)
+    logger.error(
+      string.format(
+        "Provider '%s' not found. Available providers: %s",
+        selected_prov,
+        table.concat(self.available_providers, ", ")
+      )
+    )
     return
   end
 end
 
+--- Handles provider selection via fzf-lua or vim.ui.select
+---@param params table Parameters for provider selection.
 function ChatHandler:provider(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
@@ -971,9 +1007,11 @@ function ChatHandler:provider(params)
     fzf_lua.fzf_exec(self.available_providers, {
       prompt = "Provider selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
-      complete = function(selection)
-        self:switch_provider(selection[1], is_chat)
-      end,
+      actions = {
+        ["default"] = function(selected)
+          self:switch_provider(selected[1], is_chat)
+        end,
+      },
     })
   else
     vim.ui.select(self.available_providers, {
@@ -984,6 +1022,10 @@ function ChatHandler:provider(params)
   end
 end
 
+-- Switches the model for chat or command.
+---@param is_chat boolean True for chat model, false for command model.
+---@param selected_model string Selected model name.
+---@param prov table Provider table.
 function ChatHandler:switch_model(is_chat, selected_model, prov)
   if selected_model == nil then
     logger.warning("Empty model selection")
@@ -1000,6 +1042,8 @@ function ChatHandler:switch_model(is_chat, selected_model, prov)
   self:prepare_commands()
 end
 
+--- Handles model selection via fzf-lua or vim.ui.select
+---@param params table Parameters for model selection.
 function ChatHandler:model(params)
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
@@ -1015,14 +1059,16 @@ function ChatHandler:model(params)
     fzf_lua.fzf_exec(prov:get_available_models(fetch_online), {
       prompt = "Model selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
-      complete = function(selection)
-        if #selection == 0 then
-          logger.warning("No model selected")
-          return
-        end
-        local selected_model = selection[1]
-        self:switch_model(is_chat, selected_model, prov)
-      end,
+      actions = {
+        ["default"] = function(selected)
+          if #selected == 0 then
+            logger.warning("No model selected")
+            return
+          end
+          local selected_model = selected[1]
+          self:switch_model(is_chat, selected_model, prov)
+        end,
+      },
     })
   else
     vim.ui.select(prov:get_available_models(fetch_online), {
@@ -1033,6 +1079,8 @@ function ChatHandler:model(params)
   end
 end
 
+-- Retries the last command action.
+---@param params table Parameters for retrying.
 function ChatHandler:retry(params)
   if self.history.last_line1 == nil and self.history.last_line2 == nil then
     return logger.error("No history available to retry: " .. vim.inspect(self.history))
@@ -1051,11 +1099,18 @@ function ChatHandler:retry(params)
   elseif self.history.last_target == ui.Target.prepend then
     template = self.options.template_prepend
   else
-    logger.error("Invalid last target" .. self.history.last_target)
+    logger.error("Invalid last target" .. vim.inspect(self.history.last_target))
   end
   self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
 end
 
+--- Prompts the user to send a model request.
+---@param params table Parameters for prompting.
+---@param target table | number Buffer target.
+---@param model_obj table Model information.
+---@param prompt string Optional prompt for user input.
+---@param template string Template for generating the user prompt.
+---@param reset_history boolean Whether to reset history.
 function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_history)
   -- enew, new, vnew, tabnew should be resolved into table
   if type(target) == "function" then
@@ -1397,12 +1452,12 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   end)
 end
 
--- call the API
----@param buf number | nil # buffer number
----@param provider table
----@param payload table # payload for api
----@param handler function # response handler
----@param on_exit function | nil # optional on_exit handler
+--- Sends a query to the provider's API.
+---@param buf number | nil Buffer number.
+---@param provider table Provider information.
+---@param payload table Payload for the API.
+---@param handler function Response handler function.
+---@param on_exit function | nil Optional on_exit handler.
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
@@ -1413,6 +1468,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   end
 
   if not provider:verify() then
+    logger.error("Provider verification failed")
     return
   end
 
@@ -1461,7 +1517,9 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       logger.debug("on_exit: " .. vim.inspect(response:result()))
       if exit_code ~= 0 then
         logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
-        on_exit(qid)
+        if on_exit then
+          on_exit(qid)
+        end
       end
       local result = response:result()
       result = utils.parse_raw_response(result)
@@ -1471,11 +1529,13 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
         response.handle:close()
       end
 
-      on_exit(qid)
+      if on_exit then
+        on_exit(qid)
+      end
       local qt = self.queries:get(qid)
-      if qt.ns_id and qt.buf then
+      if qt and qt.ns_id and qt.buf then
         vim.schedule(function()
-          vim.api.nvim_buf_clear_namespace(qt.buf, qt.ns_id, 0, -1)
+          pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
         end)
       end
       self.pool:remove(response.pid)
@@ -1498,7 +1558,16 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       end
     end,
   })
-  job:start()
+  local ok, err = pcall(function()
+    job:start()
+  end)
+  if not ok then
+    logger.error(string.format("Failed to start curl job: %s", err))
+    if on_exit then
+      on_exit(qid)
+    end
+    return
+  end
   self.pool:add(job, buf)
 end
 

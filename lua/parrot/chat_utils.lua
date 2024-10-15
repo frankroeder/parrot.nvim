@@ -5,29 +5,19 @@ local M = {}
 
 ---@param params table | string # table with args or string args
 ---@return number # buf target
-M.resolve_buf_target = function(params)
-  local args = ""
-  if type(params) == "table" then
-    args = params.args or ""
-  else
-    args = params
-  end
-
-  if args == "popup" then
-    return ui.BufTarget.popup
-  elseif args == "split" then
-    return ui.BufTarget.split
-  elseif args == "vsplit" then
-    return ui.BufTarget.vsplit
-  elseif args == "tabnew" then
-    return ui.BufTarget.tabnew
-  else
-    return ui.BufTarget.current
-  end
+M.resolve_buf_target = function(target)
+  local target_map = {
+    popup = ui.BufTarget.popup,
+    split = ui.BufTarget.split,
+    vsplit = ui.BufTarget.vsplit,
+    tabnew = ui.BufTarget.tabnew,
+  }
+  return target_map[target] or ui.BufTarget.current
 end
 
 ---@param buf number | nil
 M.prep_md = function(buf)
+  buf = buf or vim.api.nvim_get_current_buf()
   vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 
