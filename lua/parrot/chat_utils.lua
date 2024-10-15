@@ -5,7 +5,8 @@ local M = {}
 
 ---@param params table | string # table with args or string args
 ---@return number # buf target
-M.resolve_buf_target = function(target)
+M.resolve_buf_target = function(params)
+	local target = type(params) == "table" and (params.args or "") or params
   local target_map = {
     popup = ui.BufTarget.popup,
     split = ui.BufTarget.split,
