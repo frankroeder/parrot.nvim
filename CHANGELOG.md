@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0](https://github.com/frankroeder/parrot.nvim/compare/v0.7.0...v1.0.0) (2024-10-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* ChatNew now follows toggle_target option
+
+### Features
+
+* ChatNew now follows toggle_target option ([345fb4e](https://github.com/frankroeder/parrot.nvim/commit/345fb4e3bed17c1822c1cd40ccec158be13d3f7e))
+
+
+### Bug Fixes
+
+* **ollama:** additional guard if server is not running ([fdcaa6c](https://github.com/frankroeder/parrot.nvim/commit/fdcaa6ccc368b69f0b0cdd8d5998e53ac2812aeb))
+* **provider:** remove pplx event-stream header ([b347a1c](https://github.com/frankroeder/parrot.nvim/commit/b347a1ce80336a519634df3668c8b940acf83653))
+* resolve history bug with custom hooks ([0db1e3b](https://github.com/frankroeder/parrot.nvim/commit/0db1e3beff0c434fec13c809bd105a4485946ece))
+
 ## [0.7.0](https://github.com/frankroeder/parrot.nvim/compare/v0.6.0...v0.7.0) (2024-09-11)
 
 
