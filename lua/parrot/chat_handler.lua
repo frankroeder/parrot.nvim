@@ -1558,16 +1558,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       end
     end,
   })
-  local ok, err = pcall(function()
-    job:start()
-  end)
-  if not ok then
-    logger.error(string.format("Failed to start curl job: %s", err))
-    if on_exit then
-      on_exit(qid)
-    end
-    return
-  end
+  job:start()
   self.pool:add(job, buf)
 end
 
