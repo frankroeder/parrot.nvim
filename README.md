@@ -32,6 +32,7 @@ While this project is still under development, a substantial part of the code is
     + [Groq API](https://console.groq.com)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + [GitHub Models](https://github.com/marketplace/models)
+    + [NVIDIA API](https://docs.api.nvidia.com)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -184,6 +185,9 @@ The minimal requirement is to at least set up one provider, hence one from the s
         },
         github = {
           api_key = os.getenv "GITHUB_TOKEN",
+        },
+        nvidia = {
+          api_key = os.getenv "NVIDIA_API_KEY",
         },
       },
     }

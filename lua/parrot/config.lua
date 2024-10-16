@@ -146,6 +146,19 @@ local defaults = {
         command = { temperature = 1.5, top_p = 1 },
       },
     },
+    nvidia = {
+      api_key = "",
+      endpoint = "https://integrate.api.nvidia.com/v1/chat/completions",
+      topic_prompt = topic_prompt,
+      topic = {
+        model = "nvidia/llama-3.1-nemotron-51b-instruct",
+        params = { max_tokens = 64 },
+      },
+      params = {
+        chat = { temperature = 1.1, top_p = 1 },
+        command = { temperature = 1.1, top_p = 1 },
+      },
+    },
   },
   cmd_prefix = "Prt",
   curl_params = {},
