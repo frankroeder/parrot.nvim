@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/frankroeder/parrot.nvim/compare/v1.0.0...v1.1.0) (2024-10-17)
+
+
+### Features
+
+* add nvidia api support ([94e218d](https://github.com/frankroeder/parrot.nvim/commit/94e218dee56344d065c9d0cf37d89225d03ae5f5))
+
+
+### Bug Fixes
+
+* resolve issue with toggle_target ([51e7d1c](https://github.com/frankroeder/parrot.nvim/commit/51e7d1c2820fb4333bdcfc9751abfa74e9d90329))
+
 ## [1.0.0](https://github.com/frankroeder/parrot.nvim/compare/v0.7.0...v1.0.0) (2024-10-15)
 
 
