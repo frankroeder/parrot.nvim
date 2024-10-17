@@ -128,29 +128,7 @@ end
 ---@param online boolean Whether to fetch models online
 ---@return string[]
 function OpenAI:get_available_models(online)
-  if online and self:verify() then
-    Job:new({
-      command = "curl",
-      args = {
-        "https://api.openai.com/v1/models",
-        "-H",
-        "Authorization: Bearer " .. self.api_key,
-      },
-      on_exit = function(job)
-        local parsed_response = utils.parse_raw_response(job:result())
-        self:process_onexit(parsed_response)
-        local ids = {}
-        local success, decoded = pcall(vim.json.decode, parsed_response)
-        if success and decoded.data then
-          for _, item in ipairs(decoded.data) do
-            table.insert(ids, item.id)
-          end
-        end
-        return ids
-      end,
-    }):start()
-  end
-  return {
+  local ids = {
     "gpt-4o",
     "gpt-3.5-turbo",
     "gpt-3.5-turbo-0125",
@@ -171,6 +149,31 @@ function OpenAI:get_available_models(online)
     "gpt-3.5-turbo-instruct",
     "chatgpt-4o-latest",
   }
+  if online and self:verify() then
+    local job = Job:new({
+      command = "curl",
+      args = {
+        "https://api.openai.com/v1/models",
+        "-H",
+        "Authorization: Bearer " .. self.api_key,
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
+        ids = {}
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.data then
+          for _, item in ipairs(decoded.data) do
+            table.insert(ids, item.id)
+          end
+        end
+        return ids
+      end,
+    })
+    job:start()
+    job:wait()
+  end
+  return ids
 end
 
 return OpenAI

@@ -19,7 +19,7 @@ describe("Nvidia", function()
 
   describe("process_onexit", function()
     it("should log an error message when there's an API error", function()
-        -- { "data:{\"type\":\"urn:inference-service:problem-details:bad-request\",\"title\":\"Bad Request\",\"status\":400,\"detail\":\"[{'type': 'string_too_short', 'loc': ('body', 'messages', 2, 'content'), 'msg': 'String should have at least 1 character', 'input': '', 'ctx': {'min_length': 1}}]\",\"instance\":\"/v2/nvcf/pexec/functions/9b96341b-9791-4db9-a00d-4e43aa192a39\",\"requestId\":\"2176a5ed-bdd4-4cf0-a835-ee055b17725c\"}", "" }
+      -- { "data:{\"type\":\"urn:inference-service:problem-details:bad-request\",\"title\":\"Bad Request\",\"status\":400,\"detail\":\"[{'type': 'string_too_short', 'loc': ('body', 'messages', 2, 'content'), 'msg': 'String should have at least 1 character', 'input': '', 'ctx': {'min_length': 1}}]\",\"instance\":\"/v2/nvcf/pexec/functions/9b96341b-9791-4db9-a00d-4e43aa192a39\",\"requestId\":\"2176a5ed-bdd4-4cf0-a835-ee055b17725c\"}", "" }
       local input = vim.json.encode({
         data = {
           type = "urn:inference-service:problem-details:bad-request",
@@ -42,7 +42,7 @@ describe("Nvidia", function()
       nvidia:process_onexit(input)
 
       assert.spy(logger_mock.error).was_called_with(
-        'Nvidia - code: 400 title Bad Request message: String should have at least 1 character type: urn:inference-service:problem-details:bad-request'
+        "Nvidia - code: 400 title Bad Request message: String should have at least 1 character type: urn:inference-service:problem-details:bad-request"
       )
     end)
 
@@ -57,7 +57,8 @@ describe("Nvidia", function()
 
   describe("process_stdout", function()
     it("should extract content from a valid chat.completion.chunk response", function()
-      local input = '{"id":"chat-ade745b94fa342f39bbfd832c70d5ee4","object":"chat.completion.chunk","created":1729106490,"model":"nvidia/llama-3.1-nemotron-70b-instruct","choices":[{"index":0,"delta":{"role":null,"content":" like"},"logprobs":null,"finish_reason":null}]}'
+      local input =
+        '{"id":"chat-ade745b94fa342f39bbfd832c70d5ee4","object":"chat.completion.chunk","created":1729106490,"model":"nvidia/llama-3.1-nemotron-70b-instruct","choices":[{"index":0,"delta":{"role":null,"content":" like"},"logprobs":null,"finish_reason":null}]}'
 
       local result = nvidia:process_stdout(input)
 
@@ -65,11 +66,12 @@ describe("Nvidia", function()
     end)
 
     it("should handle responses without content", function()
-      local input = '{ "id": "chat-90c70063686e46b9abc0a2823fd9e582", "object": "chat.completion.chunk", "created": 1729107730, "model": "nvidia/llama-3.1-nemotron-70b-instruct", "choices": [ { "index": 0, "delta": { "role": "assistant", "content": null }, "logprobs": null, "finish_reason": null } ] }'
+      local input =
+        '{ "id": "chat-90c70063686e46b9abc0a2823fd9e582", "object": "chat.completion.chunk", "created": 1729107730, "model": "nvidia/llama-3.1-nemotron-70b-instruct", "choices": [ { "index": 0, "delta": { "role": "assistant", "content": null }, "logprobs": null, "finish_reason": null } ] }'
 
       local result = nvidia:process_stdout(input)
 
-      assert.equals(vim.NIL, result)
+      assert.equals(nil, result)
     end)
 
     it("should return nil for non-matching responses", function()

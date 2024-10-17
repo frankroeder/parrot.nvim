@@ -94,6 +94,7 @@ function Nvidia:process_stdout(response)
       and content.choices[1]
       and content.choices[1].delta
       and content.choices[1].delta.content
+      and content.choices[1].delta.content ~= vim.NIL
     then
       return content.choices[1].delta.content
     else
@@ -123,29 +124,7 @@ end
 ---@param online boolean Whether to fetch models online
 ---@return string[]
 function Nvidia:get_available_models(online)
-  if online and self:verify() then
-    Job:new({
-      command = "curl",
-      args = {
-        "https://integrate.api.nvidia.com/v1/models",
-        "-H",
-        "Authorization: Bearer " .. self.api_key,
-      },
-      on_exit = function(job)
-        local parsed_response = utils.parse_raw_response(job:result())
-        self:process_onexit(parsed_response)
-        local ids = {}
-        local success, decoded = pcall(vim.json.decode, parsed_response)
-        if success and decoded.data then
-          for _, item in ipairs(decoded.data) do
-            table.insert(ids, item.id)
-          end
-        end
-        return ids
-      end,
-    }):start()
-  end
-  return {
+  local ids = {
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "01-ai/yi-large",
     "abacusai/dracarys-llama-3.1-70b-instruct",
@@ -240,6 +219,31 @@ function Nvidia:get_available_models(online)
     "yentinglin/llama-3-taiwan-70b-instruct",
     "zyphra/zamba2-7b-instruct",
   }
+  if online and self:verify() then
+    local job = Job:new({
+      command = "curl",
+      args = {
+        "https://integrate.api.nvidia.com/v1/models",
+        "-H",
+        "Authorization: Bearer " .. self.api_key,
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
+        ids = {}
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.data then
+          for _, item in ipairs(decoded.data) do
+            table.insert(ids, item.id)
+          end
+        end
+        return ids
+      end,
+    })
+    job:start()
+    job:wait()
+  end
+  return ids
 end
 
 return Nvidia
