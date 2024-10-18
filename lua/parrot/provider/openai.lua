@@ -21,6 +21,7 @@ local AVAILABLE_API_PARAMETERS = {
   logprobs = true,
   top_logprobs = true,
   max_tokens = true,
+  max_completion_tokens = true,
   presence_penalty = true,
   seed = true,
   stop = true,
@@ -52,6 +53,19 @@ function OpenAI:set_model(_) end
 function OpenAI:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+  end
+  if payload.model and string.find(payload.model, "o1", 1, true) then
+    -- remove system prompt
+    if payload.messages[1] and payload.messages[1].role == "system" then
+      table.remove(payload.messages, 1)
+    end
+    payload.stream = nil
+    payload.logprobs = nil
+    payload.temperature = 1
+    payload.top_p = 1
+    payload.top_n = 1
+    payload.presence_penalty = 0
+    payload.frequency_penalty = 0
   end
   return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
@@ -121,6 +135,8 @@ function OpenAI:process_onexit(res)
         parsed.error.type
       )
     )
+  elseif success and parsed.choices and parsed.choices[1] and parsed.choices[1].message then
+    return parsed.choices[1].message.content
   end
 end
 
@@ -130,24 +146,29 @@ end
 function OpenAI:get_available_models(online)
   local ids = {
     "gpt-4o",
-    "gpt-3.5-turbo",
-    "gpt-3.5-turbo-0125",
-    "gpt-4-1106-preview",
     "gpt-4-turbo",
-    "gpt-4o-2024-05-13",
-    "gpt-4-0125-preview",
     "gpt-4-turbo-2024-04-09",
+    "chatgpt-4o-latest",
     "gpt-4-turbo-preview",
+    "gpt-3.5-turbo-instruct",
+    "gpt-4-0125-preview",
+    "gpt-3.5-turbo-0125",
+    "gpt-3.5-turbo",
+    "o1-preview-2024-09-12",
+    "dall-e-3",
+    "o1-preview",
+    "gpt-4o-mini",
+    "gpt-4o-2024-05-13",
+    "gpt-4o-mini-2024-07-18",
+    "gpt-4-1106-preview",
     "gpt-3.5-turbo-16k",
     "gpt-4o-2024-08-06",
     "gpt-3.5-turbo-1106",
-    "gpt-3.5-turbo-instruct-0914",
-    "gpt-4o-mini-2024-07-18",
-    "gpt-4o-mini",
-    "gpt-4",
     "gpt-4-0613",
-    "gpt-3.5-turbo-instruct",
-    "chatgpt-4o-latest",
+    "o1-mini",
+    "gpt-4",
+    "o1-mini-2024-09-12",
+    "gpt-3.5-turbo-instruct-0914",
   }
   if online and self:verify() then
     local job = Job:new({

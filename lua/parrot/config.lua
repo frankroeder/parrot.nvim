@@ -41,7 +41,7 @@ local defaults = {
       topic_prompt = topic_prompt,
       topic = {
         model = "llama-3.1-70b-instruct",
-        params = { maxOutputTokens = 64 },
+        params = { max_tokens = 64 },
       },
       params = {
         chat = { temperature = 1.1, top_p = 1 },
@@ -54,7 +54,7 @@ local defaults = {
       topic_prompt = topic_prompt,
       topic = {
         model = "gpt-4o-mini",
-        params = { maxOutputTokens = 64 },
+        params = { max_completion_tokens = 64 },
       },
       params = {
         chat = { temperature = 1.1, top_p = 1 },

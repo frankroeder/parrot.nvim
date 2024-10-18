@@ -1523,7 +1523,16 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       end
       local result = response:result()
       result = utils.parse_raw_response(result)
-      provider:process_onexit(result)
+
+      local exit_content = provider:process_onexit(result)
+      if exit_content then
+        local qt = self.queries:get(qid)
+        if not qt then
+          return
+        end
+        qt.response = qt.response .. exit_content
+        handler(qid, exit_content)
+      end
 
       if response.handle and not response.handle:is_closing() then
         response.handle:close()
