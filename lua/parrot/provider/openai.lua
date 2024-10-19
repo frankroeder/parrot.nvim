@@ -54,6 +54,8 @@ function OpenAI:preprocess_payload(payload)
   for _, message in ipairs(payload.messages) do
     message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
   end
+  -- Changes according to beta limitations of the reasoning API
+  -- https://platform.openai.com/docs/guides/reasoning
   if payload.model and string.find(payload.model, "o1", 1, true) then
     -- remove system prompt
     if payload.messages[1] and payload.messages[1].role == "system" then
@@ -155,7 +157,6 @@ function OpenAI:get_available_models(online)
     "gpt-3.5-turbo-0125",
     "gpt-3.5-turbo",
     "o1-preview-2024-09-12",
-    "dall-e-3",
     "o1-preview",
     "gpt-4o-mini",
     "gpt-4o-2024-05-13",
