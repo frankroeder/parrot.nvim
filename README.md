@@ -184,6 +184,9 @@ The minimal requirement is to at least set up one provider, hence one from the s
         nvidia = {
           api_key = os.getenv "NVIDIA_API_KEY",
         },
+        xai = {
+          api_key = os.getenv "XAI_API_KEY",
+        },
       },
     }
   end,
