@@ -159,6 +159,19 @@ local defaults = {
         command = { temperature = 1.1, top_p = 1 },
       },
     },
+    xai = {
+      api_key = "",
+      endpoint = "https://api.x.ai/v1/chat/completions",
+      topic_prompt = topic_prompt,
+      topic = {
+        model = "grok-beta",
+        params = { max_tokens = 64 },
+      },
+      params = {
+        chat = { temperature = 1.1, top_p = 1 },
+        command = { temperature = 1.1, top_p = 1 },
+      },
+    },
   },
   cmd_prefix = "Prt",
   curl_params = {},

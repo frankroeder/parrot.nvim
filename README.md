@@ -9,12 +9,6 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
 </div>
 
-> [!WARNING]
-> Version 0.4.x introduces breaking changes, including the removal of agents and
-> modifications to some hook functions. Please review the updated documentation
-> and adjust your configuration accordingly.
-
-
 ## Features
 
 [parrot.nvim](https://github.com/frankroeder/parrot.nvim) offers a seamless out-of-the-box experience, providing tight integration of current LLM APIs into your Neovim workflows, with a focus solely on text generation.
@@ -33,6 +27,7 @@ While this project is still under development, a substantial part of the code is
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + [GitHub Models](https://github.com/marketplace/models)
     + [NVIDIA API](https://docs.api.nvidia.com)
+    + [xAI API](https://console.x.ai) for **Grok**
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
