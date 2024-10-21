@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/frankroeder/parrot.nvim/compare/v1.1.0...v1.2.0) (2024-10-21)
+
+
+### Features
+
+* add xAI as provider for Grok ([ef0149d](https://github.com/frankroeder/parrot.nvim/commit/ef0149d4b335d83d79deacae2f4bbf10e78314f5))
+
 ## [1.1.0](https://github.com/frankroeder/parrot.nvim/compare/v1.0.0...v1.1.0) (2024-10-17)
 
 
