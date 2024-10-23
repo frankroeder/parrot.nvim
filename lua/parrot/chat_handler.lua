@@ -1395,8 +1395,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
         end,
       })
 
-      local ft = target.filetype or filetype
-      vim.api.nvim_set_option_value("filetype", ft, { buf = buf })
+      vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 
       handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor):create_handler()
     end
