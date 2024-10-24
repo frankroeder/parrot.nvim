@@ -1104,6 +1104,44 @@ function ChatHandler:retry(params)
   self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
 end
 
+-- Edit and rerun the last command action.
+---@param params table Parameters for retrying.
+function ChatHandler:edit(params)
+  if self.history.last_line1 == nil and self.history.last_line2 == nil then
+    return logger.error("No history available to retry: " .. vim.inspect(self.history))
+  end
+  vim.api.nvim_command("normal! u")
+  logger.debug("ChatHandler:retry - `self.history`: " .. vim.inspect(self.history))
+  params.line1 = self.history.last_line1
+  params.line2 = self.history.last_line2
+  params.range = 2
+  local model_obj = self:get_model("command")
+  local template = ""
+  if self.history.last_target == ui.Target.rewrite then
+    template = self.options.template_rewrite
+  elseif self.history.last_target == ui.Target.append then
+    template = self.options.template_append
+  elseif self.history.last_target == ui.Target.prepend then
+    template = self.options.template_prepend
+  else
+    logger.error("Invalid last target" .. vim.inspect(self.history.last_target))
+  end
+
+  local input_function = self.options.user_input_ui == "buffer" and ui.input
+    or self.options.user_input_ui == "native" and vim.ui.input
+  if input_function then
+    input_function({ prompt = "Edit >", default = self.history.last_command}, function(input)
+      if not input or input == "" or input:match("^%s*$") then
+        return
+      end
+      self.history.last_command = input
+      self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
+    end)
+  else
+    logger.error("Invalid user input ui option: " .. self.options.user_input_ui)
+  end
+end
+
 --- Prompts the user to send a model request.
 ---@param params table Parameters for prompting.
 ---@param target table | number Buffer target.
