@@ -95,7 +95,7 @@ local defaults = {
       endpoint = "https://api.anthropic.com/v1/messages",
       topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
       topic = {
-        model = "claude-3-haiku-20240307",
+        model = "claude-3-5-haiku-latest",
         params = { max_tokens = 32 },
       },
       params = {
