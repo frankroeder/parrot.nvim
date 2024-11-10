@@ -95,7 +95,7 @@ M.delete_file = function(file, target_dir)
   end
 
   -- Checks if the file is actually located in the specified directory
-  if file:match(target_dir) == nil then
+  if file:find(target_dir, 1, true) == nil then
     logger.error("File '" .. file .. "' not in target directory.")
     return
   end
