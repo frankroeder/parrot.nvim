@@ -67,8 +67,8 @@ function xAI:get_available_models(online)
         self:process_onexit(parsed_response)
         ids = {}
         local success, decoded = pcall(vim.json.decode, parsed_response)
-        if success and decoded.data then
-          for _, item in ipairs(decoded.data) do
+        if success and decoded.models then
+          for _, item in ipairs(decoded.models) do
             table.insert(ids, item.id)
           end
         end
