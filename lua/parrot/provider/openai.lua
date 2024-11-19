@@ -61,7 +61,6 @@ function OpenAI:preprocess_payload(payload)
     if payload.messages[1] and payload.messages[1].role == "system" then
       table.remove(payload.messages, 1)
     end
-    payload.stream = nil
     payload.logprobs = nil
     payload.temperature = 1
     payload.top_p = 1
