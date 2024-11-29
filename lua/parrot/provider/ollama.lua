@@ -100,21 +100,22 @@ end
 -- Returns the list of available models
 ---@return string[]
 function Ollama:get_available_models()
-  if not self.ollama_installed then
+  if not self.ollama_installed and string.match(self.endpoint, "localhost") then
     logger.error("Ollama is not installed or not in PATH.")
     return {}
   end
+	local endpoint_api = self.endpoint:gsub("chat", "")
 
   local job = Job:new({
     command = "curl",
-    args = { "-H", "Content-Type: application/json", "http://localhost:11434/api/tags" },
+    args = { "-H", "Content-Type: application/json", endpoint_api .. "tags" },
   }):sync()
 
   local parsed_response = utils.parse_raw_response(job)
   self:process_onexit(parsed_response)
 
   if parsed_response == "" then
-    logger.debug("Ollama server not running.")
+    logger.debug("Ollama server not running on " .. endpoint_api)
     return {}
   end
 
