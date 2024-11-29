@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1](https://github.com/frankroeder/parrot.nvim/compare/v1.2.0...v1.2.1) (2024-11-19)
+
+
+### Bug Fixes
+
+* Set filetype to markdown for parrot responses ([119828b](https://github.com/frankroeder/parrot.nvim/commit/119828b016c07c547a093fb31bf60272d518e033))
+* use literal string compare before file deletion ([4d43901](https://github.com/frankroeder/parrot.nvim/commit/4d439010e6abf7bcb3e70761a3ccadaed19135ad))
+* xAI API change of model listing request ([c992483](https://github.com/frankroeder/parrot.nvim/commit/c992483dd0cf9d7481b55714d52365d1f7a66f91))
+
 ## [1.2.0](https://github.com/frankroeder/parrot.nvim/compare/v1.1.0...v1.2.0) (2024-10-21)
 
 
