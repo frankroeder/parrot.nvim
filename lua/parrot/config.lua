@@ -395,6 +395,7 @@ function M.setup(opts)
     Model = "model",
     Provider = "provider",
     Retry = "retry",
+    Edit = "edit",
   }
 
   M.chat_handler = ChatHandler:new(M.options, M.providers, M.available_providers, M.available_models, M.cmd)
