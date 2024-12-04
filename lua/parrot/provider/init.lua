@@ -16,7 +16,7 @@ local M = {}
 ---@param endpoint string # API endpoint for the provider
 ---@param api_key string|table # API key or routine for authentication
 ---@return table # returns initialized provider
-M.init_provider = function(prov_name, endpoint, api_key)
+M.init_provider = function(prov_name, endpoint, api_key, style, models)
   local providers = {
     anthropic = Anthropic,
     gemini = Gemini,
@@ -30,12 +30,14 @@ M.init_provider = function(prov_name, endpoint, api_key)
     xai = xAI,
   }
 
-  local ProviderClass = providers[prov_name]
-  if not ProviderClass then
-    logger.error("Unknown provider " .. prov_name)
-    return {}
+  if providers[prov_name] then
+    return providers[prov_name]:new(endpoint, api_key)
+  elseif style and providers[style] then
+    return providers[style]:new(endpoint, api_key, prov_name, models)
   end
-  return ProviderClass:new(endpoint, api_key)
+
+  logger.error("Unknown provider " .. prov_name)
+  return {}
 end
 
 return M

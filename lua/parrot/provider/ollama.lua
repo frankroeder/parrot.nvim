@@ -104,7 +104,7 @@ function Ollama:get_available_models()
     logger.error("Ollama is not installed or not in PATH.")
     return {}
   end
-	local endpoint_api = self.endpoint:gsub("chat", "")
+  local endpoint_api = self.endpoint:gsub("chat", "")
 
   local job = Job:new({
     command = "curl",

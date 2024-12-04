@@ -172,6 +172,12 @@ local defaults = {
         command = { temperature = 1.1, top_p = 1 },
       },
     },
+    custom = {
+      style = "openai",
+      api_key = "",
+      endpoint = "https://api.openai.com/v1/chat/completions",
+      topic_prompt = topic_prompt,
+    },
   },
   cmd_prefix = "Prt",
   curl_params = {},
@@ -374,7 +380,12 @@ function M.setup(opts)
 
   local available_models = {}
   for _, prov_name in ipairs(M.available_providers) do
-    local _prov = init_provider(prov_name, M.providers[prov_name].endpoint, M.providers[prov_name].api_key)
+    local _prov = init_provider(
+      prov_name,
+      M.providers[prov_name].endpoint,
+      M.providers[prov_name].api_key,
+      M.providers[prov_name].style or nil
+    )
     -- do not make an API call on startup
     available_models[prov_name] = _prov:get_available_models(false)
   end
