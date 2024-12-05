@@ -363,14 +363,14 @@ to consider a visual selection within an API request.
 #### Demonstrations
 
 <details>
-<summary>With `user_input_ui = "native"`, use `vim.ui.input` as slim input interface.</summary>
+<summary>With <code>user_input_ui = "native"</code>, use <code>vim.ui.input</code> as slim input interface.</summary>
 <div align="left">
     <p>https://github.com/user-attachments/assets/c2fe3bde-a35a-4f2a-957b-687e4f6f2e5c</p>
 </div>
 </details>
 
 <details>
-<summary>With `user_input_ui = "buffer"`, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
+<summary>With <code>user_input_ui = "buffer"</code>, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
 <div align="left">
     <p>https://github.com/user-attachments/assets/63e6e1c4-a2ab-4c60-9b43-332e4b581360</p>
 </div>
