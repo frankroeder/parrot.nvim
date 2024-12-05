@@ -40,21 +40,21 @@ While this project is still under development, a substantial part of the code is
 
 Seamlessly switch between providers and models.
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/0df0348f-85c0-4a2d-ba1f-ede2738c6d02" width="100%">
+    <p>https://github.com/user-attachments/assets/0df0348f-85c0-4a2d-ba1f-ede2738c6d02</p>
 </div>
 
 ---
 
 Trigger code completions based on comments.
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/197f99ac-9854-4fe9-bddb-394c1b64f6b6" width="100%">
+    <p>https://github.com/user-attachments/assets/197f99ac-9854-4fe9-bddb-394c1b64f6b6</p>
 </div>
 
 ---
 
 Let the parrot fix your bugs.
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/d3a0b261-a9dd-45e6-b508-dc5280594b06" width="100%">
+    <p>https://github.com/user-attachments/assets/d3a0b261-a9dd-45e6-b508-dc5280594b06</p>
 </div>
 
 ---
@@ -62,7 +62,7 @@ Let the parrot fix your bugs.
 <details>
 <summary>Rewrite a visual selection with `PrtRewrite`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/c3d38702-7558-4e9e-96a3-c43312a543d0" width="100%">
+    <p>https://github.com/user-attachments/assets/c3d38702-7558-4e9e-96a3-c43312a543d0</p>
 </div>
 </details>
 
@@ -71,7 +71,7 @@ Let the parrot fix your bugs.
 <details>
 <summary>Append code with the visual selection as context with `PrtAppend`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/80af02fa-cd88-4023-8a55-f2d3c0a2f28e" width="100%">
+    <p>https://github.com/user-attachments/assets/80af02fa-cd88-4023-8a55-f2d3c0a2f28e</p>
 </div>
 </details>
 
@@ -80,14 +80,14 @@ Let the parrot fix your bugs.
 <details>
 <summary>Add comments to a function with `PrtPrepend`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/9a6bfe66-4bc7-4b63-8694-67bf9c23c064" width="100%">
+    <p>https://github.com/user-attachments/assets/9a6bfe66-4bc7-4b63-8694-67bf9c23c064</p>
 </div>
 </details>
 
 <details>
 <summary>Retry your latest rewrite, append or prepend with `PrtRetry`.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/03442f34-687b-482e-b7f1-7812f70739cc" width="100%">
+    <p>https://github.com/user-attachments/assets/03442f34-687b-482e-b7f1-7812f70739cc</p>
 </div>
 </details>
 
