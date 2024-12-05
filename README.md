@@ -365,21 +365,21 @@ to consider a visual selection within an API request.
 <details>
 <summary>With `user_input_ui = "native"`, use `vim.ui.input` as slim input interface.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/c2fe3bde-a35a-4f2a-957b-687e4f6f2e5c" width="100%">
+    <p>https://github.com/user-attachments/assets/c2fe3bde-a35a-4f2a-957b-687e4f6f2e5c</p>
 </div>
 </details>
 
 <details>
 <summary>With `user_input_ui = "buffer"`, your input is simply a buffer. All of the content is passed to the API when closed.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/63e6e1c4-a2ab-4c60-9b43-332e4b581360" width="100%">
+    <p>https://github.com/user-attachments/assets/63e6e1c4-a2ab-4c60-9b43-332e4b581360</p>
 </div>
 </details>
 
 <details>
 <summary>The spinner is a useful indicator for providers that take longer to respond.</summary>
 <div align="left">
-    <img src="https://github.com/user-attachments/assets/ebcd27cb-da00-4150-a0f8-1d2e1afa0acb" width="100%">
+    <p>https://github.com/user-attachments/assets/ebcd27cb-da00-4150-a0f8-1d2e1afa0acb</p>
 </div>
 </details>
 
