@@ -84,6 +84,8 @@ Let the parrot fix your bugs.
 </div>
 </details>
 
+---
+
 <details>
 <summary>Retry your latest rewrite, append or prepend with `PrtRetry`.</summary>
 <div align="left">
