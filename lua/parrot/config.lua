@@ -384,7 +384,8 @@ function M.setup(opts)
       prov_name,
       M.providers[prov_name].endpoint,
       M.providers[prov_name].api_key,
-      M.providers[prov_name].style or nil
+      M.providers[prov_name].style or nil,
+      M.providers[prov_name].models or nil
     )
     -- do not make an API call on startup
     available_models[prov_name] = _prov:get_available_models(false)
