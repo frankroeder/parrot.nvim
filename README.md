@@ -218,6 +218,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtStatus`               | Prints current provider and model selection   |
 |  __Interactive__          | |
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
+| `PrtEdit`                 | Like `PrtRewrite` but you can change the last prompt |
 | `PrtAppend`               | Append text to the visual selection based on a provided prompt    |
 | `PrtPrepend`              | Prepend text to the visual selection based on a provided prompt   |
 | `PrtNew`                  | Prompt the model to respond in a new window   |

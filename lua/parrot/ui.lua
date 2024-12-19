@@ -208,6 +208,10 @@ M.input = function(opts, on_confirm)
   -- Enter insert mode in next line
   vim.cmd("normal! o")
   vim.cmd("startinsert")
+  if opts.default and type(opts.default) == "string" then
+    local trimmed_default = utils.trim(opts.default) or ""
+    vim.api.nvim_buf_set_lines(0, -2, -1, true, { trimmed_default })
+  end
 
   -- Set up an autocommand to capture buffer content when the window is closed
   vim.api.nvim_create_autocmd({ "WinClosed", "BufLeave" }, {
