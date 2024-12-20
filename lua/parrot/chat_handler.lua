@@ -62,7 +62,9 @@ end
 function ChatHandler:set_provider(selected_prov, is_chat)
   local endpoint = self.providers[selected_prov].endpoint
   local api_key = self.providers[selected_prov].api_key
-  local _prov = init_provider(selected_prov, endpoint, api_key)
+  local style = self.providers[selected_prov].style
+  local models = self.providers[selected_prov].models
+  local _prov = init_provider(selected_prov, endpoint, api_key, style, models)
   self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
   self.state:refresh(self.available_providers, self.available_models)

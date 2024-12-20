@@ -36,11 +36,12 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return OpenAI
-function OpenAI:new(endpoint, api_key)
+function OpenAI:new(endpoint, api_key, name, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
-    name = "openai",
+    models = models,
+    name = name or "openai",
   }, self)
 end
 
@@ -145,6 +146,10 @@ end
 ---@param online boolean Whether to fetch models online
 ---@return string[]
 function OpenAI:get_available_models(online)
+  if self.models then
+    return self.models
+  end
+
   local ids = {
     "gpt-4o",
     "gpt-4-turbo",

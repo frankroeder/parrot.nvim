@@ -547,6 +547,34 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 
 ```
 
+## Adding a custom provider
+In case your provider is not available, there is an option to resuse a present
+provider with a different endpoint and a custom selection of models.
+For this, the `custom` provider needs to be added to the list of providers the following way:
+```lua
+  providers = {
+    custom = {
+      style = "openai",
+      api_key = os.getenv "CUSTOM_API_KEY",
+      endpoint = "https://api.openai.com/v1/chat/completions",
+      models = {
+        "gpt-4o-mini",
+        "gpt-4o",
+      },
+      -- parameters to summarize chat
+      topic = {
+        model = "gpt-4o-mini",
+        params = { max_completion_tokens = 64 },
+      },
+      -- default parameters
+      params = {
+        chat = { temperature = 1.1, top_p = 1 },
+        command = { temperature = 1.1, top_p = 1 },
+      },
+    }
+  }
+```
+
 ## Bonus
 
 Access parrot.nvim directly from your terminal:
