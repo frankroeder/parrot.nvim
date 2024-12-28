@@ -11,12 +11,14 @@ local Ollama = {}
 Ollama.__index = Ollama
 
 -- Available API parameters for Ollama
+-- https://github.com/ollama/ollama/blob/main/docs/api.md
 local AVAILABLE_API_PARAMETERS = {
   -- required
   model = true,
   messages = true,
   -- optional
   mirostat = true,
+  mirostat_eta = true,
   mirostat_tau = true,
   num_ctx = true,
   repeat_last_n = true,
