@@ -6,7 +6,7 @@ local xAI = setmetatable({}, { __index = OpenAI })
 xAI.__index = xAI
 
 -- Available API parameters for xAI
--- https://docs.x.ai/api/endpoints
+-- https://docs.x.ai/docs/api-reference
 local AVAILABLE_API_PARAMETERS = {
   -- required
   messages = true,
@@ -53,6 +53,11 @@ end
 function xAI:get_available_models(online)
   local ids = {
     "grok-beta",
+    "grok-vision-beta",
+    "grok-2-vision-1212",
+    "grok-2-1212",
+    "grok-2",
+    "grok-2-latest",
   }
   if online and self:verify() then
     local job = Job:new({
