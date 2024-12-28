@@ -22,7 +22,13 @@ local AVAILABLE_API_PARAMETERS = {
   stream = true,
   stop = true,
   random_seed = true,
+  response_format = true,
   safe_prompt = true,
+  tools = true,
+  tool_choice = true,
+  presence_penalty = true,
+  frequency_penalty = true,
+  n = true,
 }
 
 -- Creates a new Mistral instance
@@ -113,17 +119,73 @@ end
 
 -- Returns the list of available models
 ---@return string[]
-function Mistral:get_available_models()
-  return {
-    "codestral-latest",
-    "mistral-tiny",
-    "mistral-small-latest",
-    "mistral-medium-latest",
+function Mistral:get_available_models(online)
+  local ids = {
     "mistral-large-latest",
+    "ministral-3b-2410",
+    "ministral-3b-latest",
+    "ministral-8b-2410",
+    "ministral-8b-latest",
     "open-mistral-7b",
+    "mistral-tiny",
+    "mistral-tiny-2312",
+    "open-mistral-nemo",
+    "open-mistral-nemo-2407",
+    "mistral-tiny-2407",
+    "mistral-tiny-latest",
     "open-mixtral-8x7b",
+    "mistral-small",
+    "mistral-small-2312",
     "open-mixtral-8x22b",
+    "open-mixtral-8x22b-2404",
+    "mistral-small-2402",
+    "mistral-small-2409",
+    "mistral-small-latest",
+    "mistral-medium-2312",
+    "mistral-medium",
+    "mistral-medium-latest",
+    "mistral-large-2402",
+    "mistral-large-2407",
+    "mistral-large-2411",
+    "pixtral-large-2411",
+    "pixtral-large-latest",
+    "codestral-2405",
+    "codestral-latest",
+    "codestral-mamba-2407",
+    "open-codestral-mamba",
+    "codestral-mamba-latest",
+    "pixtral-12b-2409",
+    "pixtral-12b",
+    "pixtral-12b-latest",
+    "mistral-embed",
+    "mistral-moderation-2411",
+    "mistral-moderation-latest",
   }
+  if online and self:verify() then
+    local job = Job:new({
+      command = "curl",
+      args = {
+        "https://api.mistral.ai/v1/models",
+        "-H",
+        "Authorization: Bearer " .. self.api_key,
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
+        ids = {}
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.data then
+          for _, item in ipairs(decoded.data) do
+            table.insert(ids, item.id)
+          end
+        end
+        return ids
+      end,
+    })
+    job:start()
+    job:wait()
+  end
+  return ids
 end
 
 return Mistral

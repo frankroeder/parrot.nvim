@@ -112,8 +112,8 @@ local defaults = {
       "Sure! Here's a shortheadline summarizing the chat" or anything similar.
       ]],
       topic = {
-        model = "mistral-medium-latest",
-        params = {},
+        model = "mistral-small-latest",
+        params = { max_tokens = 64 },
       },
       params = {
         chat = { temperature = 1.5, top_p = 1 },
