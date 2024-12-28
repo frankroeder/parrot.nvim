@@ -16,20 +16,32 @@ local AVAILABLE_API_PARAMETERS = {
   messages = true,
   model = true,
   -- optional
+  audio = true,
   frequency_penalty = true,
   logit_bias = true,
   logprobs = true,
   top_logprobs = true,
   max_tokens = true,
   max_completion_tokens = true,
+  n = true,
+  metadata = true,
+  modalities = true,
   presence_penalty = true,
+  prediction = true,
+  parallel_tool_calls = true,
   seed = true,
+  store = true,
   stop = true,
   stream = true,
+  stream_options = true,
+  service_tier = true,
+  reasoning_effort = true,
+  response_format = true,
   temperature = true,
   top_p = true,
   tools = true,
   tool_choice = true,
+  user = true,
 }
 
 -- Creates a new OpenAI instance
@@ -62,12 +74,13 @@ function OpenAI:preprocess_payload(payload)
     if payload.messages[1] and payload.messages[1].role == "system" then
       table.remove(payload.messages, 1)
     end
-    payload.logprobs = nil
     payload.temperature = 1
     payload.top_p = 1
-    payload.top_n = 1
     payload.presence_penalty = 0
     payload.frequency_penalty = 0
+    payload.logprobs = nil
+    payload.logit_bias = nil
+    payload.top_logprobs = nil
   end
   return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
 end
@@ -152,28 +165,31 @@ function OpenAI:get_available_models(online)
 
   local ids = {
     "gpt-4o",
+    "o1-mini-2024-09-12",
     "gpt-4-turbo",
-    "gpt-4-turbo-2024-04-09",
-    "chatgpt-4o-latest",
-    "gpt-4-turbo-preview",
-    "gpt-3.5-turbo-instruct",
-    "gpt-4-0125-preview",
-    "gpt-3.5-turbo-0125",
-    "gpt-3.5-turbo",
-    "o1-preview-2024-09-12",
-    "o1-preview",
-    "gpt-4o-mini",
-    "gpt-4o-2024-05-13",
-    "gpt-4o-mini-2024-07-18",
     "gpt-4-1106-preview",
+    "gpt-3.5-turbo",
+    "gpt-3.5-turbo-0125",
+    "gpt-3.5-turbo-instruct",
+    "babbage-002",
     "gpt-3.5-turbo-16k",
-    "gpt-4o-2024-08-06",
-    "gpt-3.5-turbo-1106",
+    "gpt-4-0125-preview",
+    "gpt-4-turbo-preview",
+    "gpt-4o-2024-05-13",
+    "chatgpt-4o-latest",
+    "gpt-4",
     "gpt-4-0613",
     "o1-mini",
-    "gpt-4",
-    "o1-mini-2024-09-12",
+    "o1-preview",
+    "o1-preview-2024-09-12",
+    "gpt-3.5-turbo-1106",
+    "gpt-4o-mini-2024-07-18",
     "gpt-3.5-turbo-instruct-0914",
+    "gpt-4o-mini",
+    "davinci-002",
+    "gpt-4o-2024-08-06",
+    "gpt-4o-2024-11-20",
+    "gpt-4-turbo-2024-04-09",
   }
   if online and self:verify() then
     local job = Job:new({
