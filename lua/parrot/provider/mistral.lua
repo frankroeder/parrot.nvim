@@ -1,5 +1,6 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
+local Job = require("plenary.job")
 
 ---@class Mistral
 ---@field endpoint string
