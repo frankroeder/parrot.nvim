@@ -1132,7 +1132,7 @@ function ChatHandler:edit(params)
   local input_function = self.options.user_input_ui == "buffer" and ui.input
     or self.options.user_input_ui == "native" and vim.ui.input
   if input_function then
-    input_function({ prompt = "🤖 Edit ~ ", default = self.history.last_command}, function(input)
+    input_function({ prompt = "🤖 Edit ~ ", default = self.history.last_command }, function(input)
       if not input or input == "" or input:match("^%s*$") then
         return
       end
