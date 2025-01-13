@@ -100,8 +100,8 @@ describe("State", function()
 
         assert.are.same({
           current_provider = {
-            chat = "",
-            command = "",
+            chat = nil,
+            command = nil,
           },
           mistral = {
             chat_model = "model3",
@@ -122,7 +122,7 @@ describe("State", function()
         local state = State:new("/tmp")
         state:init_state({ "ollama" }, { ollama = { "model1", "model2" } })
         assert.are.same({
-          current_provider = { chat = "", command = "" },
+          current_provider = { chat = nil, command = nil },
           ollama = { chat_model = "model1", command_model = "model1" },
         }, state._state)
       end)
@@ -220,7 +220,7 @@ describe("State", function()
         state:init_state({ "openai" }, { openai = { "gpt-4o", "gpt-3.5" } })
         state:set_provider("openai", true)
         assert.are.same("openai", state._state.current_provider.chat)
-        assert.are.same("", state._state.current_provider.command)
+        assert.are.same(nil, state._state.current_provider.command)
 
         state:set_provider("groq", false)
         assert.are.same("groq", state._state.current_provider.command)
