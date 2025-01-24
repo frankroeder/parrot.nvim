@@ -1,4 +1,5 @@
 local pft = require("plenary.filetype")
+local Placeholders = require("parrot.placeholders")
 
 local M = {}
 
@@ -256,8 +257,9 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
     local fname = vim.api.nvim_buf_get_name(origin_buf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(origin_buf, 0, -1, false), "\n")
     local multifilecontent = M.get_all_buffer_content()
-    local rendered =
-      M.template_render(template_selection, "", selection, filetype, fname, filecontent, multifilecontent)
+    local _placeholders =
+      Placeholders:new(template_selection, "", selection, filetype, fname, filecontent, multifilecontent)
+    local rendered = _placeholders:return_render()
     if rendered then
       selection = rendered
     end

@@ -226,15 +226,11 @@ local defaults = {
   template_selection = [[
   I have the following content from {{filename}}:
 
-  <SELECTION>
   ```{{filetype}}
   {{selection}}
   ```
-  </SELECTION>
 
-  <FURTHER CONTEXT>
   {{command}}
-  </FURTHER CONTEXT>
   ]],
   template_rewrite = [[
   I have the following content from {{filename}}:
