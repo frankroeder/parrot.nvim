@@ -387,13 +387,14 @@ function M.setup(opts)
   end
 
   math.randomseed(os.time())
+  opts = opts or {}
 
   local valid_provider_names = vim.tbl_keys(defaults.providers)
   if not utils.has_valid_key(opts.providers, valid_provider_names) then
     return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
   end
 
-  M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
+  M.options = vim.tbl_deep_extend("force", {}, defaults, opts)
   M.providers = M.merge_providers(defaults.providers, opts.providers)
   M.options.providers = nil
   M.hooks = M.options.hooks
