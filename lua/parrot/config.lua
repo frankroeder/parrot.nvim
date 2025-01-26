@@ -40,7 +40,7 @@ local defaults = {
       endpoint = "https://api.perplexity.ai/chat/completions",
       topic_prompt = topic_prompt,
       topic = {
-        model = "llama-3.1-sonar-small-128k-online",
+        model = "sonar",
         params = { max_tokens = 64 },
       },
       params = {
