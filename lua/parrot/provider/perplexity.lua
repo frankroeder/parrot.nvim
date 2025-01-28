@@ -118,9 +118,11 @@ end
 ---@return string[]
 function Perplexity:get_available_models()
   return {
-    "llama-3.1-sonar-small-128k-online",
-    "llama-3.1-sonar-large-128k-online",
-    "llama-3.1-sonar-huge-128k-online",
+    "llama-3.1-sonar-small-128k-online", -- deprecated, will stop working after 2025-02-22
+    "llama-3.1-sonar-large-128k-online", -- deprecated, will stop working after 2025-02-22
+    "llama-3.1-sonar-huge-128k-online",  -- deprecated, will stop working after 2025-02-22
+    "sonar",
+    "sonar-pro",
   }
 end
 

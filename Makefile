@@ -5,7 +5,7 @@ TEST_DIR := tests/
 PLUGIN_DIR := lua/
 
 test:
-	@nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ { minimal_init ='tests/minimal_init.lua'}"
+	@nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ {minimal_init ='tests/minimal_init.lua'}"
 
 lint:
 	luacheck ${PLUGIN_DIR}
