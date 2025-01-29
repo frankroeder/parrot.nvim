@@ -388,7 +388,7 @@ function M.setup(opts)
 
   math.randomseed(os.time())
   opts = opts or {}
-	opts.providers = opts.providers or {}
+  opts.providers = opts.providers or {}
 
   local valid_provider_names = vim.tbl_keys(defaults.providers)
   if not utils.has_valid_key(opts.providers, valid_provider_names) then
