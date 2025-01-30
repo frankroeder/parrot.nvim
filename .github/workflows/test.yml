@@ -10,12 +10,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
-            rev: nightly/nvim-linux64.tar.gz
+          - os: ubuntu-latest
+            rev: nightly/nvim-linux-x86_64.tar.gz
             manager: sudo apt-get
             packages: -y ripgrep
-          - os: ubuntu-20.04
-            rev: v0.10.4/nvim-linux64.tar.gz
+          - os: ubuntu-latest
+            rev: v0.10.4/nvim-linux-x86_64.tar.gz
             manager: sudo apt-get
             packages: -y ripgrep
     steps:
