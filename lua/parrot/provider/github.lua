@@ -40,6 +40,7 @@ end
 ---@return string[]
 function GitHub:get_available_models(online)
   return {
+    "DeepSeek-R1",
     "AI21-Jamba-Instruct",
     "Cohere-command-r",
     "Cohere-command-r-plus",
