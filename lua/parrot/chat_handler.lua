@@ -940,67 +940,23 @@ function ChatHandler:chat_finder()
     })
     return
   elseif has_telescope then
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    local pickers = require("telescope.pickers")
-    local finders = require("telescope.finders")
-    local sorters = require("telescope.config").values.file_sorter
-    local previewers = require("telescope.previewers")
+    require("telescope.builtin").find_files({
+      cwd = self.options.chat_dir,
+    })
 
-    pickers
-      .new({}, {
-        prompt_title = "Chat selection ❯",
-        finder = finders.new_oneshot_job(
-          { "rg", "--no-heading", "topic", "--type=md" },
-          { cwd = self.options.chat_dir }
-        ),
-        sorter = sorters({}),
-        previewer = previewers.vim_buffer_cat.new({}),
-        attach_mappings = function(prompt_bufnr, map)
-          local function open_file()
-            local selection = action_state.get_selected_entry()
-            local filename = selection.value
-            actions.close(prompt_bufnr)
-            return self:open_buf(
-              self.options.chat_dir .. "/" .. filename,
-              ui.BufTarget.popup,
-              self._toggle_kind.chat,
-              false
-            )
-          end
-          map("i", "<CR>", open_file)
-          map("n", "<CR>", open_file)
-
-          local function delete_file()
-            local selection = action_state.get_selected_entry()
-            local filename = selection.value
-            if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
-              futils.delete_file(self.options.chat_dir .. "/" .. filename, self.options.chat_dir)
-              logger.info(filename .. " deleted")
-            end
-            actions.close(prompt_bufnr)
-          end
-          map("i", "<C-d>", delete_file)
-          map("n", "<C-d>", delete_file)
-
-          if self.options.toggle_target == "popup" then
-            map("i", "<CR>", open_file)
-            map("n", "<CR>", open_file)
-          elseif self.options.toggle_target == "split" then
-            map("i", "<C-s>", open_file)
-            map("n", "<C-s>", open_file)
-          elseif self.options.toggle_target == "vsplit" then
-            map("i", "<C-v>", open_file)
-            map("n", "<C-v>", open_file)
-          elseif self.options.toggle_target == "tabnew" then
-            map("i", "<C-t>", open_file)
-            map("n", "<C-t>", open_file)
-          end
-
-          return true
-        end,
-      })
-      :find()
+    --   local pickers = require("telescope.pickers")
+    --   local previewers = require('telescope.previewers')
+    --   local sorters = require('telescope.sorters')
+    -- local finders = require('telescope.finders')
+    --   local opts =  {}
+    --   pickers
+    --     .new(opts, {
+    --       prompt = "Chat selection ❯",
+    --       finder = finders.new_oneshot_job({ 'rg', '--files' }, opts),
+    --       previewer = previewers.cat.new(opts),
+    --       sorter = sorters.get_fuzzy_file(),
+    --     })
+    --     :find()
   else
     local chat_files = scan.scan_dir(self.options.chat_dir, { depth = 1, search_pattern = "%d+%.md$" })
     vim.ui.select(chat_files, {
