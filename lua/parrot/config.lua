@@ -391,12 +391,12 @@ function M.setup(opts)
   opts.providers = opts.providers or {}
 
   local valid_provider_names = vim.tbl_keys(defaults.providers)
-  print("DEFAULTS", vim.inspect(defaults.providers))
-  print("OPTS", vim.inspect(opts.providers))
-  print("NAMES", vim.inspect(valid_provider_names))
-  if not utils.has_valid_key(opts.providers, valid_provider_names) then
-    return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
-  end
+  -- print("DEFAULTS", vim.inspect(defaults.providers))
+  -- print("OPTS", vim.inspect(opts.providers))
+  -- print("NAMES", vim.inspect(valid_provider_names))
+  -- if not utils.has_valid_key(opts.providers, valid_provider_names) then
+  --   return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
+  -- end
 
   M.options = vim.tbl_deep_extend("force", {}, defaults, opts)
   M.providers = M.merge_providers(defaults.providers, opts.providers)
