@@ -943,20 +943,6 @@ function ChatHandler:chat_finder()
     require("telescope.builtin").find_files({
       cwd = self.options.chat_dir,
     })
-
-    --   local pickers = require("telescope.pickers")
-    --   local previewers = require('telescope.previewers')
-    --   local sorters = require('telescope.sorters')
-    -- local finders = require('telescope.finders')
-    --   local opts =  {}
-    --   pickers
-    --     .new(opts, {
-    --       prompt = "Chat selection ❯",
-    --       finder = finders.new_oneshot_job({ 'rg', '--files' }, opts),
-    --       previewer = previewers.cat.new(opts),
-    --       sorter = sorters.get_fuzzy_file(),
-    --     })
-    --     :find()
   else
     local chat_files = scan.scan_dir(self.options.chat_dir, { depth = 1, search_pattern = "%d+%.md$" })
     vim.ui.select(chat_files, {
