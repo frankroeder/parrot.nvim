@@ -893,6 +893,7 @@ end
 
 function ChatHandler:chat_finder()
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+  local has_telescope, telescope = pcall(require, "telescope")
 
   local filename_from_selection = function(selected)
     return string.match(selected[1], "(%d%d%d%d%-%d%d%-%d%d%.%d%d%-%d%d%-%d%d%.%d%d%d%.md)")
@@ -938,6 +939,10 @@ function ChatHandler:chat_finder()
       actions = actions,
     })
     return
+  elseif has_telescope then
+    require("telescope.builtin").find_files({
+      cwd = self.options.chat_dir,
+    })
   else
     local chat_files = scan.scan_dir(self.options.chat_dir, { depth = 1, search_pattern = "%d+%.md$" })
     vim.ui.select(chat_files, {
@@ -995,14 +1000,16 @@ function ChatHandler:switch_provider(selected_prov, is_chat)
   end
 end
 
---- Handles provider selection via fzf-lua or vim.ui.select
+--- Handles provider selection via fzf-lua, Telescope, or vim.ui.select
 ---@param params table Parameters for provider selection.
 function ChatHandler:provider(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+  local has_telescope, telescope = pcall(require, "telescope")
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
   local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+
   if prov_arg ~= "" then
     self:switch_provider(prov_arg, is_chat)
   elseif has_fzf then
@@ -1015,6 +1022,32 @@ function ChatHandler:provider(params)
         end,
       },
     })
+  elseif has_telescope then
+    local pickers = require("telescope.pickers")
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+    local finders = require("telescope.finders")
+    local sorters = require("telescope.config")
+
+    pickers
+      .new({}, {
+        prompt_title = "Provider selection ❯",
+        finder = finders.new_table({
+          results = self.available_providers,
+        }),
+        sorter = sorters.values.generic_sorter({}),
+        attach_mappings = function(prompt_bufnr, map)
+          local on_select = function(prompt_bufnr)
+            local selection = action_state.get_selected_entry(prompt_bufnr)
+            actions.close(prompt_bufnr)
+            self:switch_provider(selection.value, is_chat)
+          end
+          map("i", "<CR>", on_select)
+          map("n", "<CR>", on_select)
+          return true
+        end,
+      })
+      :find()
   else
     vim.ui.select(self.available_providers, {
       prompt = "Select your provider:",
@@ -1053,6 +1086,7 @@ function ChatHandler:model(params)
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
+  local has_telescope, telescope = pcall(require, "telescope")
   local fetch_online = self.options.online_model_selection
 
   if model_name ~= "" then
@@ -1072,6 +1106,35 @@ function ChatHandler:model(params)
         end,
       },
     })
+  elseif has_telescope then
+    local pickers = require("telescope.pickers")
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+    local finders = require("telescope.finders")
+    local sorters = require("telescope.config")
+    pickers
+      .new({}, {
+        prompt_title = "Model selection",
+        finder = finders.new_table({
+          results = prov:get_available_models(fetch_online),
+        }),
+        sorter = sorters.values.generic_sorter({}),
+        attach_mappings = function(_, map)
+          map("i", "<CR>", function(prompt_bufnr)
+            local selected_entry = action_state.get_selected_entry()
+            actions.close(prompt_bufnr)
+            if not selected_entry then
+              logger.warning("No model selected")
+              return
+            end
+            local selected_model = selected_entry[1]
+            self:switch_model(is_chat, selected_model, prov)
+          end)
+
+          return true
+        end,
+      })
+      :find()
   else
     vim.ui.select(prov:get_available_models(fetch_online), {
       prompt = "Select your model:",
