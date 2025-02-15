@@ -124,6 +124,7 @@ function Perplexity:get_available_models()
     "sonar",
     "sonar-pro",
     "sonar-reasoning",
+    "sonar-reasoning-pro",
   }
 end
 
