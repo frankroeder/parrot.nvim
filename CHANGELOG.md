@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.3](https://github.com/frankroeder/parrot.nvim/compare/v1.2.2...v1.2.3) (2025-02-15)
+
+
+### Bug Fixes
+
+* **perplexity:** add new reasoning model ([7a87bab](https://github.com/frankroeder/parrot.nvim/commit/7a87bab9d9d37d00ff244bcd56cd1a9739692e30))
+* **perplexity:** add the new reasoning pro model ([e5c2d94](https://github.com/frankroeder/parrot.nvim/commit/e5c2d9403fcdc6e9cb587eca099f442f109c9399))
+
 ## [1.2.2](https://github.com/frankroeder/parrot.nvim/compare/v1.2.1...v1.2.2) (2025-01-26)
 
 
