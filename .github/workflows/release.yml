@@ -22,10 +22,10 @@ jobs:
             manager: sudo apt-get
             packages: -y ripgrep
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
       - run: date +%F > todays-date
       - name: Restore from todays cache
-        uses: actions/cache@v3
+        uses: actions/cache@7921ae235bdcb376cc8f22558dc5f8ddc3c3c2f9
         with:
           path: _neovim
           key: ${{ runner.os }}-${{ matrix.rev }}-${{ hashFiles('todays-date') }}
@@ -60,9 +60,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
 
       - name: Release with release-please
-        uses: google-github-actions/release-please-action@v4
+        uses: google-github-actions/release-please-action@d1a8f221d7723166f48a584aebba00ef3f6febec
         with:
           release-type: simple
