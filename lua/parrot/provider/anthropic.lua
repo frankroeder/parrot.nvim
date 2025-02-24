@@ -1,5 +1,6 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
+local Job = require("plenary.job")
 
 ---@class Anthropic
 ---@field endpoint string
@@ -117,18 +118,46 @@ end
 
 -- Returns the list of available models
 ---@return string[]
-function Anthropic:get_available_models()
-  return {
-    "claude-3-5-sonnet-latest",
+function Anthropic:get_available_models(online)
+  local ids = {
+    "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20241022",
-    "claude-3-5-sonnet-20240620",
-    "claude-3-5-haiku-latest",
     "claude-3-5-haiku-20241022",
-    "claude-3-sonnet-20240229",
+    "claude-3-5-sonnet-20240620",
     "claude-3-haiku-20240307",
     "claude-3-opus-20240229",
-    "claude-3-opus-latest",
+    "claude-3-sonnet-20240229",
+    "claude-2.1",
+    "claude-2.0",
   }
+
+  if online and self:verify() then
+    local job = Job:new({
+      command = "curl",
+      args = {
+        "https://api.anthropic.com/v1/models",
+        "-H",
+        "x-api-key: " .. self.api_key,
+        "-H",
+        "anthropic-version: 2023-06-01",
+      },
+      on_exit = function(job)
+        local parsed_response = utils.parse_raw_response(job:result())
+        self:process_onexit(parsed_response)
+        ids = {}
+        local success, decoded = pcall(vim.json.decode, parsed_response)
+        if success and decoded.data then
+          for _, item in ipairs(decoded.data) do
+            table.insert(ids, item.id)
+          end
+        end
+        return ids
+      end,
+    })
+    job:start()
+    job:wait()
+  end
+  return ids
 end
 
 return Anthropic
