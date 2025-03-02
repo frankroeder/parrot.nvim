@@ -22,6 +22,10 @@ local AVAILABLE_API_PARAMETERS = {
   stream = true,
   system = true,
   temperature = true,
+  thinking = {
+    budget_tokens = true,
+    type = true,
+  },
   tool_choice = true,
   tools = true,
   top_k = true,

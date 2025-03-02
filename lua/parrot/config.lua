@@ -99,7 +99,13 @@ local defaults = {
         params = { max_tokens = 32 },
       },
       params = {
-        chat = { max_tokens = 4096 },
+        chat = {
+          max_tokens = 4096,
+          thinking = {
+            budget_tokens = 1024,
+            type = "enabled",
+          },
+        },
         command = { max_tokens = 4096 },
       },
     },
