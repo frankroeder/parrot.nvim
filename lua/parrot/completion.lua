@@ -1,7 +1,15 @@
 local utils = require("parrot.utils")
-local cmp = require("cmp")
+local has_cmp, cmp = pcall(require, "cmp")
 
-local source = {}
+if not has_cmp then
+  return { context = {
+    insert_contexts = function(content)
+      return content
+    end,
+  } }
+end
+
+local source = { context = require("parrot.context") }
 
 source.new = function()
   return setmetatable({}, { __index = source })

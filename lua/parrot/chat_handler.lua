@@ -12,7 +12,6 @@ local Job = require("plenary.job")
 local pft = require("plenary.filetype")
 local ResponseHandler = require("parrot.response_handler")
 local completion = require("parrot.completion")
-local pcontext = require("parrot.context")
 
 local ChatHandler = {}
 
@@ -752,7 +751,7 @@ function ChatHandler:_chat_respond(params)
   -- print("BEFORE", vim.inspect(messages))
   -- add completion context
   for _, message in ipairs(messages) do
-    message.content = pcontext.insert_contexts(message.content)
+    message.content = self.completion.context.insert_contexts(message.content)
   end
   -- print("AFTER", vim.inspect(messages))
 
@@ -1524,7 +1523,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     -- print("BEFORE", vim.inspect(messages))
     -- add completion context
     for _, message in ipairs(messages) do
-      message.content = pcontext.insert_contexts(message.content)
+      message.content = self.completion.context.insert_contexts(message.content)
     end
     -- print("AFTER", vim.inspect(messages))
     self:query(
