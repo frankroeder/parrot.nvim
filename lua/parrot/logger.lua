@@ -11,7 +11,6 @@ if notify_ok then
   vim.notify = notify
 end
 
--- Utility function to read file contents
 local function read_file(path)
   local file = io.open(path, "r")
   if not file then
