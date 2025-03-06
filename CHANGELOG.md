@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.3.0](https://github.com/frankroeder/parrot.nvim/compare/v1.2.2...v1.3.0) (2025-03-06)
+
+
+### Features
+
+* add deepseek provider ([086ec4e](https://github.com/frankroeder/parrot.nvim/commit/086ec4e1f7bdf569f8e5f20104038ee80f9d5e75))
+* add support to deepseek as a provider ([66da297](https://github.com/frankroeder/parrot.nvim/commit/66da297d328a90bbecfcb7c6302cce5246d60502))
+* **anthropic:** add model request and update default model selection ([28113b9](https://github.com/frankroeder/parrot.nvim/commit/28113b9c7d23cebe54cfc9adac36aa613096e718))
+
+
+### Bug Fixes
+
+* **perplexity:** add new reasoning model ([340e195](https://github.com/frankroeder/parrot.nvim/commit/340e195fad6ae32576a2947d2af152b89bfc5344))
+* **perplexity:** add new reasoning model ([7a87bab](https://github.com/frankroeder/parrot.nvim/commit/7a87bab9d9d37d00ff244bcd56cd1a9739692e30))
+* **perplexity:** add the new reasoning pro model ([b5f37a0](https://github.com/frankroeder/parrot.nvim/commit/b5f37a07c76dba8ac1c8a34981af297067e69f64))
+* **perplexity:** add the new reasoning pro model ([e5c2d94](https://github.com/frankroeder/parrot.nvim/commit/e5c2d9403fcdc6e9cb587eca099f442f109c9399))
+* use new release-please repo ([4ac5422](https://github.com/frankroeder/parrot.nvim/commit/4ac542290c7b328e4a7916e7f6773d1a60c68957))
+
 ## [1.2.2](https://github.com/frankroeder/parrot.nvim/compare/v1.2.1...v1.2.2) (2025-01-26)
 
 
