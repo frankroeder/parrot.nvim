@@ -38,7 +38,7 @@ source.is_available = function()
       -- Check for presence of the prompt virtual text with "Enter text here"
       local namespace_ids = vim.api.nvim_get_namespaces()
       for _, ns_id in pairs(namespace_ids) do
-        local extmarks = vim.api.nvim_buf_get_extmarks(buf, ns_id, 0, -1, {details = true})
+        local extmarks = vim.api.nvim_buf_get_extmarks(buf, ns_id, 0, -1, { details = true })
         for _, extmark in ipairs(extmarks) do
           if extmark[4] and extmark[4].virt_text then
             for _, virt_text in ipairs(extmark[4].virt_text) do
@@ -69,21 +69,16 @@ source.get_trigger_characters = function()
 end
 
 local function extract_cmd(request)
-  -- Add validation to prevent errors
-  if not request or not request.context or not request.context.cursor_before_line then
+  if request == nil then
     return nil
   end
-
-  local text = request.context.cursor_before_line:sub(1, request.offset)
-  local start, _ = text:find("(@[^%s]*)$")
-  if start then
-    return text:sub(start)
+  if not request or not request.context or not request.context.cursor_before_line or not request.offset then
+    return nil
   end
-  return nil
+  local text = request.context.cursor_before_line:sub(1, request.offset)
+  local cmd = text:match("^%s*(@%S*)")
+  return cmd
 end
-
--- Expose for testing
-source.test_extract_cmd = extract_cmd
 
 local function completion_items_for_path(path)
   -- Use pcall for the entire function to ensure we don't crash
@@ -92,7 +87,7 @@ local function completion_items_for_path(path)
     if not path then
       path = ""
     end
-    
+
     -- Ensure path is a string
     if type(path) ~= "string" then
       path = tostring(path)
@@ -115,27 +110,29 @@ local function completion_items_for_path(path)
     else
       -- Handle relative path from cwd
       local path_parts = {}
-      local ok_split = pcall(function() path_parts = utils.path_split(path) end)
+      local ok_split = pcall(function()
+        path_parts = utils.path_split(path)
+      end)
       if not ok_split then
         path_parts = {}
       end
-      
+
       if #path > 0 and not path:match("[/\\]$") and #path_parts > 0 then
         table.remove(path_parts)
       end
-      
+
       -- Get current working directory
       local cwd = ""
       local ok_cwd, cwd_result = pcall(vim.fn.getcwd)
       if ok_cwd and cwd_result then
         cwd = cwd_result
       end
-      
+
       -- Safely join paths
-      local ok_join = pcall(function() 
-        target_dir = utils.path_join(cwd, unpack(path_parts)) 
+      local ok_join = pcall(function()
+        target_dir = utils.path_join(cwd, unpack(path_parts))
       end)
-      
+
       if not ok_join or not target_dir then
         target_dir = cwd
       end
@@ -170,6 +167,8 @@ local function completion_items_for_path(path)
       -- Skip hidden files unless explicitly requested
       if not (name:match("^%.") and not path:match("%.")) then
         local item_kind
+        local is_valid = true
+
         if type == "file" then
           item_kind = cmp.lsp.CompletionItemKind.File
         elseif type == "directory" then
@@ -177,19 +176,19 @@ local function completion_items_for_path(path)
           name = name .. "/"
         else
           -- Skip if not a file or directory
-          goto continue
+          is_valid = false
         end
 
-        table.insert(files, {
-          label = name,
-          kind = item_kind,
-          filterText = name:lower(), -- Better filtering
-        })
+        if is_valid then
+          table.insert(files, {
+            label = name,
+            kind = item_kind,
+            filterText = name:lower(), -- Better filtering
+          })
 
-        count = count + 1
+          count = count + 1
+        end
       end
-
-      ::continue::
     end
 
     -- Sort files and directories
@@ -238,22 +237,22 @@ local function completion_items_for_buffers()
         local name = ""
         local filetype = ""
         local modified = false
-        
+
         -- Use pcall for each API call to prevent errors
-        pcall(function() 
-          bufhidden = vim.api.nvim_buf_get_option(buf, "bufhidden") 
+        pcall(function()
+          bufhidden = vim.api.nvim_buf_get_option(buf, "bufhidden")
         end)
-        
-        pcall(function() 
-          name = vim.api.nvim_buf_get_name(buf) 
+
+        pcall(function()
+          name = vim.api.nvim_buf_get_name(buf)
         end)
-        
-        pcall(function() 
-          filetype = vim.api.nvim_buf_get_option(buf, "filetype") 
+
+        pcall(function()
+          filetype = vim.api.nvim_buf_get_option(buf, "filetype")
         end)
-        
-        pcall(function() 
-          modified = vim.api.nvim_buf_get_option(buf, "modified") 
+
+        pcall(function()
+          modified = vim.api.nvim_buf_get_option(buf, "modified")
         end)
 
         -- Skip unnamed buffers and those marked for wiping
@@ -261,7 +260,7 @@ local function completion_items_for_buffers()
           -- Get additional metadata for better presentation
           local filename = vim.fn.fnamemodify(name, ":t")
           local rel_path
-          
+
           -- Safely get relative path
           ok, rel_path = pcall(vim.fn.fnamemodify, name, ":~:.")
           if not ok or not rel_path then
@@ -276,14 +275,15 @@ local function completion_items_for_buffers()
             filterText = filename:lower(), -- Better for filtering
             documentation = {
               kind = "markdown",
-              value = string.format("**Buffer %d: %s**\n\n%s\n\nType: %s\n%s",
+              value = string.format(
+                "**Buffer %d: %s**\n\n%s\n\nType: %s\n%s",
                 buf,
                 rel_path,
                 name,
                 filetype ~= "" and filetype or "unknown",
                 modified and "*(modified)*" or ""
-              )
-            }
+              ),
+            },
           }
 
           -- Prioritize current buffer
@@ -298,7 +298,7 @@ local function completion_items_for_buffers()
 
     -- Only return a reasonable number of items
     if #items > 50 then
-      items = {unpack(items, 1, 50)}
+      items = { unpack(items, 1, 50) }
     end
 
     return items
@@ -329,16 +329,16 @@ source.complete = function(self, request, callback)
           kind = cmp.lsp.CompletionItemKind.Keyword,
           documentation = {
             kind = "markdown",
-            value = "**@file:**\n\nEmbed a file in your chat message.\n\nType `@file:` followed by a relative or absolute path."
-          }
+            value = "**@file:**\n\nEmbed a file in your chat message.\n\nType `@file:` followed by a relative or absolute path.",
+          },
         },
         {
           label = "buffer",
           kind = cmp.lsp.CompletionItemKind.Keyword,
           documentation = {
             kind = "markdown",
-            value = "**@buffer:**\n\nEmbed a buffer in your chat message.\n\nType `@buffer:` followed by a buffer name."
-          }
+            value = "**@buffer:**\n\nEmbed a buffer in your chat message.\n\nType `@buffer:` followed by a buffer name.",
+          },
         },
       }
       return { items = items, isIncomplete = false }
@@ -348,8 +348,8 @@ source.complete = function(self, request, callback)
         kind = cmp.lsp.CompletionItemKind.Keyword,
         documentation = {
           kind = "markdown",
-          value = "**Select a file**\n\nEnter a relative path (from current directory) or an absolute path."
-        }
+          value = "**Select a file**\n\nEnter a relative path (from current directory) or an absolute path.",
+        },
       }
       return { items = { item }, isIncomplete = true }
     elseif cmd == "@buffer" then
@@ -358,8 +358,8 @@ source.complete = function(self, request, callback)
         kind = cmp.lsp.CompletionItemKind.Keyword,
         documentation = {
           kind = "markdown",
-          value = "**Select a buffer**\n\nEnter a buffer name from the list."
-        }
+          value = "**Select a buffer**\n\nEnter a buffer name from the list.",
+        },
       }
       return { items = { item }, isIncomplete = true }
     elseif cmd:match("^@file:") then
@@ -374,8 +374,7 @@ source.complete = function(self, request, callback)
       if query and query ~= "" then
         local filtered = {}
         for _, item in ipairs(items) do
-          if item.label:lower():find(query, 1, true) or
-             (item.detail and item.detail:lower():find(query, 1, true)) then
+          if item.label:lower():find(query, 1, true) or (item.detail and item.detail:lower():find(query, 1, true)) then
             table.insert(filtered, item)
           end
         end

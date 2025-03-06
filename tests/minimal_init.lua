@@ -20,12 +20,12 @@ package.loaded["parrot.config"] = {
     ui = { width = 80, height = 20 },
     completion = {
       enabled = true,
-    }
+    },
   },
   setup = function(opts)
     -- Mock setup function that doesn't crash in tests
     return true
-  end
+  end,
 }
 
 vim.cmd("runtime plugin/plenary.vim")

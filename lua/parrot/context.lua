@@ -3,154 +3,99 @@ local futils = require("parrot.file_utils")
 local pft = require("plenary.filetype")
 local M = {}
 
+-- Splits a command string by literal colons.
 function M.cmd_split(cmd)
   return vim.split(cmd, ":", { plain = true })
 end
 
-local function get_commands(msg, cmds)
-  -- More comprehensive pattern for file paths
-  -- Allows alphanumeric characters, periods, hyphens, underscores, spaces, plus ':', '/', '\', '~', '&', '#', etc.
-  for cmd in msg:gmatch("(@file:[^%s,;%?!\"'<>|]+)") do
-    table.insert(cmds, cmd)
+-- Given a message string, only lines that start (after optional whitespace)
+-- with "@file:" or "@buffer:" are treated as commands.
+function M.insert_contexts(msg)
+  if not msg or type(msg) ~= "string" then
+    local logger = require("parrot.logger")
+    logger.error("Invalid message for context insertion: " .. tostring(msg))
+    return ""
   end
-  -- For buffer names - allowing a wider range of characters but still avoiding problematic ones
-  for cmd in msg:gmatch("(@buffer:[^%s,;%?!\"'<>|]+)") do
-    table.insert(cmds, cmd)
-  end
-end
 
-local function process_file_commands(msg, texts)
-  local cmds = {}
-  get_commands(msg, cmds)
-  local filetype = nil
-  local logger = require("parrot.logger")
+  -- Split message into lines.
+  local lines = vim.split(msg, "\n", { plain = true })
+  local normal_lines = {}
+  local contexts = {}
 
-  for _, cmd in ipairs(cmds) do
-    if cmd:match("^@file:") then
-      local path = cmd:sub(7)
-      -- Handle absolute paths or paths with ~ for home directory
+  for _, line in ipairs(lines) do
+    -- Check for file command at beginning of the line.
+    local file_cmd = line:match("^%s*@file:(.+)$")
+    local buffer_cmd = line:match("^%s*@buffer:(%S+)$")
+    if file_cmd then
+      local path = file_cmd
+      if path:sub(1, 1) == '"' and path:sub(-1) == '"' then
+        path = path:sub(2, -2)
+      end
+
       local fullpath
       if path:match("^[/~]") or path:match("^%a:[/\\]") then
-        -- It's an absolute path or starts with ~
         fullpath = vim.fn.expand(path)
       else
-        -- It's a relative path
         local cwd = vim.fn.getcwd()
         fullpath = utils.path_join(cwd, path)
       end
 
-      -- Attempt to read the file with error handling
-      local ok, content = pcall(futils.read_file, fullpath)
-      if ok and content then
-        filetype = pft.detect(fullpath, {})
-        table.insert(texts, content)
-      else
-        -- Add a note about the failed file inclusion and log error
-        local error_msg = "Failed to read file: " .. path
-        logger.error(error_msg)
-        table.insert(texts, "<!-- " .. error_msg .. " -->")
+      -- Only attempt to read the file if it exists.
+      if vim.fn.filereadable(fullpath) == 1 then
+        local ok, content = pcall(futils.read_file, fullpath)
+        if ok and content and content:match("%S") then
+          local ft = pft.detect(fullpath, {})
+          if fullpath:match("%.txt$") then
+            ft = ""
+          end
+          content = content:gsub("\n+$", "")
+          table.insert(contexts, { content = content, filetype = ft })
+        end
       end
-    elseif cmd:match("^@buffer:") then
-      local buffer_name = cmd:sub(9)
+    elseif buffer_cmd then
+      local buffer_name = buffer_cmd
       local buf_nr = vim.fn.bufnr(buffer_name)
-
       if buf_nr ~= -1 and vim.api.nvim_buf_is_loaded(buf_nr) then
         local ok, result = pcall(function()
-          filetype = pft.detect(vim.api.nvim_buf_get_name(buf_nr), {})
-          local lines = vim.api.nvim_buf_get_lines(buf_nr, 0, -1, false)
-          return table.concat(lines, "\n")
+          local ft = pft.detect(vim.api.nvim_buf_get_name(buf_nr), {})
+          local buf_lines = vim.api.nvim_buf_get_lines(buf_nr, 0, -1, false)
+          return { content = table.concat(buf_lines, "\n"), filetype = ft }
         end)
-
         if ok and result then
-          table.insert(texts, result)
+          table.insert(contexts, result)
         else
-          -- Add a note about the failed buffer inclusion and log error
+          local logger = require("parrot.logger")
           local error_msg = "Failed to read buffer: " .. buffer_name
           logger.error(error_msg)
-          table.insert(texts, "<!-- " .. error_msg .. " -->")
+          table.insert(contexts, { content = "<!-- " .. error_msg .. " -->", filetype = "" })
         end
-      else
-        -- Add a note about the non-existent buffer and log warning
-        local error_msg = "Buffer not found: " .. buffer_name
-        logger.warn(error_msg)
-        table.insert(texts, "<!-- " .. error_msg .. " -->")
       end
+    else
+      -- Regular line, include in the message.
+      table.insert(normal_lines, line)
     end
   end
 
-  return filetype
-end
+  -- Reassemble the base message.
+  local base = table.concat(normal_lines, "\n")
+  base = base:gsub("[\n\r]+$", "") -- trim trailing newlines
 
-function M.insert_contexts(msg)
-  -- Check input
-  if not msg or type(msg) ~= "string" then
-    local logger = require("parrot.logger")
-    logger.error("Invalid message for context insertion: " .. tostring(msg))
-    return msg or ""
+  if #contexts == 0 then
+    return base
   end
 
-  local texts = {}
-  local filetypes = {} -- Track multiple filetypes
-
-  -- Process all file/buffer commands in the message
-  local ok, filetype = pcall(process_file_commands, msg, texts)
-  if ok and filetype then
-    table.insert(filetypes, filetype)
-  elseif not ok then
-    local logger = require("parrot.logger")
-    logger.error("Error processing file commands: " .. tostring(filetype))
-  end
-
-  -- Remove commands from the message
-  local cmds = {}
-  pcall(get_commands, msg, cmds)
-  for _, cmd in ipairs(cmds) do
-    -- Use pcall to handle any pattern matching errors
-    local ok, new_msg = pcall(function() return msg:gsub(cmd, "", 1) end)
-    if ok then
-      msg = new_msg
-    end
-  end
-
-  -- If no context was added, just return the original message
-  if #texts == 0 then
-    return msg
-  end
-
-  -- Determine the most common filetype for better code block formatting
-  local ft_to_use = (#filetypes > 0) and filetypes[1] or ""
-
-  -- Format the output with nicely formatted code blocks
-  local result = msg
-  -- Safely trim trailing whitespace
-  local ok, trimmed = pcall(function() return msg:gsub("%s+$", "") end)
-  if ok then
-    result = trimmed
-  end
-
-  -- Add a separator if the message isn't empty
-  if result ~= "" then
-    result = result .. "\n\n"
-  end
-
-  -- Format each piece of content in its own code block
-  for i, content in ipairs(texts) do
-    -- Skip empty content
-    if content and type(content) == "string" and content:match("%S") then
-      -- Safely format the code block
-      local block_ok, block = pcall(function() 
-        return string.format("```%s\n%s\n```", ft_to_use, content) 
-      end)
-      
-      if block_ok then
-        result = result .. block
+  -- Append each context as its own code block.
+  local result = base .. "\n\n"
+  for i, ctx in ipairs(contexts) do
+    if ctx.content and ctx.content:match("%S") then
+      local code_block
+      if ctx.filetype and ctx.filetype ~= "" then
+        code_block = "```" .. ctx.filetype .. "\n" .. ctx.content .. "\n```"
       else
-        -- Fallback to simple formatting if string.format fails
-        result = result .. "```\n" .. tostring(content) .. "\n```"
+        code_block = "```\n" .. ctx.content .. "\n```"
       end
-
-      -- Add spacing between code blocks
-      if i < #texts then
+      result = result .. code_block
+      if i < #contexts then
         result = result .. "\n\n"
       end
     end
