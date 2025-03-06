@@ -8,6 +8,7 @@ local OpenAI = require("parrot.provider.openai")
 local Perplexity = require("parrot.provider.perplexity")
 local GitHub = require("parrot.provider.github")
 local xAI = require("parrot.provider.xai")
+local DeepSeek = require("parrot.provider.deepseek")
 local logger = require("parrot.logger")
 
 local M = {}
@@ -28,6 +29,7 @@ M.init_provider = function(prov_name, endpoint, api_key, style, models)
     openai = OpenAI,
     pplx = Perplexity,
     xai = xAI,
+    deepseek = DeepSeek,
   }
 
   if providers[prov_name] then
