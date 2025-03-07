@@ -205,8 +205,7 @@ describe("utils", function()
         temperature = 0.8,
         topK = 10,
         topP = 1,
-        generationConfig = {
-        },
+        generationConfig = {},
       }
 
       local expected_new_payload = {

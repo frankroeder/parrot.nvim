@@ -81,8 +81,7 @@ describe("Anthropic", function()
     end)
 
     it("should return nil for non-text_delta messages", function()
-      local input =
-        '{"delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":8}}'
+      local input = '{"delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":8}}'
 
       local result = anthropic:process_stdout(input)
 
