@@ -367,11 +367,32 @@ M.filter_payload_parameters = function(valid_parameters, payload)
   local new_payload = {}
   for key, value in pairs(valid_parameters) do
     if type(value) == "table" then
+      -- Initialize table only if needed
       if new_payload[key] == nil then
         new_payload[key] = {}
       end
-      for tkey, _ in pairs(value) do
-        new_payload[key][tkey] = payload[tkey]
+
+      local found_values = false
+      if payload[key] then
+        for tkey, _ in pairs(value) do
+          if payload[key][tkey] then
+            new_payload[key][tkey] = payload[key][tkey]
+            found_values = true
+          end
+        end
+      else
+        -- Look for the nested keys at top level
+        for tkey, _ in pairs(value) do
+          if payload[tkey] then
+            new_payload[key][tkey] = payload[tkey]
+            found_values = true
+          end
+        end
+      end
+
+      -- Remove empty tables
+      if not found_values then
+        new_payload[key] = nil
       end
     else
       new_payload[key] = payload[key]

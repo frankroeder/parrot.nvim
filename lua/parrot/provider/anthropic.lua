@@ -41,6 +41,9 @@ function Anthropic:new(endpoint, api_key)
     endpoint = endpoint,
     api_key = api_key,
     name = "anthropic",
+    _thinking_buf = nil,
+    _thinking_win = nil,
+    _thinking_output = "",
   }, self)
 end
 
@@ -60,7 +63,8 @@ function Anthropic:preprocess_payload(payload)
     payload.system = payload.messages[1].content
     table.remove(payload.messages, 1)
   end
-  return utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
+  local params = utils.filter_payload_parameters(AVAILABLE_API_PARAMETERS, payload)
+  return params
 end
 
 -- Returns the curl parameters for the API request
@@ -97,18 +101,59 @@ function Anthropic:verify()
   end
 end
 
--- Processes the stdout from the API response
+-- Notification system: displays thinking tokens in a floating window in the top right.
+-- The buffer is created with text wrapping enabled, and tokens are accumulated into one coherent string.
+function Anthropic:notify_thinking(thinking)
+  vim.schedule(function()
+    if not self._thinking_buf or not vim.api.nvim_buf_is_valid(self._thinking_buf) then
+      self._thinking_buf = vim.api.nvim_create_buf(false, true) -- unlisted scratch buffer
+      local width = math.floor(vim.o.columns * 0.3)
+      local height = math.floor(vim.o.lines * 0.3)
+      local row = 0
+      local col = vim.o.columns - width
+      self._thinking_win = vim.api.nvim_open_win(self._thinking_buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        row = row,
+        col = col,
+        style = "minimal",
+        border = "rounded",
+      })
+      vim.api.nvim_buf_set_option(self._thinking_buf, "buftype", "nofile")
+      vim.api.nvim_win_set_option(self._thinking_win, "wrap", true)
+      self._thinking_output = ""
+    end
+
+    -- Accumulate tokens into one coherent string.
+    self._thinking_output = self._thinking_output .. thinking
+    vim.api.nvim_buf_set_lines(self._thinking_buf, 0, -1, false, { self._thinking_output })
+  end)
+end
+
+-- Processes the stdout from the API response.
+-- For "text_delta" responses, returns the text.
+-- For "thinking_delta" responses, streams tokens to the floating window.
 ---@param response string
 ---@return string|nil
 function Anthropic:process_stdout(response)
-  if response:match("content_block_delta") and response:match("text_delta") then
-    local success, decoded_line = pcall(vim.json.decode, response)
-    if success and decoded_line.delta and decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
+  local success, decoded_line = pcall(vim.json.decode, response)
+  if not success then
+    logger.debug("Could not decode response: " .. response)
+    return nil
+  end
+
+  if decoded_line.delta then
+    if decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
       return decoded_line.delta.text
-    else
-      logger.debug("Could not process response: " .. response)
+    elseif decoded_line.delta.type == "thinking_delta" and decoded_line.delta.thinking then
+      self:notify_thinking(decoded_line.delta.thinking)
+      return nil
     end
   end
+
+  logger.debug("Could not process response: " .. response)
+  return nil
 end
 
 -- Processes the onexit event from the API response
