@@ -1,6 +1,7 @@
 local utils = require("parrot.utils")
 local futils = require("parrot.file_utils")
 local pft = require("plenary.filetype")
+local logger = require("parrot.logger")
 local M = {}
 
 -- Splits a command string by literal colons.
@@ -12,7 +13,6 @@ end
 -- with "@file:" or "@buffer:" are treated as commands.
 function M.insert_contexts(msg)
   if not msg or type(msg) ~= "string" then
-    local logger = require("parrot.logger")
     logger.error("Invalid message for context insertion: " .. tostring(msg))
     return ""
   end
@@ -64,10 +64,7 @@ function M.insert_contexts(msg)
         if ok and result then
           table.insert(contexts, result)
         else
-          local logger = require("parrot.logger")
-          local error_msg = "Failed to read buffer: " .. buffer_name
-          logger.error(error_msg)
-          table.insert(contexts, { content = "<!-- " .. error_msg .. " -->", filetype = "" })
+          logger.error("Failed to read buffer: " .. buffer_name)
         end
       end
     else
