@@ -16,6 +16,12 @@ function M.insert_contexts(msg)
     logger.error("Invalid message for context insertion: " .. tostring(msg))
     return ""
   end
+  local show_hints = false
+
+  local loaded_config = require("parrot.config")
+  if loaded_config.loaded then
+    show_hints = loaded_config.options.show_context_hints
+  end
 
   -- Split message into lines.
   local lines = vim.split(msg, "\n", { plain = true })
@@ -50,7 +56,10 @@ function M.insert_contexts(msg)
             ft = ""
           end
           content = content:gsub("\n+$", "")
-          table.insert(contexts, { content = content, filetype = ft })
+          if show_hints then
+            vim.notify("Attached context @file: " .. vim.fs.basename(fullpath))
+          end
+          table.insert(contexts, { content = content, filetype = ft, name = fullpath })
         end
       end
     elseif buffer_cmd then
@@ -64,7 +73,11 @@ function M.insert_contexts(msg)
         local ok, result = pcall(function()
           local ft = pft.detect(vim.api.nvim_buf_get_name(buf_nr), {})
           local buf_lines = vim.api.nvim_buf_get_lines(buf_nr, 0, -1, false)
-          return { content = table.concat(buf_lines, "\n"), filetype = ft }
+          local name = vim.api.nvim_buf_get_name(buf_nr)
+          if show_hints then
+            vim.notify("Attached context @buffer: " .. vim.fs.basename(name))
+          end
+          return { content = table.concat(buf_lines, "\n"), filetype = ft, name = name }
         end)
         if ok and result then
           table.insert(contexts, result)
@@ -91,7 +104,12 @@ function M.insert_contexts(msg)
                 ft = ""
               end
               content = content:gsub("\n+$", "")
-              table.insert(contexts, { content = content, filetype = ft })
+              if show_hints then
+                vim.notify(
+                  "Attached context @directory: " .. vim.fs.basename(dir_path) .. " - " .. vim.fs.basename(file)
+                )
+              end
+              table.insert(contexts, { content = content, filetype = ft, name = file })
             else
               logger.warning("Failed to read file in directory: " .. file)
             end
@@ -108,7 +126,7 @@ function M.insert_contexts(msg)
 
   -- Reassemble the base message.
   local base = table.concat(normal_lines, "\n")
-  base = base:gsub("[\n\r]+$", "") -- trim trailing newlines
+  base = base:gsub("[\n\r]+$", "")
 
   if #contexts == 0 then
     return base
@@ -120,9 +138,9 @@ function M.insert_contexts(msg)
     if ctx.content and ctx.content:match("%S") then
       local code_block
       if ctx.filetype and ctx.filetype ~= "" then
-        code_block = "```" .. ctx.filetype .. "\n" .. ctx.content .. "\n```"
+        code_block = ctx.name .. "\n```" .. ctx.filetype .. "\n" .. ctx.content .. "\n```"
       else
-        code_block = "```\n" .. ctx.content .. "\n```"
+        code_block = ctx.name .. "\n```\n" .. ctx.content .. "\n```"
       end
       result = result .. code_block
       if i < #contexts then

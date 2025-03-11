@@ -748,12 +748,10 @@ function ChatHandler:_chat_respond(params)
     spinner:start("calling API...")
   end
 
-  -- print("BEFORE", vim.inspect(messages))
   -- add completion context
   for _, message in ipairs(messages) do
     message.content = self.completion.context.insert_contexts(message.content)
   end
-  -- print("AFTER", vim.inspect(messages))
 
   -- call the model and write response
   self:query(
@@ -1520,12 +1518,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       spinner:start("calling API...")
     end
 
-    -- print("BEFORE", vim.inspect(messages))
     -- add completion context
     for _, message in ipairs(messages) do
       message.content = self.completion.context.insert_contexts(message.content)
     end
-    -- print("AFTER", vim.inspect(messages))
     self:query(
       buf,
       prov,

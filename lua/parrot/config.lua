@@ -229,6 +229,7 @@ local defaults = {
   },
   enable_spinner = true,
   spinner_type = "dots",
+  show_context_hints = false,
   chat_template = [[
   # topic: ?
   {{optional}}

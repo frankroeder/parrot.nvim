@@ -71,9 +71,10 @@ describe("context", function()
     it("should insert content from a file when using @file command", function()
       local expected_content = "This is the content of the test file."
       vim.fn.writefile({ expected_content }, "test/test_file.txt")
+      local absolute_path = vim.fn.fnamemodify("test/test_file.txt", ":p")
       local msg = "Test message with\n@file:test/test_file.txt"
       local result = context.insert_contexts(msg)
-      local expected = "Test message with\n\n```\n" .. expected_content .. "\n```"
+      local expected = "Test message with\n\n" .. absolute_path .. "\n```\n" .. expected_content .. "\n```"
       assert.are.equal(expected, result)
     end)
 
@@ -87,7 +88,8 @@ describe("context", function()
       local buf_name = vim.api.nvim_buf_get_name(buf_id)
       local result_current_buffer = context.insert_contexts("@buffer:" .. buf_name)
       local buf_content = table.concat(vim.api.nvim_buf_get_lines(buf_id, 0, -1, false), "\n")
-      local expected = "\n\n```lua\n" .. buf_content .. "\n```"
+
+      local expected = "\n\n" .. buf_name .. "\n```lua\n" .. buf_content .. "\n```"
       assert.are.equal(expected, result_current_buffer)
 
       local non_existent_buffer = "@buffer:non_existent_buffer.lua"
@@ -100,11 +102,17 @@ describe("context", function()
       local file2_content = "Content of file 2."
       vim.fn.writefile({ file1_content }, "test/file1.txt")
       vim.fn.writefile({ file2_content }, "test/file2.java")
+      local absolute_path1 = vim.fn.fnamemodify("test/file1.txt", ":p")
+      local absolute_path2 = vim.fn.fnamemodify("test/file2.java", ":p")
       local msg = "Message with multiple commands:\n@file:test/file1.txt\n@file:test/file2.java"
       local result = context.insert_contexts(msg)
-      local expected_result = "Message with multiple commands:\n\n```\n"
+      local expected_result = "Message with multiple commands:\n\n"
+        .. absolute_path1
+        .. "\n```\n"
         .. file1_content
-        .. "\n```\n\n```java\n"
+        .. "\n```\n\n"
+        .. absolute_path2
+        .. "\n```java\n"
         .. file2_content
         .. "\n```"
       assert.are.equal(expected_result, result)
@@ -121,9 +129,10 @@ describe("context", function()
       local file_name_with_spaces = "test/file with spaces.txt"
       local file_content = "This is file with spaces!"
       vim.fn.writefile({ file_content }, file_name_with_spaces)
+      local absolute_path = vim.fn.fnamemodify(file_name_with_spaces, ":p")
       local msg = "test message.\n@file:test/file with spaces.txt"
       local result = context.insert_contexts(msg)
-      local expected = "test message.\n\n```\n" .. file_content .. "\n```"
+      local expected = "test message.\n\n" .. absolute_path .. "\n```\n" .. file_content .. "\n```"
       assert.are.equal(expected, result)
     end)
 

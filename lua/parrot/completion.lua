@@ -1,6 +1,6 @@
 local utils = require("parrot.utils")
-local has_cmp, cmp = pcall(require, "cmp")
 local logger = require("parrot.logger")
+local has_cmp, cmp = pcall(require, "cmp")
 
 if not has_cmp then
   return { context = {
@@ -42,7 +42,11 @@ source.is_available = function()
         for _, extmark in ipairs(extmarks) do
           if extmark[4] and extmark[4].virt_text then
             for _, virt_text in ipairs(extmark[4].virt_text) do
-              if virt_text[1] and type(virt_text[1]) == "string" and virt_text[1]:match("Enter text here") then
+              if
+                virt_text[1]
+                and type(virt_text[1]) == "string"
+                and (virt_text[1]:match("Enter text here") or virt_text[1]:match("confirm with: CTRL%-W_q or CTRL%-C"))
+              then
                 return true
               end
             end
@@ -155,7 +159,7 @@ local function completion_items_for_path(path, only_directories)
     end
 
     -- Limit the number of results to prevent performance issues
-    local max_items = 100
+    local max_items = 50
     local count = 0
 
     while count < max_items do
