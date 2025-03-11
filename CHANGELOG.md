@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/frankroeder/parrot.nvim/compare/v1.3.0...v1.4.0) (2025-03-11)
+
+
+### Features
+
+* add nvim-cmp context completion support ([8f9adc6](https://github.com/frankroeder/parrot.nvim/commit/8f9adc6096099da4a6290648457363a4e8bb13a6))
+
+
+### Bug Fixes
+
+* improve completion feature robustness and add tests ([9ad2ebc](https://github.com/frankroeder/parrot.nvim/commit/9ad2ebc9d93806b7195c27c01e480b01f8410ff6))
+
 ## [1.3.0](https://github.com/frankroeder/parrot.nvim/compare/v1.2.2...v1.3.0) (2025-03-06)
 
 
