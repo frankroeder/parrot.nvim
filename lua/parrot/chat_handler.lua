@@ -11,6 +11,7 @@ local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
 local ResponseHandler = require("parrot.response_handler")
+local completion = require("parrot.completion")
 
 local ChatHandler = {}
 
@@ -43,6 +44,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
       last_line1 = nil,
       last_line2 = nil,
     },
+    completion = completion,
   }, self)
 end
 
@@ -86,7 +88,6 @@ function ChatHandler:get_provider(is_chat)
 end
 
 --- Retrieves the current provider for chat or command.
----@param is_chat boolean True for chat provider, false for command provider.
 ---@return table | nil Provider table or nil if not found.
 function ChatHandler:buf_handler()
   local gid = utils.create_augroup("PrtBufHandler", { clear = true })
@@ -745,6 +746,11 @@ function ChatHandler:_chat_respond(params)
   if self.options.enable_spinner then
     spinner = Spinner:new(self.options.spinner_type)
     spinner:start("calling API...")
+  end
+
+  -- add completion context
+  for _, message in ipairs(messages) do
+    message.content = self.completion.context.insert_contexts(message.content)
   end
 
   -- call the model and write response
@@ -1510,6 +1516,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     if self.options.enable_spinner then
       spinner = Spinner:new(self.options.spinner_type)
       spinner:start("calling API...")
+    end
+
+    -- add completion context
+    for _, message in ipairs(messages) do
+      message.content = self.completion.context.insert_contexts(message.content)
     end
     self:query(
       buf,

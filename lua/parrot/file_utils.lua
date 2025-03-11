@@ -111,6 +111,9 @@ end
 --- @param path string The path to the file to be read
 --- @return string The content of the file, or an empty string if the file cannot be opened
 M.read_file = function(path)
+  if path == nil then
+    return nil
+  end
   local file = io.open(path, "r")
   if not file then
     return ""

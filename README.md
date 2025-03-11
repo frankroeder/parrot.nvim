@@ -361,6 +361,8 @@ to consider a visual selection within an API request.
     -- Type of spinner animation to display while loading
     -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
     spinner_type = "star",
+    -- Show hints for context added through completion with @file, @buffer or @directory
+    show_context_hints = true
 }
 ```
 
@@ -520,6 +522,29 @@ require("parrot").setup {
     }
     -- ...
 }
+```
+
+## Completion
+
+Instead of using the [template placeholders](#template-placeholders),
+`parrot.nvim` supports inline completion via [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for additional contexts:
+
+- `@buffer:foo.txt` - Includes the content of the open buffer `foo.txt`
+- `@file:test.lua` - Includes the content of the file `test.lua`
+- `@directory:src/` - Includes all file contents from the directory `src/`
+
+> Hint: The option `show_context_hints` allows you to transparently see notifications about the
+actual file contents considered by the request. The completion keywords (e.g., `@file`) need to be placed
+on a **new line**!
+
+### Setup for nvim-cmp
+
+To enable `parrot.nvim` completions, add the source to your nvim-cmp configuration:
+
+```lua
+sources = cmp.config.sources({
+  { name = "parrot_completion" },
+}),
 ```
 
 ## Statusline Support
