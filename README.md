@@ -542,9 +542,11 @@ on a **new line**!
 To enable `parrot.nvim` completions, add the source to your nvim-cmp configuration:
 
 ```lua
+...
 sources = cmp.config.sources({
   { name = "parrot_completion" },
 }),
+...
 ```
 
 ## Statusline Support
