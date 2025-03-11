@@ -522,6 +522,25 @@ require("parrot").setup {
 }
 ```
 
+## Completion
+
+Instead of using the [template placeholders](#template-placeholders),
+`parrot.nvim` supports inline completion via [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for additional contexts:
+
+- `@buffer:foo.txt` - Includes the content of the open buffer `foo.txt`
+- `@file:test.lua` - Includes the content of the file `test.lua`
+- `@directory:src/` - Includes all file contents from the directory `src/`
+
+### Setup for nvim-cmp
+
+To enable `parrot.nvim` completions, add the source to your nvim-cmp configuration:
+
+```lua
+sources = cmp.config.sources({
+  { name = "parrot_completion" },
+}),
+```
+
 ## Statusline Support
 
 Knowing the current chat or command model can be shown using your favorite statusline plugin.
