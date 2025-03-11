@@ -1,5 +1,6 @@
 local utils = require("parrot.utils")
 local has_cmp, cmp = pcall(require, "cmp")
+local logger = require("parrot.logger")
 
 if not has_cmp then
   return { context = {
@@ -34,8 +35,7 @@ source.is_available = function()
     local buf_type = vim.api.nvim_buf_get_option(buf, "buftype")
     local buf_name = vim.fn.bufname(buf)
     if buf_type == "nofile" and buf_name == "" then
-      -- This is a potential UI input buffer for rewrite operations
-      -- Check for presence of the prompt virtual text with "Enter text here"
+      -- This is a potential UI input buffer for interactive commands
       local namespace_ids = vim.api.nvim_get_namespaces()
       for _, ns_id in pairs(namespace_ids) do
         local extmarks = vim.api.nvim_buf_get_extmarks(buf, ns_id, 0, -1, { details = true })
@@ -56,7 +56,6 @@ source.is_available = function()
 
   -- If there was an error, fallback to false but log it
   if not ok then
-    local logger = require("parrot.logger")
     logger.error("Error in completion source is_available: " .. tostring(result))
     return false
   end
@@ -80,7 +79,8 @@ local function extract_cmd(request)
   return cmd
 end
 
-local function completion_items_for_path(path)
+local function completion_items_for_path(path, only_directories)
+  only_directories = only_directories or false
   -- Use pcall for the entire function to ensure we don't crash
   local ok, result = pcall(function()
     -- Handle possible nil or empty input
@@ -169,21 +169,50 @@ local function completion_items_for_path(path)
         local item_kind
         local is_valid = true
 
-        if type == "file" then
-          item_kind = cmp.lsp.CompletionItemKind.File
-        elseif type == "directory" then
+        if type == "directory" then
           item_kind = cmp.lsp.CompletionItemKind.Folder
           name = name .. "/"
+        elseif type == "file" then
+          if only_directories then
+            is_valid = false
+          else
+            item_kind = cmp.lsp.CompletionItemKind.File
+          end
         else
           -- Skip if not a file or directory
           is_valid = false
         end
 
         if is_valid then
+          -- Compute the full path for the item
+          local full_path = utils.path_join(target_dir, name)
+
+          -- Prepare documentation based on item type
+          local documentation_value
+          if type == "file" then
+            local stat = vim.loop.fs_stat(full_path)
+            if stat then
+              local size = stat.size
+              local mtime = os.date("%Y-%m-%d %H:%M", stat.mtime.sec)
+              documentation_value =
+                string.format("**File:** %s\n**Size:** %d bytes\n**Modified:** %s", full_path, size, mtime)
+            else
+              -- Fallback if stat fails
+              documentation_value = string.format("**File:** %s", full_path)
+            end
+          else
+            documentation_value = string.format("**Directory:** %s", full_path)
+          end
+
+          -- Create the completion item with enhanced information
           table.insert(files, {
             label = name,
             kind = item_kind,
-            filterText = name:lower(), -- Better filtering
+            filterText = name:lower(),
+            documentation = {
+              kind = "markdown",
+              value = documentation_value,
+            },
           })
 
           count = count + 1
@@ -191,13 +220,11 @@ local function completion_items_for_path(path)
       end
     end
 
-    -- Sort files and directories
+    -- Sort files and directories (directories first)
     local sort_ok = pcall(function()
       table.sort(files, function(a, b)
-        -- Directories first, then files
         local a_is_dir = a.label:sub(-1) == "/"
         local b_is_dir = b.label:sub(-1) == "/"
-
         if a_is_dir and not b_is_dir then
           return true
         elseif not a_is_dir and b_is_dir then
@@ -208,13 +235,11 @@ local function completion_items_for_path(path)
       end)
     end)
 
-    -- If sort fails, return unsorted files (better than nothing)
     return files
   end)
 
   -- If an error occurred, log it and return empty array
   if not ok then
-    local logger = require("parrot.logger")
     logger.error("Error in completion_items_for_path: " .. tostring(result))
     return {}
   end
@@ -271,14 +296,12 @@ local function completion_items_for_buffers()
           local item = {
             label = filename,
             kind = cmp.lsp.CompletionItemKind.Buffer,
-            detail = rel_path,
-            filterText = filename:lower(), -- Better for filtering
+            detail = string.format("Buffer No.: [%d]\nRelative path: %s\n", buf, rel_path),
+            filterText = filename:lower(),
             documentation = {
               kind = "markdown",
               value = string.format(
-                "**Buffer %d: %s**\n\n%s\n\nType: %s\n%s",
-                buf,
-                rel_path,
+                "Absolute path: %s\nType: %s\n%s",
                 name,
                 filetype ~= "" and filetype or "unknown",
                 modified and "*(modified)*" or ""
@@ -322,7 +345,6 @@ source.complete = function(self, request, callback)
     end
 
     if cmd == "@" then
-      -- Enhanced initial suggestions with documentation
       local items = {
         {
           label = "file",
@@ -340,28 +362,16 @@ source.complete = function(self, request, callback)
             value = "**@buffer:**\n\nEmbed a buffer in your chat message.\n\nType `@buffer:` followed by a buffer name.",
           },
         },
+        {
+          label = "directory",
+          kind = cmp.lsp.CompletionItemKind.Keyword,
+          documentation = {
+            kind = "markdown",
+            value = "**@directory:**\n\nEmbed all files in a directory.\n\nType `@directory:` followed by a directory path.",
+          },
+        },
       }
       return { items = items, isIncomplete = false }
-    elseif cmd == "@file" then
-      local item = {
-        label = "@file:",
-        kind = cmp.lsp.CompletionItemKind.Keyword,
-        documentation = {
-          kind = "markdown",
-          value = "**Select a file**\n\nEnter a relative path (from current directory) or an absolute path.",
-        },
-      }
-      return { items = { item }, isIncomplete = true }
-    elseif cmd == "@buffer" then
-      local item = {
-        label = "@buffer:",
-        kind = cmp.lsp.CompletionItemKind.Keyword,
-        documentation = {
-          kind = "markdown",
-          value = "**Select a buffer**\n\nEnter a buffer name from the list.",
-        },
-      }
-      return { items = { item }, isIncomplete = true }
     elseif cmd:match("^@file:") then
       local path = cmd:sub(7)
       local items = completion_items_for_path(path)
@@ -380,18 +390,22 @@ source.complete = function(self, request, callback)
         end
         items = filtered
       end
-
       return { items = items, isIncomplete = false }
+    elseif cmd:match("^@directory:") then
+      local path = cmd:sub(12)
+      local items = completion_items_for_path(path, true)
+      return { items = items, isIncomplete = (#items > 0) }
     else
       return { items = {}, isIncomplete = false }
     end
   end)
 
   if not ok then
-    -- Log error but don't crash the UI
-    local logger = require("parrot.logger")
     logger.error("Completion error: " .. tostring(result))
-    callback({ items = {}, isIncomplete = false })
+    callback({
+      items = { { label = "Error: " .. tostring(result), kind = cmp.lsp.CompletionItemKind.Text } },
+      isIncomplete = false,
+    })
     return
   end
 

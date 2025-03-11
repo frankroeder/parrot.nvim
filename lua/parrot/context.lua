@@ -26,6 +26,7 @@ function M.insert_contexts(msg)
     -- Check for file command at beginning of the line.
     local file_cmd = line:match("^%s*@file:(.+)$")
     local buffer_cmd = line:match("^%s*@buffer:(%S+)$")
+    local dir_cmd = line:match("^%s*@directory:(.+)$")
     if file_cmd then
       local path = file_cmd
       if path:sub(1, 1) == '"' and path:sub(-1) == '"' then
@@ -53,8 +54,12 @@ function M.insert_contexts(msg)
         end
       end
     elseif buffer_cmd then
-      local buffer_name = buffer_cmd
-      local buf_nr = vim.fn.bufnr(buffer_name)
+      local buf_nr
+      if type(buffer_cmd) == "number" then
+        buf_nr = buffer_cmd
+      else
+        buf_nr = vim.fn.bufnr(buffer_cmd)
+      end
       if buf_nr ~= -1 and vim.api.nvim_buf_is_loaded(buf_nr) then
         local ok, result = pcall(function()
           local ft = pft.detect(vim.api.nvim_buf_get_name(buf_nr), {})
@@ -64,8 +69,36 @@ function M.insert_contexts(msg)
         if ok and result then
           table.insert(contexts, result)
         else
-          logger.error("Failed to read buffer: " .. buffer_name)
+          logger.warning("Failed to read buffer: " .. buffer_cmd)
         end
+      else
+        logger.warning("Buffer not loaded or found: " .. buffer_cmd)
+      end
+    elseif dir_cmd then
+      local path = dir_cmd
+      if path:sub(1, 1) == '"' and path:sub(-1) == '"' then
+        path = path:sub(2, -2)
+      end
+      local dir_path = vim.fn.expand(path)
+      if vim.fn.isdirectory(dir_path) == 1 then
+        local files = vim.fn.glob(dir_path .. "/*", true, true)
+        for _, file in ipairs(files) do
+          if vim.fn.filereadable(file) == 1 then
+            local ok, content = pcall(futils.read_file, file)
+            if ok and content and content:match("%S") then
+              local ft = pft.detect(file, {})
+              if file:match("%.txt$") then
+                ft = ""
+              end
+              content = content:gsub("\n+$", "")
+              table.insert(contexts, { content = content, filetype = ft })
+            else
+              logger.warning("Failed to read file in directory: " .. file)
+            end
+          end
+        end
+      else
+        logger.warning("Directory not found: " .. dir_path)
       end
     else
       -- Regular line, include in the message.
