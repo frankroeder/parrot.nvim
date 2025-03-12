@@ -217,6 +217,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
 | `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
 | `PrtStatus`               | Prints current provider and model selection   |
+| `PrtThinking`             | Toggle or configure Claude's thinking feature    |
 |  __Interactive__          | |
 | `PrtRewrite`              | Rewrites the visual selection based on a provided prompt |
 | `PrtEdit`                 | Like `PrtRewrite` but you can change the last prompt |
@@ -548,6 +549,17 @@ sources = cmp.config.sources({
 }),
 ...
 ```
+
+## Claude Thinking
+
+The `PrtThinking` command allows you to toggle or configure Claude's "thinking" feature when using the Anthropic provider:
+
+- `PrtThinking` - Toggle thinking on/off (default budget: 1024 tokens)
+- `PrtThinking 2048` - Enable thinking with a specific budget of 2048 tokens
+- `PrtThinking status` - Show current thinking settings
+
+The thinking feature allows Claude to show its intermediate reasoning steps in a popup window
+before providing a final response. This is only available for the Anthropic provider.
 
 ## Statusline Support
 

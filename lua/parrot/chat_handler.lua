@@ -1571,6 +1571,71 @@ end
 ---@param payload table Payload for the API.
 ---@param handler function Response handler function.
 ---@param on_exit function | nil Optional on_exit handler.
+--- Toggle or configure Claude thinking functionality
+---@param params table Parameters for thinking configuration
+function ChatHandler:thinking(params)
+  local buf = vim.api.nvim_get_current_buf()
+  local file_name = vim.api.nvim_buf_get_name(buf)
+  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local provider = self:get_provider(is_chat)
+  
+  -- Only applicable for Anthropic provider
+  if provider.name ~= "anthropic" then
+    logger.warning("Thinking is only available for the Anthropic provider")
+    return
+  end
+  
+  local args = params.args or ""
+  
+  -- Check current thinking settings with "status" command
+  if args == "status" then
+    local current = self.providers[provider.name].params[is_chat and "chat" or "command"].thinking
+    if current then
+      logger.info(string.format("Thinking is enabled with budget of %d tokens for %s", 
+        current.budget_tokens or 0, is_chat and "chat" or "command"))
+    else
+      logger.info("Thinking is disabled for " .. (is_chat and "chat" or "command"))
+    end
+    return
+  elseif args ~= "" then
+    -- Parse budget_tokens from args  
+    local budget_tokens = tonumber(args)
+    if budget_tokens and budget_tokens > 0 then
+      -- Set thinking parameters in the provider config
+      if not self.providers[provider.name].params[is_chat and "chat" or "command"].thinking then
+        self.providers[provider.name].params[is_chat and "chat" or "command"].thinking = {}
+      end
+      
+      self.providers[provider.name].params[is_chat and "chat" or "command"].thinking = {
+        type = "enabled",
+        budget_tokens = budget_tokens
+      }
+      
+      logger.info(string.format("Set thinking budget to %d tokens for %s", 
+        budget_tokens, is_chat and "chat" or "command"))
+    else
+      logger.warning("Invalid thinking budget. Please provide a positive number.")
+    end
+  else
+    -- Toggle thinking on/off
+    local current = self.providers[provider.name].params[is_chat and "chat" or "command"].thinking
+    
+    if current then
+      -- Thinking is disabled, enable it with default budget
+      self.providers[provider.name].params[is_chat and "chat" or "command"].thinking = nil
+      logger.info("Disabled thinking for " .. (is_chat and "chat" or "command"))
+    else
+      -- Thinking is enabled, disable it
+      self.providers[provider.name].params[is_chat and "chat" or "command"].thinking = {
+        type = "enabled", 
+        budget_tokens = 1024
+      }
+      logger.info(string.format("Enabled thinking with default budget of 1024 tokens for %s",
+        is_chat and "chat" or "command"))
+    end
+  end
+end
+
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
