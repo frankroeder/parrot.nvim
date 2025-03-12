@@ -209,4 +209,62 @@ function Anthropic:get_available_models(online)
   return ids
 end
 
+--- Toggle or configure thinking functionality for Claude models
+---@param params table Parameters for thinking configuration
+---@param is_chat boolean Whether this is for chat or command context
+---@param providers table Provider configuration table
+---@return nil
+function Anthropic:configure_thinking(params, is_chat, providers)
+  local logger = require("parrot.logger")
+  local args = params.args or ""
+
+  -- Check current thinking settings with "status" command
+  if args == "status" then
+    local current = providers[self.name].params[is_chat and "chat" or "command"].thinking
+    if current then
+      logger.info(string.format("Thinking is enabled with budget of %d tokens for %s",
+        current.budget_tokens or 0, is_chat and "chat" or "command"))
+    else
+      logger.info("Thinking is disabled for " .. (is_chat and "chat" or "command"))
+    end
+    return
+  elseif args ~= "" then
+    -- Parse budget_tokens from args
+    local budget_tokens = tonumber(args)
+    if budget_tokens and budget_tokens > 0 then
+      -- Set thinking parameters in the provider config
+      if not providers[self.name].params[is_chat and "chat" or "command"].thinking then
+        providers[self.name].params[is_chat and "chat" or "command"].thinking = {}
+      end
+
+      providers[self.name].params[is_chat and "chat" or "command"].thinking = {
+        type = "enabled",
+        budget_tokens = budget_tokens
+      }
+
+      logger.info(string.format("Set thinking budget to %d tokens for %s",
+        budget_tokens, is_chat and "chat" or "command"))
+    else
+      logger.warning("Invalid thinking budget. Please provide a positive number.")
+    end
+  else
+    -- Toggle thinking on/off
+    local current = providers[self.name].params[is_chat and "chat" or "command"].thinking
+
+    if current then
+      -- Thinking is enabled, disable it
+      providers[self.name].params[is_chat and "chat" or "command"].thinking = nil
+      logger.info("Disabled thinking for " .. (is_chat and "chat" or "command"))
+    else
+      -- Thinking is disabled, enable it with default budget
+      providers[self.name].params[is_chat and "chat" or "command"].thinking = {
+        type = "enabled",
+        budget_tokens = 1024
+      }
+      logger.info(string.format("Enabled thinking with default budget of 1024 tokens for %s",
+        is_chat and "chat" or "command"))
+    end
+  end
+end
+
 return Anthropic
