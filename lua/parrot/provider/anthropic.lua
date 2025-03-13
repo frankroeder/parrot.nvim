@@ -263,20 +263,31 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
 
     if current then
       -- Thinking is enabled, disable it
-      providers[self.name].params[mode].thinking = nil
-
-      -- Save to state if provided
+      -- Store the current config before disabling for future restoration
       if state then
+        -- Save the current state temporarily (it's already in state storage)
+        providers[self.name].params[mode]._stored_thinking = vim.deepcopy(current)
         state:set_thinking(self.name, mode, nil)
       end
 
+      providers[self.name].params[mode].thinking = nil
       logger.info("Disabled thinking for " .. mode)
     else
-      -- Thinking is disabled, enable it with default budget
-      local thinking_config = {
-        type = "enabled",
-        budget_tokens = 1024
-      }
+      -- Thinking is disabled, enable it with previous budget if available
+      local stored_config = providers[self.name].params[mode]._stored_thinking
+      local thinking_config
+
+      if stored_config then
+        -- Restore previous configuration
+        thinking_config = vim.deepcopy(stored_config)
+        providers[self.name].params[mode]._stored_thinking = nil
+      else
+        -- Use default if no previous configuration exists
+        thinking_config = {
+          type = "enabled",
+          budget_tokens = 1024
+        }
+      end
 
       providers[self.name].params[mode].thinking = thinking_config
 
@@ -285,8 +296,8 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
         state:set_thinking(self.name, mode, thinking_config)
       end
 
-      logger.info(string.format("Enabled thinking with default budget of 1024 tokens for %s",
-        mode))
+      logger.info(string.format("Enabled thinking with budget of %d tokens for %s",
+        thinking_config.budget_tokens, mode))
     end
   end
 end
