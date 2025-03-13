@@ -213,19 +213,21 @@ end
 ---@param params table Parameters for thinking configuration
 ---@param is_chat boolean Whether this is for chat or command context
 ---@param providers table Provider configuration table
+---@param state table|nil Optional state object for persistence
 ---@return nil
-function Anthropic:configure_thinking(params, is_chat, providers)
+function Anthropic:configure_thinking(params, is_chat, providers, state)
   local logger = require("parrot.logger")
   local args = params.args or ""
+  local mode = is_chat and "chat" or "command"
 
   -- Check current thinking settings with "status" command
   if args == "status" then
-    local current = providers[self.name].params[is_chat and "chat" or "command"].thinking
+    local current = providers[self.name].params[mode].thinking
     if current then
       logger.info(string.format("Thinking is enabled with budget of %d tokens for %s",
-        current.budget_tokens or 0, is_chat and "chat" or "command"))
+        current.budget_tokens or 0, mode))
     else
-      logger.info("Thinking is disabled for " .. (is_chat and "chat" or "command"))
+      logger.info("Thinking is disabled for " .. mode)
     end
     return
   elseif args ~= "" then
@@ -233,36 +235,57 @@ function Anthropic:configure_thinking(params, is_chat, providers)
     local budget_tokens = tonumber(args)
     if budget_tokens and budget_tokens > 0 then
       -- Set thinking parameters in the provider config
-      if not providers[self.name].params[is_chat and "chat" or "command"].thinking then
-        providers[self.name].params[is_chat and "chat" or "command"].thinking = {}
+      if not providers[self.name].params[mode].thinking then
+        providers[self.name].params[mode].thinking = {}
       end
 
-      providers[self.name].params[is_chat and "chat" or "command"].thinking = {
+      local thinking_config = {
         type = "enabled",
         budget_tokens = budget_tokens
       }
 
+      providers[self.name].params[mode].thinking = thinking_config
+
+      -- Save to state if provided
+      if state then
+        state:set_thinking(self.name, mode, thinking_config)
+      end
+
       logger.info(string.format("Set thinking budget to %d tokens for %s",
-        budget_tokens, is_chat and "chat" or "command"))
+        budget_tokens, mode))
     else
       logger.warning("Invalid thinking budget. Please provide a positive number.")
     end
   else
     -- Toggle thinking on/off
-    local current = providers[self.name].params[is_chat and "chat" or "command"].thinking
+    local current = providers[self.name].params[mode].thinking
 
     if current then
       -- Thinking is enabled, disable it
-      providers[self.name].params[is_chat and "chat" or "command"].thinking = nil
-      logger.info("Disabled thinking for " .. (is_chat and "chat" or "command"))
+      providers[self.name].params[mode].thinking = nil
+
+      -- Save to state if provided
+      if state then
+        state:set_thinking(self.name, mode, nil)
+      end
+
+      logger.info("Disabled thinking for " .. mode)
     else
       -- Thinking is disabled, enable it with default budget
-      providers[self.name].params[is_chat and "chat" or "command"].thinking = {
+      local thinking_config = {
         type = "enabled",
         budget_tokens = 1024
       }
+
+      providers[self.name].params[mode].thinking = thinking_config
+
+      -- Save to state if provided
+      if state then
+        state:set_thinking(self.name, mode, thinking_config)
+      end
+
       logger.info(string.format("Enabled thinking with default budget of 1024 tokens for %s",
-        is_chat and "chat" or "command"))
+        mode))
     end
   end
 end

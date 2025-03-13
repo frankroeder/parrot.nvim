@@ -69,6 +69,17 @@ function ChatHandler:set_provider(selected_prov, is_chat)
   local _prov = init_provider(selected_prov, endpoint, api_key, style, models)
   self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
+
+  -- Apply saved thinking config from state (if any)
+  local mode = is_chat and "chat" or "command"
+  local thinking_config = self.state:get_thinking(selected_prov, mode)
+  if thinking_config then
+    if not self.providers[selected_prov].params[mode].thinking then
+      self.providers[selected_prov].params[mode].thinking = {}
+    end
+    self.providers[selected_prov].params[mode].thinking = thinking_config
+  end
+
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
 end
@@ -83,6 +94,16 @@ function ChatHandler:get_provider(is_chat)
     end
     self:set_provider(prov, is_chat)
     current_prov = self.current_provider[is_chat and "chat" or "command"]
+
+    -- Apply saved thinking config from state (if any)
+    local mode = is_chat and "chat" or "command"
+    local thinking_config = self.state:get_thinking(prov, mode)
+    if thinking_config then
+      if not self.providers[prov].params[mode].thinking then
+        self.providers[prov].params[mode].thinking = {}
+      end
+      self.providers[prov].params[mode].thinking = thinking_config
+    end
   end
   return current_prov
 end
@@ -1581,10 +1602,10 @@ function ChatHandler:thinking(params)
 
   -- Delegate to provider-specific thinking configuration if available
   if provider.configure_thinking then
-    provider:configure_thinking(params, is_chat, self.providers)
+    provider:configure_thinking(params, is_chat, self.providers, self.state)
     return
   end
-  
+
   -- If the provider doesn't have a configure_thinking method, warn and return
   logger.warning("Thinking is not supported by the " .. provider.name .. " provider")
 end
