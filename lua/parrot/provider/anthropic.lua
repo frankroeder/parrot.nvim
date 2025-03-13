@@ -127,7 +127,8 @@ function Anthropic:notify_thinking(thinking)
 
     -- Accumulate tokens into one coherent string.
     self._thinking_output = self._thinking_output .. thinking
-    vim.api.nvim_buf_set_lines(self._thinking_buf, 0, -1, false, { self._thinking_output })
+    local lines = vim.split(self._thinking_output, "\n", {})
+    vim.api.nvim_buf_set_lines(self._thinking_buf, 0, -1, false, lines)
   end)
 end
 
