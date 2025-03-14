@@ -1661,11 +1661,13 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   for _, parg in ipairs(provider:curl_params()) do
     table.insert(curl_params, parg)
   end
+  local json_payload = vim.json.encode(payload)
+  logger.debug("json_payload: " .. vim.inspect(json_payload))
 
   local job = Job:new({
     command = "curl",
     args = curl_params,
-    writer = vim.json.encode(payload),
+    writer = json_payload,
     on_exit = function(response, exit_code)
       logger.debug("on_exit: " .. vim.inspect(response:result()))
       if exit_code ~= 0 then
