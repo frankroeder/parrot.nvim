@@ -1651,7 +1651,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     "-H",
     "content-type: application/json",
     "-d",
-    vim.json.encode(payload),
+    "@-",
   }
 
   for _, arg in ipairs(args) do
@@ -1665,6 +1665,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   local job = Job:new({
     command = "curl",
     args = curl_params,
+    writer = vim.json.encode(payload),
     on_exit = function(response, exit_code)
       logger.debug("on_exit: " .. vim.inspect(response:result()))
       if exit_code ~= 0 then
