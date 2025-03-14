@@ -101,17 +101,22 @@ function Anthropic:verify()
   end
 end
 
--- Notification system: displays thinking tokens in a floating window in the top right.
--- The buffer is created with text wrapping enabled, and tokens are accumulated into one coherent string.
+--- Displays thinking tokens in a floating window in the top right.
+--- The buffer is created with text wrapping enabled, and tokens are accumulated into one coherent string.
+--- @param thinking string The thinking token to append to the existing content
 function Anthropic:notify_thinking(thinking)
   vim.schedule(function()
     if not self._thinking_buf or not vim.api.nvim_buf_is_valid(self._thinking_buf) then
       self._thinking_buf = vim.api.nvim_create_buf(false, true) -- unlisted scratch buffer
+      vim.api.nvim_buf_set_option(self._thinking_buf, "buftype", "nofile")
+      vim.api.nvim_buf_set_option(self._thinking_buf, "bufhidden", "wipe")
+
       local width = math.floor(vim.o.columns * 0.3)
       local height = math.floor(vim.o.lines * 0.3)
       local row = 0
       local col = vim.o.columns - width
-      self._thinking_win = vim.api.nvim_open_win(self._thinking_buf, true, {
+
+      self._thinking_win = vim.api.nvim_open_win(self._thinking_buf, false, {
         relative = "editor",
         width = width,
         height = height,
@@ -119,8 +124,10 @@ function Anthropic:notify_thinking(thinking)
         col = col,
         style = "minimal",
         border = "rounded",
+        title = "Thinking...",
+        title_pos = "center",
       })
-      vim.api.nvim_buf_set_option(self._thinking_buf, "buftype", "nofile")
+
       vim.api.nvim_win_set_option(self._thinking_win, "wrap", true)
       self._thinking_output = ""
     end
@@ -128,7 +135,16 @@ function Anthropic:notify_thinking(thinking)
     -- Accumulate tokens into one coherent string.
     self._thinking_output = self._thinking_output .. thinking
     local lines = vim.split(self._thinking_output, "\n", {})
-    vim.api.nvim_buf_set_lines(self._thinking_buf, 0, -1, false, lines)
+
+    if vim.api.nvim_buf_is_valid(self._thinking_buf) then
+      vim.api.nvim_buf_set_lines(self._thinking_buf, 0, -1, false, lines)
+
+      -- Auto-scroll to the bottom of the window if it's still valid
+      if vim.api.nvim_win_is_valid(self._thinking_win) then
+        local line_count = vim.api.nvim_buf_line_count(self._thinking_buf)
+        vim.api.nvim_win_set_cursor(self._thinking_win, { line_count, 0 })
+      end
+    end
   end)
 end
 
@@ -217,7 +233,6 @@ end
 ---@param state table|nil Optional state object for persistence
 ---@return nil
 function Anthropic:configure_thinking(params, is_chat, providers, state)
-  local logger = require("parrot.logger")
   local args = params.args or ""
   local mode = is_chat and "chat" or "command"
 
@@ -225,8 +240,9 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
   if args == "status" then
     local current = providers[self.name].params[mode].thinking
     if current then
-      logger.info(string.format("Thinking is enabled with budget of %d tokens for %s",
-        current.budget_tokens or 0, mode))
+      logger.info(
+        string.format("Thinking is enabled with budget of %d tokens for %s", current.budget_tokens or 0, mode)
+      )
     else
       logger.info("Thinking is disabled for " .. mode)
     end
@@ -242,7 +258,7 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
 
       local thinking_config = {
         type = "enabled",
-        budget_tokens = budget_tokens
+        budget_tokens = budget_tokens,
       }
 
       providers[self.name].params[mode].thinking = thinking_config
@@ -252,8 +268,7 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
         state:set_thinking(self.name, mode, thinking_config)
       end
 
-      logger.info(string.format("Set thinking budget to %d tokens for %s",
-        budget_tokens, mode))
+      logger.info(string.format("Set thinking budget to %d tokens for %s", budget_tokens, mode))
     else
       logger.warning("Invalid thinking budget. Please provide a positive number.")
     end
@@ -285,7 +300,7 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
         -- Use default if no previous configuration exists
         thinking_config = {
           type = "enabled",
-          budget_tokens = 1024
+          budget_tokens = 1024,
         }
       end
 
@@ -296,8 +311,9 @@ function Anthropic:configure_thinking(params, is_chat, providers, state)
         state:set_thinking(self.name, mode, thinking_config)
       end
 
-      logger.info(string.format("Enabled thinking with budget of %d tokens for %s",
-        thinking_config.budget_tokens, mode))
+      logger.info(
+        string.format("Enabled thinking with budget of %d tokens for %s", thinking_config.budget_tokens, mode)
+      )
     end
   end
 end

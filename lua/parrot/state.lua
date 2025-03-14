@@ -21,7 +21,7 @@ function State:init_file_state(available_providers)
       self.file_state[prov] = {
         chat_model = nil,
         command_model = nil,
-        thinking = nil
+        thinking = nil,
       }
     end
   end
@@ -34,11 +34,12 @@ end
 function State:init_state(available_providers, available_models)
   self._state.current_provider = self._state.current_provider or { chat = nil, command = nil }
   for _, provider in ipairs(available_providers) do
-    self._state[provider] = self._state[provider] or {
-      chat_model = nil,
-      command_model = nil,
-      thinking = nil
-    }
+    self._state[provider] = self._state[provider]
+      or {
+        chat_model = nil,
+        command_model = nil,
+        thinking = nil,
+      }
     self:load_models(provider, "chat_model", available_models)
     self:load_models(provider, "command_model", available_models)
     self:load_thinking(provider)
@@ -174,9 +175,7 @@ end
 --- @param mode string # Mode type ('chat' or 'command').
 --- @return table|nil # Thinking configuration or nil if not set
 function State:get_thinking(provider, mode)
-  if not self._state[provider] or
-     not self._state[provider].thinking or
-     not self._state[provider].thinking[mode] then
+  if not self._state[provider] or not self._state[provider].thinking or not self._state[provider].thinking[mode] then
     return nil
   end
 
