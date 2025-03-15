@@ -648,7 +648,7 @@ ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
 
 ## Related Projects
 
-- [parrot.nvim](https://github.com/frankroeder/parrot.nvim) is a fork of an earlier version of [robitx/gp.nvim](https://github.com/Robitx/gp.nvim)
+- [parrot.nvim](https://github.com/frankroeder/parrot.nvim) is a fork of an earlier version of [robitx/gp.nvim](https://github.com/Robitx/gp.nvim), branching off the commit `607f94d361f36b8eabb148d95993604fdd74d901` in January 2024. Since then, a significant portion of the original code has been removed or rewritten, and this effort will continue until `parrot.nvim` evolves into its own independent version. The original `MIT` license has been retained and will be maintained.
 - [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
 
 ## Star History
