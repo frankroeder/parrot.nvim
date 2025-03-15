@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0](https://github.com/frankroeder/parrot.nvim/compare/v1.4.0...v1.5.0) (2025-03-15)
+
+
+### Features
+
+* Add Claude thinking functionality ([f5a6057](https://github.com/frankroeder/parrot.nvim/commit/f5a6057a1a883fa979aacc6c04ecb8ea4dd2b128))
+* **anthropic:** add auto scroll for thinking ([078e2eb](https://github.com/frankroeder/parrot.nvim/commit/078e2ebe5df88e6ffb2db6a9b592b4c4a4c72d96))
+* Persist thinking config to state ([40597f9](https://github.com/frankroeder/parrot.nvim/commit/40597f9a605b35c984890677646fde29c4b83cec))
+* Remember thinking config when toggling ([c92bdb9](https://github.com/frankroeder/parrot.nvim/commit/c92bdb93d3936f9b72fd80cbd3f94dededfebdfe))
+
+
+### Bug Fixes
+
+* pass payload to curl through stdin ([79446e2](https://github.com/frankroeder/parrot.nvim/commit/79446e2416fb81bf5cc478417c552ea17814d576))
+* pass payload to curl through stdin ([5dd932e](https://github.com/frankroeder/parrot.nvim/commit/5dd932eb1146cf400880abb9bba437fe3dd2a1b7))
+
 ## [1.4.0](https://github.com/frankroeder/parrot.nvim/compare/v1.3.0...v1.4.0) (2025-03-11)
 
 
