@@ -424,7 +424,7 @@ function M.path_join(...)
 
   for i, part in ipairs(args) do
     if type(part) ~= "string" then
-      logger.errr(vim.inspect({
+      logger.error(vim.inspect({
         method = "utils.path_join",
         part = part,
         argument = i,
