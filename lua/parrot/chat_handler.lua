@@ -1411,9 +1411,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       end
 
       -- select from first_line to last_line
-      vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
-      vim.api.nvim_command("normal! V")
-      vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+      if vim.api.nvim_win_is_valid then
+        vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+        vim.api.nvim_command("normal! V")
+        vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+      end
     end
 
     -- prepare messages
@@ -1613,14 +1615,21 @@ end
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
-    logger.error(
-      string.format("query() expects a handler function, but got %s:\n%s", type(handler), vim.inspect(handler))
-    )
+    logger.error(vim.inspect({
+      msg = "Unexpected handler function",
+      method = "ChatHandler:query",
+      type = type(handler),
+      handler = handler,
+    }))
     return
   end
 
   if not provider:verify() then
-    logger.error("Provider verification failed")
+    logger.error(vim.inspect({
+      msg = "Provider verification failed.",
+      method = "ChatHandler:query",
+      provider = provider,
+    }))
     return
   end
 
@@ -1662,16 +1671,33 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     table.insert(curl_params, parg)
   end
   local json_payload = vim.json.encode(payload)
-  logger.debug("json_payload: " .. vim.inspect(json_payload))
+  logger.debug(vim.inspect({
+    msg = "Query json payload",
+    method = "ChatHandler:query",
+    json_payload = json_payload,
+  }))
+
+  local cumulative_delay = 0
+  local per_symbol_delay = self.options.per_symbol_delay
+  local first_insertion = true
 
   local job = Job:new({
     command = "curl",
     args = curl_params,
     writer = json_payload,
     on_exit = function(response, exit_code)
-      logger.debug("on_exit: " .. vim.inspect(response:result()))
+      logger.debug(vim.inspect({
+        msg = "on_exit",
+        method = "ChatHandler:query",
+        response = response:result(),
+      }))
       if exit_code ~= 0 then
-        logger.error("An error occured calling curl .. " .. table.concat(curl_params, " "))
+        logger.error(vim.inspect({
+          msg = "on_exit: calling curl failed with exit code",
+          method = "ChatHandler:query",
+          exit_code = exit_code,
+          response = response:result(),
+        }))
         if on_exit then
           on_exit(qid)
         end
@@ -1705,7 +1731,11 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       self.pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-      logger.debug("on_stdout: " .. vim.inspect(data))
+      logger.debug(vim.inspect({
+        msg = "on_stdout",
+        method = "ChatHandler:query",
+        data = data,
+      }))
       local qt = self.queries:get(qid)
       if not qt then
         return
@@ -1724,6 +1754,11 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   })
   job:start()
   self.pool:add(job, buf)
+  logger.debug(vim.inspect({
+    msg = "Pool after adding query job",
+    method = "ChatHandler:query",
+    pool = self.pool,
+  }))
 end
 
 return ChatHandler
