@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/frankroeder/parrot.nvim/compare/v1.5.0...v1.5.1) (2025-03-18)
+
+
+### Bug Fixes
+
+* **openai:** check for reasoning models to change curl API parameters ([a2c9585](https://github.com/frankroeder/parrot.nvim/commit/a2c9585ba06a5f4794ca1ae14918b505700592f0))
+
 ## [1.5.0](https://github.com/frankroeder/parrot.nvim/compare/v1.4.0...v1.5.0) (2025-03-15)
 
 
