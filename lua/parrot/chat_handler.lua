@@ -1677,10 +1677,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     json_payload = json_payload,
   }))
 
-  local cumulative_delay = 0
-  local per_symbol_delay = self.options.per_symbol_delay
-  local first_insertion = true
-
   local job = Job:new({
     command = "curl",
     args = curl_params,
