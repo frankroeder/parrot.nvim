@@ -538,17 +538,30 @@ Instead of using the [template placeholders](#template-placeholders),
 actual file contents considered by the request. The completion keywords (e.g., `@file`) need to be placed
 on a **new line**!
 
-### Setup for nvim-cmp
+### Completion setup
 
-To enable `parrot.nvim` completions, add the source to your nvim-cmp configuration:
+To enable `parrot.nvim` completions, add the source to your `nvim-cmp` configuration:
 
 ```lua
 ...
 sources = cmp.config.sources({
-  { name = "parrot_completion" },
+  { name = "parrot" },
 }),
 ...
 ```
+
+For `blink.cmp` you need to add `"parrot"` to the default sources and configure
+the provider the following way:
+```lua
+...
+parrot = {
+    module = "parrot.completion.blink",
+    name = "parrot",
+    score_offset = 20,
+},
+...
+```
+
 
 ## Thinking Mode
 

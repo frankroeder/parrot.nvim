@@ -44,7 +44,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
       last_line1 = nil,
       last_line2 = nil,
     },
-    has_completion = require("parrot.context"),
+    has_completion = require("parrot.completion"),
   }, self)
 end
 

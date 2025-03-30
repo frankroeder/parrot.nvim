@@ -72,7 +72,7 @@ local function get_file_completions(path, only_directories, max_items)
     local target_dir = comp_utils.resolve_path(path, cwd)
 
     -- Handle potential errors with pcall
-    local scan_ok, handle = pcall(vim.loop.fs_scandir, target_dir)
+    local scan_ok, handle = pcall(vim.uv.fs_scandir, target_dir)
     local files = {}
 
     if not scan_ok or not handle then
@@ -82,7 +82,7 @@ local function get_file_completions(path, only_directories, max_items)
     -- Collect directory entries
     local count = 0
     while count < max_items do
-      local name, type = vim.loop.fs_scandir_next(handle)
+      local name, type = vim.uv.fs_scandir_next(handle)
       if not name then
         break
       end
@@ -120,7 +120,7 @@ local function get_file_completions(path, only_directories, max_items)
           -- Prepare documentation based on item type
           local documentation_value
           if type == "file" then
-            local stat = vim.loop.fs_stat(full_path)
+            local stat = vim.uv.fs_stat(full_path)
             if stat then
               local size = stat.size
               local mtime = os.date("%Y-%m-%d %H:%M", stat.mtime.sec)
@@ -199,10 +199,11 @@ local function get_buffer_completions(query, max_items)
         local modified = false
 
         -- Use pcall for each API call to prevent errors
-        pcall(function() bufhidden = vim.api.nvim_buf_get_option(buf, "bufhidden") end)
+
+        pcall(function() bufhidden = vim.api.nvim_get_option_value("bufhidden", {buf = buf}) end)
         pcall(function() name = vim.api.nvim_buf_get_name(buf) end)
-        pcall(function() filetype = vim.api.nvim_buf_get_option(buf, "filetype") end)
-        pcall(function() modified = vim.api.nvim_buf_get_option(buf, "modified") end)
+        pcall(function() filetype =  vim.api.nvim_get_option_value("filetype", {buf = buf}) end)
+        pcall(function() modified = vim.api.nvim_get_option_value("modified", {buf = buf}) end)
 
         -- Skip unnamed buffers and those marked for wiping
         if name and name ~= "" and not (bufhidden and bufhidden:match("^wipe")) then
@@ -296,6 +297,6 @@ source.complete = function(self, request, callback)
   callback(result)
 end
 
-cmp.register_source("parrot_completion", source.new())
+cmp.register_source("parrot", source.new())
 
 return source
