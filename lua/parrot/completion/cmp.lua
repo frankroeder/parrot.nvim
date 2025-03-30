@@ -1,15 +1,4 @@
-local utils = require("parrot.utils")
-local logger = require("parrot.logger")
 local has_cmp, cmp = pcall(require, "cmp")
-
-if not has_cmp then
-  return { context = {
-    insert_contexts = function(content)
-      return content
-    end,
-  } }
-end
-
 local source = { context = require("parrot.context") }
 
 source.new = function()

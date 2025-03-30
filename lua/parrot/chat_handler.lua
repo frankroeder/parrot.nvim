@@ -11,7 +11,7 @@ local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
 local ResponseHandler = require("parrot.response_handler")
-local completion = require("parrot.completion")
+local insert_contexts = require("parrot.context").insert_contexts
 
 local ChatHandler = {}
 
@@ -44,7 +44,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
       last_line1 = nil,
       last_line2 = nil,
     },
-    completion = completion,
+    has_completion = require("parrot.context"),
   }, self)
 end
 
@@ -771,8 +771,9 @@ function ChatHandler:_chat_respond(params)
 
   -- add completion context
   for _, message in ipairs(messages) do
-    message.content = self.completion.context.insert_contexts(message.content)
+    message.content = self.has_completion and insert_contexts(message.content) or message.content
   end
+  print(vim.inspect(messages))
 
   -- call the model and write response
   self:query(
@@ -1543,8 +1544,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
     -- add completion context
     for _, message in ipairs(messages) do
-      message.content = self.completion.context.insert_contexts(message.content)
+      message.content = self.has_completion and insert_contexts(message.content) or message.content
     end
+    print(vim.inspect(messages))
     self:query(
       buf,
       prov,
