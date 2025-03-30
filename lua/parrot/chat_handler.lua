@@ -773,7 +773,6 @@ function ChatHandler:_chat_respond(params)
   for _, message in ipairs(messages) do
     message.content = self.has_completion and insert_contexts(message.content) or message.content
   end
-  print(vim.inspect(messages))
 
   -- call the model and write response
   self:query(
@@ -1546,7 +1545,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     for _, message in ipairs(messages) do
       message.content = self.has_completion and insert_contexts(message.content) or message.content
     end
-    print(vim.inspect(messages))
+
     self:query(
       buf,
       prov,
