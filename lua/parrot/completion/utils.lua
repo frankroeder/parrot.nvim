@@ -21,7 +21,7 @@ function M.is_completion_available(bufnr)
     end
 
     -- Check if in UI input buffer for rewrite operations
-    local buf_type = vim.api.nvim_buf_get_option(buf, "buftype")
+    local buf_type = vim.api.nvim_get_option_value("buftype", { buf = buf })
     local buf_name = vim.fn.bufname(buf)
     if buf_type == "nofile" and buf_name == "" then
       -- This is a potential UI input buffer for interactive commands
