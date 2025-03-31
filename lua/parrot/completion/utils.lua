@@ -5,10 +5,10 @@ local M = {}
 
 -- Check if completion should be available in the current context
 ---@return boolean Whether completion should be available
-function M.is_completion_available()
+function M.is_completion_available(bufnr)
   -- Wrap in pcall to ensure we don't crash if any API call fails
   local ok, result = pcall(function()
-    local buf = vim.api.nvim_get_current_buf()
+    local buf = bufnr or vim.api.nvim_get_current_buf()
     local file_name = vim.api.nvim_buf_get_name(buf)
 
     -- Check if in a parrot chat file
@@ -63,7 +63,7 @@ function M.get_command_documentation(cmd)
   local docs = {
     file = "**@file:**\n\nEmbed a file in your chat message.\n\nType `@file:` followed by a relative or absolute path.",
     buffer = "**@buffer:**\n\nEmbed a buffer in your chat message.\n\nType `@buffer:` followed by a buffer name.",
-    directory = "**@directory:**\n\nEmbed all files in a directory.\n\nType `@directory:` followed by a directory path."
+    directory = "**@directory:**\n\nEmbed all files in a directory.\n\nType `@directory:` followed by a directory path.",
   }
 
   return docs[cmd] or ""
@@ -79,8 +79,7 @@ function M.resolve_path(path, cwd)
   end
 
   -- Detect absolute path
-  local is_absolute = path:match("^[/\\]") or
-                      (vim.uv.os_uname().sysname == 'Windows_NT' and path:match("^%a:[/\\]"))
+  local is_absolute = path:match("^[/\\]") or (vim.uv.os_uname().sysname == "Windows_NT" and path:match("^%a:[/\\]"))
   local target_dir
 
   if path:match("[/\\]$") then
@@ -103,6 +102,71 @@ function M.resolve_path(path, cwd)
   end
 
   return target_dir
+end
+
+function M.scan_dir_async(path, async)
+  local max_entries = 200
+  return async.task.new(function(resolve, reject)
+    vim.uv.fs_opendir(path, function(err, handle)
+      if err ~= nil or handle == nil then
+        return reject(err)
+      end
+      local all_entries = {}
+      local function read_dir()
+        vim.uv.fs_readdir(handle, function(err, entries)
+          if err ~= nil or entries == nil then
+            return reject(err)
+          end
+          vim.list_extend(all_entries, entries)
+          if #entries == max_entries then
+            read_dir()
+          else
+            resolve(all_entries)
+          end
+        end)
+      end
+      read_dir()
+    end, max_entries)
+  end)
+end
+
+function M.fs_stat_all_async(cwd, entries, async)
+  local tasks = {}
+  for _, entry in ipairs(entries) do
+    table.insert(
+      tasks,
+      async.task.new(function(resolve)
+        vim.uv.fs_stat(utils.path_join(cwd, entry.name), function(err, stat)
+          if err then
+            return resolve(nil)
+          end
+          resolve({ name = entry.name, type = entry.type, stat = stat })
+        end)
+      end)
+    )
+  end
+  return async.task.await_all(tasks):map(function(entries)
+    return vim.tbl_filter(function(entry)
+      return entry ~= nil
+    end, entries)
+  end)
+end
+
+function M.read_file_async(path, byte_limit, async)
+  return async.task.new(function(resolve, reject)
+    vim.uv.fs_open(path, "r", 438, function(open_err, fd)
+      if open_err or fd == nil then
+        return reject(open_err)
+      end
+      vim.uv.fs_read(fd, byte_limit, 0, function(read_err, data)
+        vim.uv.fs_close(fd, function() end)
+        if read_err or data == nil then
+          return reject(read_err)
+        end
+        resolve(data)
+      end)
+    end)
+  end)
 end
 
 return M

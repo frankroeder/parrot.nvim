@@ -1,4 +1,4 @@
-local has_cmp, cmp = pcall(require, "cmp")
+local cmp = require("cmp")
 local comp_utils = require("parrot.completion.utils")
 local logger = require("parrot.logger")
 
@@ -200,10 +200,18 @@ local function get_buffer_completions(query, max_items)
 
         -- Use pcall for each API call to prevent errors
 
-        pcall(function() bufhidden = vim.api.nvim_get_option_value("bufhidden", {buf = buf}) end)
-        pcall(function() name = vim.api.nvim_buf_get_name(buf) end)
-        pcall(function() filetype =  vim.api.nvim_get_option_value("filetype", {buf = buf}) end)
-        pcall(function() modified = vim.api.nvim_get_option_value("modified", {buf = buf}) end)
+        pcall(function()
+          bufhidden = vim.api.nvim_get_option_value("bufhidden", { buf = buf })
+        end)
+        pcall(function()
+          name = vim.api.nvim_buf_get_name(buf)
+        end)
+        pcall(function()
+          filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
+        end)
+        pcall(function()
+          modified = vim.api.nvim_get_option_value("modified", { buf = buf })
+        end)
 
         -- Skip unnamed buffers and those marked for wiping
         if name and name ~= "" and not (bufhidden and bufhidden:match("^wipe")) then
@@ -212,10 +220,12 @@ local function get_buffer_completions(query, max_items)
           local rel_path = vim.fn.fnamemodify(name, ":~:.") or filename
 
           -- Apply query filter if provided
-          if not query or query == "" or
-             filename:lower():find(query, 1, true) or
-             rel_path:lower():find(query, 1, true) then
-
+          if
+            not query
+            or query == ""
+            or filename:lower():find(query, 1, true)
+            or rel_path:lower():find(query, 1, true)
+          then
             -- Create item with enhanced display info
             local item = {
               label = filename,
@@ -266,7 +276,7 @@ source.complete = function(self, request, callback)
     if cmd == "@" then
       return {
         items = get_base_completion_items(),
-        isIncomplete = false
+        isIncomplete = false,
       }
     elseif cmd:match("^@file:") then
       local path = cmd:sub(7)
