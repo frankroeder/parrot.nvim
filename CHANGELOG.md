@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/frankroeder/parrot.nvim/compare/v1.5.0...v1.6.0) (2025-03-31)
+
+
+### Features
+
+* **finder:** Improve file search ([3158788](https://github.com/frankroeder/parrot.nvim/commit/3158788f52745310bee3ec5a53dd0012f17f34d0))
+
+
+### Bug Fixes
+
+* **openai:** check for reasoning models to change curl API parameters ([a2c9585](https://github.com/frankroeder/parrot.nvim/commit/a2c9585ba06a5f4794ca1ae14918b505700592f0))
+
 ## [1.5.0](https://github.com/frankroeder/parrot.nvim/compare/v1.4.0...v1.5.0) (2025-03-15)
 
 
