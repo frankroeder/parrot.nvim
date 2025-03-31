@@ -2,12 +2,10 @@ local M = {}
 local utils = require("parrot.utils")
 local comp_utils = require("parrot.completion.utils")
 
--- Extract command from input
 function M.extract_cmd(input)
   return input:match("^%s*(@%S*)")
 end
 
--- Get base completion items
 function M.get_base_completion_items()
   return {
     items = {
@@ -40,7 +38,6 @@ function M.get_base_completion_items()
   }
 end
 
--- Get file completions synchronously
 function M.get_file_completions_sync(path, only_directories, max_items)
   only_directories = only_directories or false
   max_items = max_items or 50
@@ -118,7 +115,6 @@ function M.get_file_completions_sync(path, only_directories, max_items)
   return { items = items, is_incomplete = (count >= max_items) }
 end
 
--- Get buffer completions synchronously
 function M.get_buffer_completions_sync(query, max_items)
   max_items = max_items or 50
   local buffers = vim.api.nvim_list_bufs()

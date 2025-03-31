@@ -539,7 +539,7 @@ and [blink.cmp](https://github.com/Saghen/blink.cmp/) for additional contexts:
 actual file contents considered by the request. The completion keywords (e.g., `@file`) need to be placed
 on a **new line**!
 
-### Completion setup
+### Setup nvim-cmp
 
 To enable `parrot.nvim` completions, add the source to your `nvim-cmp` configuration:
 
@@ -550,6 +550,8 @@ sources = cmp.config.sources({
 }),
 ...
 ```
+
+### Setup blink.cmp
 
 For `blink.cmp` you need to add `"parrot"` to the default sources and configure
 the provider the following way:
