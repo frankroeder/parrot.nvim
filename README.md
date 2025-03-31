@@ -528,7 +528,8 @@ require("parrot").setup {
 ## Completion
 
 Instead of using the [template placeholders](#template-placeholders),
-`parrot.nvim` supports inline completion via [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for additional contexts:
+`parrot.nvim` supports inline completion via [nvim-cmp](https://github.com/hrsh7th/nvim-cmp)
+and [blink.cmp](https://github.com/Saghen/blink.cmp/) for additional contexts:
 
 - `@buffer:foo.txt` - Includes the content of the open buffer `foo.txt`
 - `@file:test.lua` - Includes the content of the file `test.lua`
