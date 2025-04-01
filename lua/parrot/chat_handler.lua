@@ -1432,6 +1432,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       if repo_instructions ~= "" and sys_prompt ~= "" then
         -- append the repository instructions from .parrot.md to the system prompt
         sys_prompt = sys_prompt .. "\n" .. repo_instructions
+        logger.debug(vim.inspect({
+          method = "ChatHandler:prompt",
+          repo_instructions = repo_instructions,
+          sys_prompt = sys_prompt,
+        }))
       end
       table.insert(messages, { role = "system", content = sys_prompt })
     end
