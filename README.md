@@ -273,6 +273,12 @@ to consider a visual selection within an API request.
           chat = { max_tokens = 4096 },
           command = { max_tokens = 4096 },
         },
+        -- optionally provide a selection of your favorite models
+        models = {
+          "claude-3-haiku-20240307",
+          "claude-3-opus-20240229",
+          "claude-3-sonnet-20240229",
+        }
       },
       ...
     }

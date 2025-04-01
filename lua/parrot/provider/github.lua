@@ -19,8 +19,8 @@ local AVAILABLE_API_PARAMETERS = {
   stream = true,
 }
 
-function GitHub:new(endpoint, api_key)
-  local instance = OpenAI.new(self, endpoint, api_key)
+function GitHub:new(endpoint, api_key, models)
+  local instance = OpenAI.new(self, endpoint, api_key, models)
   instance.name = "github"
   return setmetatable(instance, self)
 end
@@ -39,6 +39,9 @@ end
 ---@param online boolean
 ---@return string[]
 function GitHub:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   return {
     "DeepSeek-R1",
     "AI21-Jamba-Instruct",

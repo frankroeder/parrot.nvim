@@ -31,8 +31,8 @@ local AVAILABLE_API_PARAMETERS = {
   user = true,
 }
 
-function xAI:new(endpoint, api_key)
-  local instance = OpenAI.new(self, endpoint, api_key)
+function xAI:new(endpoint, api_key, models)
+  local instance = OpenAI.new(self, endpoint, api_key, models)
   instance.name = "xai"
   return setmetatable(instance, self)
 end
@@ -51,6 +51,9 @@ end
 ---@param online boolean
 ---@return string[]
 function xAI:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "grok-beta",
     "grok-vision-beta",

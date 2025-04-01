@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class Anthropic
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local Anthropic = {}
 Anthropic.__index = Anthropic
@@ -36,10 +37,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Anthropic
-function Anthropic:new(endpoint, api_key)
+function Anthropic:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "anthropic",
     _thinking_buf = nil,
     _thinking_win = nil,
@@ -185,6 +187,9 @@ end
 -- Returns the list of available models
 ---@return string[]
 function Anthropic:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20241022",

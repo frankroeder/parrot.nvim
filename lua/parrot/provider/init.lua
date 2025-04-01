@@ -35,7 +35,7 @@ M.init_provider = function(prov_name, endpoint, api_key, style, models)
   if providers[prov_name] then
     return providers[prov_name]:new(endpoint, api_key)
   elseif style and providers[style] then
-    return providers[style]:new(endpoint, api_key, prov_name, models)
+    return providers[style]:new(endpoint, api_key, models, prov_name)
   end
 
   logger.error("Unknown provider " .. prov_name)

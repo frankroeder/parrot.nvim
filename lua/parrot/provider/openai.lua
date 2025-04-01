@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class OpenAI
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local OpenAI = {}
 OpenAI.__index = OpenAI
@@ -48,7 +49,7 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return OpenAI
-function OpenAI:new(endpoint, api_key, name, models)
+function OpenAI:new(endpoint, api_key, models, name)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,

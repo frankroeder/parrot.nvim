@@ -138,4 +138,33 @@ describe("OpenAI", function()
       assert.spy(logger_mock.error).was_called()
     end)
   end)
+
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "o1-preview",
+        "gpt-4-turbo",
+        "o1",
+        "gpt-4",
+      }
+      openai = OpenAI:new("https://api.openai.com/v1/chat/completions", "test_api_key", my_models)
+      assert.are.same(openai.models, my_models)
+      assert.are.same(openai:get_available_models(false), my_models)
+    end)
+  end)
+
+  describe("setup as custom provider", function()
+    it("should return predefined list of available models.", function()
+      local custom_name = "agi_company"
+      local custom_models = {
+        "custom-bar",
+        "agi-v1",
+        "agi-system-2",
+      }
+      openai = OpenAI:new("https://api.openai.com/v1/chat/completions", "test_api_key", custom_models, custom_name)
+      assert.are.same(openai.models, custom_models)
+      assert.are.same(openai:get_available_models(false), custom_models)
+      assert.are.same(openai.name, custom_name)
+    end)
+  end)
 end)

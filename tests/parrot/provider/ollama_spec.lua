@@ -119,4 +119,16 @@ describe("Ollama", function()
       assert.is_true(ollama:verify())
     end)
   end)
+
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "gemma3",
+        "llama3",
+      }
+      ollama = Ollama:new("http://localhost:11434/api/generate", "", my_models)
+      assert.are.same(ollama.models, my_models)
+      assert.are.same(ollama:get_available_models(), my_models)
+    end)
+  end)
 end)

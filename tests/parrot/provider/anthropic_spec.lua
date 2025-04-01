@@ -123,4 +123,16 @@ describe("Anthropic", function()
       assert.equals("To calculate 27 * 453, I'll multiply these", anthropic._thinking_output)
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "claude-3-haiku-20240307",
+        "claude-3-opus-20240229",
+        "claude-3-sonnet-20240229",
+      }
+      anthropic = Anthropic:new("https://api.anthropic.com", "test_api_key", my_models)
+      assert.are.same(anthropic.models, my_models)
+      assert.are.same(anthropic:get_available_models(false), my_models)
+    end)
+  end)
 end)

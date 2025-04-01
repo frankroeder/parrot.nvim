@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class Mistral
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local Mistral = {}
 Mistral.__index = Mistral
@@ -36,10 +37,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Mistral
-function Mistral:new(endpoint, api_key)
+function Mistral:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "mistral",
   }, self)
 end
@@ -121,6 +123,9 @@ end
 -- Returns the list of available models
 ---@return string[]
 function Mistral:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "mistral-large-latest",
     "ministral-3b-2410",

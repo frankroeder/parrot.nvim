@@ -149,4 +149,15 @@ describe("Nvidia", function()
       assert.spy(logger_mock.error).was_called()
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "01-ai/yi-large",
+      }
+      nvidia = Nvidia:new("https://integrate.api.nvidia.com/v1/chat/completions", "test_api_key", my_models)
+      assert.are.same(nvidia.models, my_models)
+      assert.are.same(nvidia:get_available_models(false), my_models)
+    end)
+  end)
 end)

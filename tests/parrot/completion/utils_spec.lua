@@ -115,5 +115,4 @@ describe("completion.utils", function()
   --     mock.revert(uv_mock)
   --   end)
   -- end)
-
 end)

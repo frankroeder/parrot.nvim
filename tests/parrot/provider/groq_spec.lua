@@ -112,4 +112,15 @@ describe("Groq", function()
       io.popen:revert()
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "deepseek-r1-distill-llama-70b",
+        "llama-3.2-3b-preview",
+      }
+      groq = Groq:new("https://api.groq.com/openai/v1/chat/completions", "test_api_key", my_models)
+      assert.are.same(groq.models, my_models)
+      assert.are.same(groq:get_available_models(false), my_models)
+    end)
+  end)
 end)

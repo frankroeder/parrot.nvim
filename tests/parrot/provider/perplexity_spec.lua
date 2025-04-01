@@ -127,4 +127,15 @@ describe("Perplexity", function()
       assert.same(initial_state, perplexity)
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "sonar-pro",
+        "sonar-reasoning-pro",
+      }
+      perplexity = Perplexity:new("https://api.perplexity.ai/chat/completions", "test_api_key", my_models)
+      assert.are.same(perplexity.models, my_models)
+      assert.are.same(perplexity:get_available_models(), my_models)
+    end)
+  end)
 end)

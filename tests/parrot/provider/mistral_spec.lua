@@ -103,4 +103,16 @@ describe("Mistral", function()
       assert.spy(logger_mock.error).was_called()
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "mistral-large-latest",
+        "ministral-3b-2410",
+        "ministral-3b-latest",
+      }
+      mistral = Mistral:new("https://api.mistral.ai/v1/chat/completions", "test_api_key", my_models)
+      assert.are.same(mistral.models, my_models)
+      assert.are.same(mistral:get_available_models(false), my_models)
+    end)
+  end)
 end)

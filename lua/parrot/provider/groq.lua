@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class Groq
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local Groq = {}
 Groq.__index = Groq
@@ -40,10 +41,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Groq
-function Groq:new(endpoint, api_key)
+function Groq:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "groq",
   }, self)
 end
@@ -126,6 +128,9 @@ end
 ---@param online boolean
 ---@return string[]
 function Groq:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "deepseek-r1-distill-llama-70b",
     "llama-3.2-3b-preview",

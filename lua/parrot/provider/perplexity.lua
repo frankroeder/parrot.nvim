@@ -4,6 +4,7 @@ local utils = require("parrot.utils")
 ---@class Perplexity
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local Perplexity = {}
 Perplexity.__index = Perplexity
@@ -32,10 +33,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Perplexity
-function Perplexity:new(endpoint, api_key)
+function Perplexity:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "pplx",
   }, self)
 end
@@ -117,6 +119,9 @@ end
 -- Returns the list of available models
 ---@return string[]
 function Perplexity:get_available_models()
+  if self.models then
+    return self.models
+  end
   return {
     "sonar",
     "sonar-pro",

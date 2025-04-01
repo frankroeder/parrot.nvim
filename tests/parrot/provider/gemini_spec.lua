@@ -169,4 +169,16 @@ describe("Gemini", function()
       assert.spy(logger_mock.error).was_called()
     end)
   end)
+  describe("predefined models", function()
+    it("should return predefined list of available models.", function()
+      local my_models = {
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+      }
+      gemini = Gemini:new("https://generativelanguage.googleapis.com/v1beta/models/", "test_api_key", my_models)
+      assert.are.same(gemini.models, my_models)
+      assert.are.same(gemini:get_available_models(false), my_models)
+    end)
+  end)
 end)

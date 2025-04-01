@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class Nvidia
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 local Nvidia = {}
 Nvidia.__index = Nvidia
@@ -29,10 +30,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Nvidia
-function Nvidia:new(endpoint, api_key)
+function Nvidia:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "nvidia",
   }, self)
 end
@@ -124,6 +126,9 @@ end
 ---@param online boolean Whether to fetch models online
 ---@return string[]
 function Nvidia:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "01-ai/yi-large",

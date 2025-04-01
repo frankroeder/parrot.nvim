@@ -49,7 +49,7 @@ function source:get_completions(context, callback)
         logger.error(vim.inspect({
           msg = "File completion error",
           method = "completion.blink:get_completions",
-          error = tostring(err)
+          error = tostring(err),
         }))
         callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
       end)
@@ -129,7 +129,7 @@ function source:resolve(item, callback)
     :catch(function(err)
       logger.error(vim.inspect({
         msg = "Resolve error",
-          method = "completion.blink:get_completions",
+        method = "completion.blink:get_completions",
         err = tostring(err),
       }))
       callback(item)

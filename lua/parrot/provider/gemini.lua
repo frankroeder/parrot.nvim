@@ -5,6 +5,7 @@ local Job = require("plenary.job")
 ---@class Gemini
 ---@field endpoint string
 ---@field api_key string|table
+---@field models table|nil
 ---@field name string
 ---@field _model string|nil
 local Gemini = {}
@@ -28,10 +29,11 @@ local AVAILABLE_API_PARAMETERS = {
 ---@param endpoint string
 ---@param api_key string|table
 ---@return Gemini
-function Gemini:new(endpoint, api_key)
+function Gemini:new(endpoint, api_key, models)
   return setmetatable({
     endpoint = endpoint,
     api_key = api_key,
+    models = models,
     name = "gemini",
     _model = nil,
   }, self)
@@ -144,6 +146,9 @@ end
 ---Returns the list of available models
 ---@return string[]
 function Gemini:get_available_models(online)
+  if self.models then
+    return self.models
+  end
   local ids = {
     "gemini-2.0-flash-thinking-exp",
     "gemini-2.0-flash-exp",
