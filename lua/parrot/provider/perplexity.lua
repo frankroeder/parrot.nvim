@@ -127,6 +127,8 @@ function Perplexity:get_available_models()
     "sonar-pro",
     "sonar-reasoning",
     "sonar-reasoning-pro",
+    "sonar-deep-research",
+    "r1-1776",
   }
 end
 

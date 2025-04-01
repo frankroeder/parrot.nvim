@@ -56,8 +56,6 @@ function xAI:get_available_models(online)
   end
   local ids = {
     "grok-beta",
-    "grok-vision-beta",
-    "grok-2-vision-1212",
     "grok-2-1212",
     "grok-2",
     "grok-2-latest",
