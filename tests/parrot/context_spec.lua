@@ -27,10 +27,7 @@ describe("context", function()
     local error_messages = {}
 
     before_each(function()
-      -- Create test directory if it doesn't exist.
       vim.fn.mkdir("test", "p")
-
-      -- Mock logger.error to capture error messages.
       error_messages = {}
       logger.error = function(msg)
         table.insert(error_messages, msg)
@@ -39,12 +36,7 @@ describe("context", function()
     end)
 
     after_each(function()
-      -- Clean up test files.
-      vim.fn.delete("test/test_file.txt")
-      vim.fn.delete("test/file1.txt")
-      vim.fn.delete("test/file2.java")
-      vim.fn.delete("test/buffer.lua")
-      vim.fn.delete("test/file with spaces.txt")
+      vim.fn.delete("test", "rf")
       logger.error = original_error
     end)
 
@@ -60,11 +52,8 @@ describe("context", function()
         error_messages = {}
         local result = context.insert_contexts(input)
         assert.are.equal("", result)
-        assert.is_true(#error_messages > 0, "Expected error message for invalid input")
-        assert.is_true(
-          string.match(error_messages[1], "Invalid message") ~= nil,
-          "Error message should mention invalid message"
-        )
+        assert.is_true(#error_messages > 0)
+        assert.is_true(string.match(error_messages[1], "Invalid message") ~= nil)
       end
     end)
 
@@ -88,10 +77,8 @@ describe("context", function()
       local buf_name = vim.api.nvim_buf_get_name(buf_id)
       local result_current_buffer = context.insert_contexts("@buffer:" .. buf_name)
       local buf_content = table.concat(vim.api.nvim_buf_get_lines(buf_id, 0, -1, false), "\n")
-
       local expected = "\n\n" .. buf_name .. "\n```lua\n" .. buf_content .. "\n```"
       assert.are.equal(expected, result_current_buffer)
-
       local non_existent_buffer = "@buffer:non_existent_buffer.lua"
       local result_buffer_not_found = context.insert_contexts(non_existent_buffer)
       assert.are.equal("", result_buffer_not_found)
@@ -121,7 +108,6 @@ describe("context", function()
     it("should handle non-existent files gracefully", function()
       local msg = "This is a test with\n@file:non-existent-file.txt"
       local result = context.insert_contexts(msg)
-      -- The command is removed and no context appended if file not found.
       assert.are.equal("This is a test with", result)
     end)
 
@@ -140,6 +126,140 @@ describe("context", function()
       local msg = "Some message\n\n"
       local processed_message = context.insert_contexts(msg)
       assert.are.equal("Some message", processed_message)
+    end)
+
+    it("should insert content from multiple files when using glob pattern", function()
+      local file1 = "test/glob1.txt"
+      local file2 = "test/glob2.txt"
+      local content1 = "Content of glob1."
+      local content2 = "Content of glob2."
+      vim.fn.writefile({ content1 }, file1)
+      vim.fn.writefile({ content2 }, file2)
+      local full_path1 = vim.fn.fnamemodify(file1, ":p")
+      local full_path2 = vim.fn.fnamemodify(file2, ":p")
+      local msg = "@file:test/*.txt"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n"
+        .. full_path1
+        .. "\n```\n"
+        .. content1
+        .. "\n```\n\n"
+        .. full_path2
+        .. "\n```\n"
+        .. content2
+        .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should handle glob pattern that matches no files gracefully", function()
+      local msg = "@file:test/non_existent_*.txt"
+      local result = context.insert_contexts(msg)
+      assert.are.equal("", result)
+    end)
+
+    it("should handle mix of glob patterns and specific file paths", function()
+      local file1 = "test/mix1.txt"
+      local file2 = "test/mix2.java"
+      local file3 = "test/mix3.txt"
+      local content1 = "Content of mix1."
+      local content2 = "Content of mix2."
+      local content3 = "Content of mix3."
+      vim.fn.writefile({ content1 }, file1)
+      vim.fn.writefile({ content2 }, file2)
+      vim.fn.writefile({ content3 }, file3)
+      local full_path1 = vim.fn.fnamemodify(file1, ":p")
+      local full_path2 = vim.fn.fnamemodify(file2, ":p")
+      local full_path3 = vim.fn.fnamemodify(file3, ":p")
+      local msg = "@file:test/*.txt\n@file:" .. file2
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n"
+        .. full_path1
+        .. "\n```\n"
+        .. content1
+        .. "\n```\n\n"
+        .. full_path3
+        .. "\n```\n"
+        .. content3
+        .. "\n```\n\n"
+        .. full_path2
+        .. "\n```java\n"
+        .. content2
+        .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should handle recursive glob pattern with **", function()
+      local file1 = "test/recursive1.txt"
+      local subdir = "test/subdir"
+      local file2 = subdir .. "/recursive2.txt"
+      local content1 = "Content of recursive1."
+      local content2 = "Content of recursive2."
+      vim.fn.mkdir(subdir, "p")
+      vim.fn.writefile({ content1 }, file1)
+      vim.fn.writefile({ content2 }, file2)
+      local full_path1 = vim.fn.fnamemodify(file1, ":p")
+      local full_path2 = vim.fn.fnamemodify(file2, ":p")
+      local msg = "@file:test/**/*.txt"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n"
+        .. full_path1
+        .. "\n```\n"
+        .. content1
+        .. "\n```\n\n"
+        .. full_path2
+        .. "\n```\n"
+        .. content2
+        .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should not include directories in glob pattern", function()
+      local file1 = "test/dir_test.txt"
+      local dir1 = "test/dir1"
+      local content1 = "Content of dir_test."
+      vim.fn.writefile({ content1 }, file1)
+      vim.fn.mkdir(dir1)
+      local full_path1 = vim.fn.fnamemodify(file1, ":p")
+      local msg = "@file:test/*"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n" .. full_path1 .. "\n```\n" .. content1 .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should not include hidden files by default", function()
+      local file1 = "test/normal.txt"
+      local hidden_file = "test/.hidden.txt"
+      local content1 = "Content of normal."
+      local hidden_content = "Content of hidden."
+      vim.fn.writefile({ content1 }, file1)
+      vim.fn.writefile({ hidden_content }, hidden_file)
+      local full_path1 = vim.fn.fnamemodify(file1, ":p")
+      local msg = "@file:test/*"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n" .. full_path1 .. "\n```\n" .. content1 .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should include hidden files when using test/.*", function()
+      local hidden_file = "test/.hidden.txt"
+      local hidden_content = "Content of hidden."
+      vim.fn.writefile({ hidden_content }, hidden_file)
+      local full_path_hidden = vim.fn.fnamemodify(hidden_file, ":p")
+      local msg = "@file:test/.*"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n" .. full_path_hidden .. "\n```\n" .. hidden_content .. "\n```"
+      assert.are.equal(expected, result)
+    end)
+
+    it("should handle files with spaces in names", function()
+      local file_with_spaces = "test/file with spaces.txt"
+      local content = "Content of file with spaces."
+      vim.fn.writefile({ content }, file_with_spaces)
+      local full_path = vim.fn.fnamemodify(file_with_spaces, ":p")
+      local msg = "@file:test/*.txt"
+      local result = context.insert_contexts(msg)
+      local expected = "\n\n" .. full_path .. "\n```\n" .. content .. "\n```"
+      assert.are.equal(expected, result)
     end)
   end)
 end)
