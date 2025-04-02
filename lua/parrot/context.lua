@@ -61,27 +61,22 @@ function M.insert_contexts(msg)
         path_arg = path_arg:sub(2, -2)
       end
 
-      local is_glob = path_arg:find("*", 1, true)
-
-      local pattern_or_path
-      if path_arg:match("^[/~]") or path_arg:match("^%a:[/\\]") then
-        pattern_or_path = vim.fn.expand(path_arg)
+      local pattern_to_expand
+      if path_arg:match("^[/~$]") or path_arg:match("^%a:[/\\]") then
+        pattern_to_expand = path_arg
       else
         local cwd = vim.fn.getcwd()
-        pattern_or_path = utils.path_join(cwd, path_arg)
+        pattern_to_expand = utils.path_join(cwd, path_arg)
       end
-
-      if is_glob then
-        local files = vim.fn.glob(pattern_or_path, true, true)
-        if #files > 0 then
-          for _, filepath in ipairs(files) do
-            add_file_context(filepath, "@file (glob)")
+      local files = vim.fn.expand(pattern_to_expand, false, true)
+      if type(files) == "table" and #files > 0 then
+        for _, filepath in ipairs(files) do
+          if vim.fn.filereadable(filepath) == 1 then
+            add_file_context(filepath, "@file")
           end
-        else
-          logger.warning("Glob pattern yielded no files: " .. pattern_or_path)
         end
       else
-        add_file_context(pattern_or_path, "@file")
+        logger.warning("Pattern yielded no files or failed expansion: " .. pattern_to_expand)
       end
     elseif buffer_cmd then
       local buf_nr
