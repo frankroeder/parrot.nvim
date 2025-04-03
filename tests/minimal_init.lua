@@ -30,7 +30,6 @@ package.loaded["parrot.config"] = {
     cmd_prefix = "Prt",
     state_dir = "/test/state/dir",
     chat_dir = "/test/chat/dir",
-    chat_dir_pattern = "/test/chat/*.md",
     ui = { width = 80, height = 20 },
   },
   hooks = {},
