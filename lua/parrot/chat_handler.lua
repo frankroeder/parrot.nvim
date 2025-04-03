@@ -41,7 +41,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
       popup = 2,
       context = 3,
     },
-    _plugin_name = "parrot",
+    _plugin_name = "parrot.nvim",
     state = state,
     history = {
       last_selection = nil,
@@ -302,7 +302,7 @@ function ChatHandler:prepare_commands()
           template = self.options.template_prepend
         end
       end
-      local cmd_prefix = Placeholders:new():render_from_list(
+      local cmd_prefix = Placeholders:render_from_list(
         self.options.command_prompt_prefix_template,
         { ["{{llm}}"] = self:get_model("command").name }
       )
@@ -524,7 +524,7 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
     chat_prompt = ""
   end
 
-  local template = Placeholders:new():render_from_list(utils.trim(self.options.chat_template), {
+  local template = Placeholders:render_from_list(utils.trim(self.options.chat_template), {
     ["{{user}}"] = self.options.chat_user_prefix,
     ["{{optional}}"] = chat_prompt,
   })
@@ -734,7 +734,7 @@ function ChatHandler:_chat_respond(params)
   local provider = query_prov.name
   ---@diagnostic disable-next-line: cast-local-type
   ---
-  llm_suffix = Placeholders:new():render_from_list(llm_suffix, { ["{{llm}}"] = model_name .. " - " .. provider })
+  llm_suffix = Placeholders:render_from_list(llm_suffix, { ["{{llm}}"] = model_name .. " - " .. provider })
 
   for index = start_index, end_index do
     local line = lines[index]
