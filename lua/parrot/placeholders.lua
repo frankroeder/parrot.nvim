@@ -9,8 +9,8 @@
 local Placeholders = {}
 Placeholders.__index = Placeholders
 
----@param template string # The template string
----@param command string # The command
+---@param template string | nil # The template string
+---@param command string | nil # The command
 ---@param selection string | nil # The selected text
 ---@param filetype string | nil # The file type
 ---@param filename string | nil # The file name

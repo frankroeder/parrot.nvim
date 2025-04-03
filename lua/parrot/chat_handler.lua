@@ -19,7 +19,7 @@ local ChatHandler = {}
 ChatHandler.__index = ChatHandler
 
 function ChatHandler:new(options, providers, available_providers, available_models, cmd)
-  local state = State:new(options.state_dir, available_providers)
+  local state = State:new(options.state_dir)
   state:refresh(available_providers, available_models)
   return setmetatable({
     options = options,
@@ -496,7 +496,7 @@ end
 --- Creates a new chat file.
 ---@param params table Parameters for creating a new chat.
 ---@param toggle boolean Whether to toggle the chat buffer.
----@param chat_prompt string Optional chat prompt.
+---@param chat_prompt string | nil Optional chat prompt.
 ---@return number # buffer number
 function ChatHandler:_new_chat(params, toggle, chat_prompt)
   self:toggle_close(self._toggle_kind.popup)
