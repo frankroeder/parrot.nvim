@@ -11,19 +11,29 @@ vim.opt.rtp:append(plenary_dir)
 -- Mock the global config to prevent errors on test invocation
 package.loaded["parrot.config"] = {
   loaded = true,
-  options = {
-    model = "test-model",
-    chat_dir = "/test/chat/dir",
-    chat_dir_pattern = "/test/chat/*.md",
-    api_key = "test-key",
-    provider = "anthropic",
-    ui = { width = 80, height = 20 },
-    completion = {
-      enabled = true,
+  providers = {
+    anthropic = {
+      api_key = "test-key",
+      endpoint = "https://api.anthropic.com/v1/messages",
+      topic_prompt = "test prompt",
+      topic = {
+        model = "test-model",
+        params = { max_tokens = 32 },
+      },
+      params = {
+        chat = { max_tokens = 4096 },
+        command = { max_tokens = 4096 },
+      },
     },
   },
+  options = {
+    cmd_prefix = "Prt",
+    state_dir = "/test/state/dir",
+    chat_dir = "/test/chat/dir",
+    ui = { width = 80, height = 20 },
+  },
+  hooks = {},
   setup = function(opts)
-    -- Mock setup function that doesn't crash in tests
     return true
   end,
 }

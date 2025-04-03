@@ -338,7 +338,33 @@ local defaults = {
       parrot.Prompt(params, parrot.ui.Target.popup, model_obj, "🤖 Ask ~ ", template)
     end,
   },
+  prompts = {
+    ["ProofReader"] = "You are a professional proofreader looking for spell and grammar errors",
+    ["CodeFixer"] = [[
+    You are a proficient programmer in the provided language. I want you to
+    look for erros and bugs within the provided snippet. Simply assume that you
+    have access to the used libraries and packages, hence skip importing them.
+    ]],
+    ["CodeFixerContext"] = [[
+    You are a proficient programmer in the provided language. I want you to
+    look for erros and bugs within the provided snippet given the full file content
+
+    ```{{filetype}}
+    {{filecontent}}
+    ```
+    ]],
+  },
 }
+
+M.get_prompt_keys = function(options)
+  local keys = {}
+  for k, v in pairs(options.prompts) do
+    if v and v ~= "" then
+      table.insert(keys, k)
+    end
+  end
+  return keys
+end
 
 M.merge_providers = function(default_providers, user_providers)
   local result = {}
@@ -423,6 +449,9 @@ function M.setup(opts)
     Retry = "retry",
     Edit = "edit",
     Thinking = "thinking",
+    Rewrite = "Rewrite",
+    Append = "Append",
+    Prepend = "Prepend",
   }
 
   M.chat_handler = ChatHandler:new(M.options, M.providers, M.available_providers, M.available_models, M.cmd)
@@ -472,6 +501,9 @@ M.add_default_commands = function(commands, hooks, options)
     ChatPaste = { "popup", "split", "vsplit", "tabnew" },
     ChatToggle = { "popup", "split", "vsplit", "tabnew" },
     Context = { "popup", "split", "vsplit", "tabnew" },
+    Rewrite = M.get_prompt_keys(options),
+    Append = M.get_prompt_keys(options),
+    Prepend = M.get_prompt_keys(options),
   }
   -- register default commands
   for cmd, cmd_func in pairs(commands) do
