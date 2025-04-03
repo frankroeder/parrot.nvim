@@ -1,4 +1,4 @@
-local Placeholders = require("parrot.Placeholders")
+local Placeholders = require("parrot.placeholders")
 
 describe("Placeholders", function()
   local placeholders
