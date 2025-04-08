@@ -109,7 +109,7 @@ end
 function Anthropic:notify_thinking(thinking)
   vim.schedule(function()
     local config = require("parrot.config")
-    if not config.options.show_thinking_window then
+    if config.options.show_thinking_window ~= nil and not config.options.show_thinking_window then
       return
     end
     if not self._thinking_buf or not vim.api.nvim_buf_is_valid(self._thinking_buf) then
