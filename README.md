@@ -370,6 +370,8 @@ to consider a visual selection within an API request.
     spinner_type = "star",
     -- Show hints for context added through completion with @file, @buffer or @directory
     show_context_hints = true
+    -- Controls visibility of the thinking window
+    show_thinking_window = true,
 }
 ```
 

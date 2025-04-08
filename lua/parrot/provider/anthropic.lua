@@ -108,6 +108,10 @@ end
 --- @param thinking string The thinking token to append to the existing content
 function Anthropic:notify_thinking(thinking)
   vim.schedule(function()
+    local config = require("parrot.config")
+    if not config.options.show_thinking_window then
+      return
+    end
     if not self._thinking_buf or not vim.api.nvim_buf_is_valid(self._thinking_buf) then
       self._thinking_buf = vim.api.nvim_create_buf(false, true) -- unlisted scratch buffer
       vim.api.nvim_buf_set_option(self._thinking_buf, "buftype", "nofile")

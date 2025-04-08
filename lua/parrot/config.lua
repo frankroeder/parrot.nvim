@@ -230,6 +230,7 @@ local defaults = {
   enable_spinner = true,
   spinner_type = "dots",
   show_context_hints = false,
+  show_thinking_window = true,
   chat_template = [[
   # topic: ?
   {{optional}}
@@ -504,6 +505,7 @@ M.add_default_commands = function(commands, hooks, options)
     Rewrite = M.get_prompt_keys(options),
     Append = M.get_prompt_keys(options),
     Prepend = M.get_prompt_keys(options),
+    Thinking = { "status" },
   }
   -- register default commands
   for cmd, cmd_func in pairs(commands) do
