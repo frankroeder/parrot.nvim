@@ -164,7 +164,7 @@ local defaults = {
       endpoint = "https://api.x.ai/v1/chat/completions",
       topic_prompt = topic_prompt,
       topic = {
-        model = "grok-2",
+        model = "grok-3-mini-beta",
         params = { max_tokens = 64 },
       },
       params = {

@@ -55,10 +55,12 @@ function xAI:get_available_models(online)
     return self.models
   end
   local ids = {
-    "grok-beta",
+    "grok-3-beta",
+    "grok-3-fast-beta",
+    "grok-3-mini-beta",
+    "grok-3-mini-fast-beta",
     "grok-2-1212",
-    "grok-2",
-    "grok-2-latest",
+    "grok-beta",
   }
   if online and self:verify() then
     local job = Job:new({
