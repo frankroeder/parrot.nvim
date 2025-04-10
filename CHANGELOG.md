@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.0](https://github.com/frankroeder/parrot.nvim/compare/v1.6.0...v1.7.0) (2025-04-10)
+
+
+### Features
+
+* add option to disable thinking window popping up ([afb8aab](https://github.com/frankroeder/parrot.nvim/commit/afb8aab69ef9b2b96dc89a198a49254db8a1909a))
+* add predefined prompts for interactive commands ([42f3a8e](https://github.com/frankroeder/parrot.nvim/commit/42f3a8e5b72139f555a7698ecb5dc13a50afbbd2))
+* **completion:** add globbing support ([@file](https://github.com/file):*.lua) ([c08b7e3](https://github.com/frankroeder/parrot.nvim/commit/c08b7e3aa9f6379c5d2462d9949bdaebcc2294d2))
+* **provider:** add support for custom model selection ([55bd3f5](https://github.com/frankroeder/parrot.nvim/commit/55bd3f5b7c8d47fd45fd9b1d8a79f7e5d4b1872e))
+
+
+### Bug Fixes
+
+* add additional thinking check ([161e75e](https://github.com/frankroeder/parrot.nvim/commit/161e75e84019a63604944816d100d5601cf109bf))
+* **context:** correct the location of expanding provided path ([074df4b](https://github.com/frankroeder/parrot.nvim/commit/074df4b580fc2de94712657d8a622d941170935b))
+* remove stupid State argument ([2a5cdaf](https://github.com/frankroeder/parrot.nvim/commit/2a5cdaf3fd6db1a520b6b3e2bc44c33d0154c7e2))
+
 ## [1.6.0](https://github.com/frankroeder/parrot.nvim/compare/v1.5.0...v1.6.0) (2025-03-31)
 
 
