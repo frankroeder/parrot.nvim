@@ -53,7 +53,7 @@ local defaults = {
       endpoint = "https://api.openai.com/v1/chat/completions",
       topic_prompt = topic_prompt,
       topic = {
-        model = "gpt-4o-mini",
+        model = "gpt-4.1-nano",
         params = { max_completion_tokens = 64 },
       },
       params = {
