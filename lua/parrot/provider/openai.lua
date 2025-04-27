@@ -205,7 +205,7 @@ function OpenAI:get_available_models(online)
     "o1-mini-2024-09-12",
     "gpt-4.1-mini",
     "gpt-4.1-mini-2025-04-14",
-    "gpt-4.1-nano"
+    "gpt-4.1-nano",
   }
   if online and self:verify() then
     local job = Job:new({
