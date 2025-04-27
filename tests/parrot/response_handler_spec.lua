@@ -16,9 +16,11 @@ describe("ResponseHandler", function()
         nvim_buf_set_lines = stub.new(),
         nvim_buf_add_highlight = stub.new(),
         nvim_win_get_cursor = stub.new().returns({ 1, 0 }),
+        nvim_set_hl = stub.new(),
       },
       split = stub.new().returns({ "test" }),
-      -- Remove vim.cmd to avoid potential issues with Vim options
+      defer_fn = stub.new(),
+      uv = { new_timer = stub.new() },
     }
 
     mock_utils = {
@@ -50,7 +52,11 @@ describe("ResponseHandler", function()
     assert.are.same(0, handler.first_line)
     assert.are.same(0, handler.finished_lines)
     assert.are.same("", handler.response)
+    assert.are.same("", handler.current_line)
     assert.are.same(mock_queries, handler.queries)
+    assert.are.same(10, handler.typing_speed)
+    assert.are.same(30, handler.word_delay)
+    assert.are.same(true, handler.first_chunk)
   end)
 
   it("should create a new ResponseHandler with custom values", function()
@@ -65,12 +71,19 @@ describe("ResponseHandler", function()
     assert.are.same(mock_queries, handler.queries)
   end)
 
-  it("should handle a chunk of response", function()
+  it("should handle a chunk of response with word-by-word animation", function()
     local handler = ResponseHandler:new(mock_queries)
     handler:handle_chunk(1, "test chunk")
-    assert.are.same("test chunk", handler.response)
-    -- assert.stub(mock_vim.api.nvim_buf_set_lines).was_called()
-    -- assert.stub(mock_vim.api.nvim_buf_add_highlight).was_called()
+
+    -- Should schedule word-by-word animation
+    assert.stub(mock_vim.defer_fn).was_called(2) -- Once for each word
+
+    -- Should initialize markdown highlighting
+    assert.stub(mock_vim.api.nvim_set_hl).was_called()
+
+    -- Should clear buffer on first chunk
+    assert.stub(mock_vim.api.nvim_buf_set_lines).was_called()
+    assert.are.same(true, handler.first_chunk)
   end)
 
   it("should not process if buffer is invalid", function()
@@ -80,11 +93,21 @@ describe("ResponseHandler", function()
     assert.are.same("", handler.response)
   end)
 
-  it("should update the response with a new chunk", function()
+  it("should process markdown in text", function()
     local handler = ResponseHandler:new(mock_queries)
-    handler:update_response("test chunk")
-    handler:update_response(" test chunk")
-    assert.are.same("test chunk test chunk", handler.response)
+    local tokens = handler:process_markdown("Hello `code` **bold** *italic* ```block```")
+    assert.are.same(7, #tokens) -- text, code, text, strong, text, emphasis, code_block
+    assert.are.same("code", tokens[2].type)
+    assert.are.same("strong", tokens[4].type)
+    assert.are.same("emphasis", tokens[6].type)
+    assert.are.same("code_block", tokens[7].type)
+  end)
+
+  it("should set typing animation speed", function()
+    local handler = ResponseHandler:new(mock_queries)
+    handler:set_typing_speed(20, 50)
+    assert.are.same(20, handler.typing_speed)
+    assert.are.same(50, handler.word_delay)
   end)
 
   it("should not move the cursor when cursor is false", function()

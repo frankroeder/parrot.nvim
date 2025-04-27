@@ -150,6 +150,9 @@ function Gemini:get_available_models(online)
     return self.models
   end
   local ids = {
+    "gemini-2.5-flash-preview-04-17",
+    "chat-bison-001",
+    "text-bison-001",
     "gemini-1.5-pro-latest",
     "gemini-1.5-pro-001",
     "gemini-1.5-pro-002",
@@ -165,6 +168,7 @@ function Gemini:get_available_models(online)
     "gemini-1.5-flash-8b-exp-0827",
     "gemini-1.5-flash-8b-exp-0924",
     "gemini-2.5-pro-exp-03-25",
+    "gemini-2.5-pro-preview-03-25",
     "gemini-2.0-flash-exp",
     "gemini-2.0-flash",
     "gemini-2.0-flash-001",
@@ -178,9 +182,13 @@ function Gemini:get_available_models(online)
     "gemini-2.0-flash-thinking-exp-01-21",
     "gemini-2.0-flash-thinking-exp",
     "gemini-2.0-flash-thinking-exp-1219",
+    "learnlm-1.5-pro-experimental",
+    "learnlm-2.0-flash-experimental",
+    "gemma-3-1b-it",
     "gemma-3-4b-it",
     "gemma-3-12b-it",
     "gemma-3-27b-it",
+    "aqa",
   }
   if online and self:verify() then
     local job = Job:new({
