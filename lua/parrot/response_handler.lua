@@ -16,6 +16,7 @@ local api = vim.api
 ---@field word_delay number
 ---@field markdown_ns number
 ---@field hl_groups table
+---@field queries table
 local ResponseHandler = {}
 ResponseHandler.__index = ResponseHandler
 
@@ -30,15 +31,6 @@ local default_hl_groups = {
   typing = "PrtTyping",
 }
 
----Creates a new ResponseHandler
----@param queries table
----@param buffer number|nil
----@param window number|nil
----@param line number|nil
----@param first_undojoin boolean|nil
----@param prefix string|nil
----@param cursor boolean
----@return ResponseHandler
 ---Creates a new ResponseHandler
 ---@param queries table
 ---@param buffer number|nil
@@ -79,7 +71,6 @@ function ResponseHandler:new(queries, buffer, window, line, first_undojoin, pref
     strict = false,
     right_gravity = false,
   })
-
   return self
 end
 
@@ -92,53 +83,79 @@ end
 function ResponseHandler:process_markdown(line)
   local tokens = {}
   local pos = 1
-
-  while pos <= #line do
-    -- Check for code blocks
-    local code_start = line:find("```", pos)
-    if code_start == pos then
-      local code_end = line:find("```", pos + 3)
-      if code_end then
-        table.insert(tokens, { text = line:sub(pos, code_end + 2), type = "code_block" })
-        pos = code_end + 3
-        goto continue
-      end
-    end
-
-    -- Check for inline code
-    local inline_start = line:find("`[^`]", pos)
-    if inline_start == pos then
-      local inline_end = line:find("`", pos + 1)
-      if inline_end then
-        table.insert(tokens, { text = line:sub(pos, inline_end), type = "code" })
-        pos = inline_end + 1
-        goto continue
-      end
-    end
-
-    -- Check for other markdown elements
-    local char = line:sub(pos, pos)
-    if char == "#" then
-      table.insert(tokens, { text = char, type = "heading" })
-    elseif char == "*" or char == "_" then
-      local next_char = line:sub(pos + 1, pos + 1)
-      if next_char == char then
-        table.insert(tokens, { text = char .. char, type = "strong" })
-        pos = pos + 1
+  local len = #line
+  while pos <= len do
+    -- Code block: ```...```
+    if line:sub(pos, pos + 2) == "```" then
+      local endp = line:find("```", pos + 3, true)
+      if endp then
+        -- drop preceding whitespace-only token, if any
+        local prev = tokens[#tokens]
+        if prev and prev.type == "text" and prev.text:match("^%s+$") then
+          table.remove(tokens, #tokens)
+        end
+        local txt = line:sub(pos, endp + 2)
+        table.insert(tokens, { text = txt, type = "code_block" })
+        pos = endp + 3
       else
-        table.insert(tokens, { text = char, type = "emphasis" })
+        -- unmatched, rest as text
+        table.insert(tokens, { text = line:sub(pos), type = "text" })
+        break
       end
+    -- Inline code: `...`
+    elseif line:sub(pos, pos) == "`" then
+      local endp = line:find("`", pos + 1, true)
+      if endp then
+        local txt = line:sub(pos, endp)
+        table.insert(tokens, { text = txt, type = "code" })
+        pos = endp + 1
+      else
+        table.insert(tokens, { text = "`", type = "text" })
+        pos = pos + 1
+      end
+    -- Strong emphasis: **...** or __...__
+    elseif line:sub(pos, pos + 1) == "**" or line:sub(pos, pos + 1) == "__" then
+      local delim = line:sub(pos, pos + 1)
+      local close = line:find(delim, pos + 2, true)
+      if close then
+        local txt = line:sub(pos, close + 1)
+        table.insert(tokens, { text = txt, type = "strong" })
+        pos = close + 2
+      else
+        table.insert(tokens, { text = delim, type = "text" })
+        pos = pos + 2
+      end
+    -- Emphasis: *...* or _..._
+    elseif line:sub(pos, pos) == "*" or line:sub(pos, pos) == "_" then
+      local delim = line:sub(pos, pos)
+      local close = line:find(delim, pos + 1, true)
+      if close then
+        local txt = line:sub(pos, close)
+        table.insert(tokens, { text = txt, type = "emphasis" })
+        pos = close + 1
+      else
+        table.insert(tokens, { text = delim, type = "text" })
+        pos = pos + 1
+      end
+    -- Heading: #
+    elseif line:sub(pos, pos) == "#" then
+      table.insert(tokens, { text = "#", type = "heading" })
+      pos = pos + 1
+    -- Regular text up to next markdown char
     else
-      -- Regular text
-      local next_special = line:find("[`#*_]", pos + 1) or #line + 1
-      table.insert(tokens, { text = line:sub(pos, next_special - 1), type = "text" })
-      pos = next_special - 1
+      local nextp = line:find("[%`%*_%#]", pos + 1)
+      if nextp then
+        local txt = line:sub(pos, nextp - 1)
+        if #txt > 0 then
+          table.insert(tokens, { text = txt, type = "text" })
+        end
+        pos = nextp
+      else
+        table.insert(tokens, { text = line:sub(pos), type = "text" })
+        break
+      end
     end
-
-    pos = pos + 1
-    ::continue::
   end
-
   return tokens
 end
 
@@ -147,8 +164,12 @@ end
 ---@param chunk string
 function ResponseHandler:handle_chunk(qid, chunk)
   local qt = self.queries:get(qid)
-  if not qt or not api.nvim_buf_is_valid(self.buffer) then return end
-  if not self.skip_first_undojoin then utils.undojoin(self.buffer) end
+  if not qt or not api.nvim_buf_is_valid(self.buffer) then
+    return
+  end
+  if not self.skip_first_undojoin then
+    utils.undojoin(self.buffer)
+  end
   self.skip_first_undojoin = false
 
   qt.ns_id = qt.ns_id or self.ns_id
@@ -160,13 +181,7 @@ function ResponseHandler:handle_chunk(qid, chunk)
   local lines = vim.split(self.response, "\n")
 
   -- Clear old content
-  api.nvim_buf_set_lines(
-    self.buffer,
-    first_line,
-    first_line + math.max(self.finished_lines, #lines),
-    false,
-    {}
-  )
+  api.nvim_buf_set_lines(self.buffer, first_line, first_line + math.max(self.finished_lines, #lines), false, {})
 
   -- Render and highlight each line
   for i, l in ipairs(lines) do
