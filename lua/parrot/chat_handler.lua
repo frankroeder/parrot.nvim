@@ -1470,7 +1470,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       -- delete selection
       vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor, true):create_handler()
+      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
     elseif target == ui.Target.append then
       -- move cursor to the end of the selection
       vim.api.nvim_win_set_cursor(0, { end_line, 0 })
@@ -1484,7 +1484,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       -- put newline before selection
       vim.api.nvim_put({ "" }, "l", false, true)
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor, true):create_handler()
+      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
       -- create a new buffer

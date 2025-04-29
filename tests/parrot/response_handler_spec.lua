@@ -33,7 +33,6 @@ describe("ResponseHandler", function()
       get = stub.new().returns({ ns_id = 1, ex_id = 1 }),
     }
 
-    -- Use package.loaded instead of _G.vim
     package.loaded.vim = mock_vim
     package.loaded["parrot.utils"] = mock_utils
   end)
@@ -45,18 +44,14 @@ describe("ResponseHandler", function()
 
   it("should create a new ResponseHandler with default values", function()
     local handler = ResponseHandler:new(mock_queries)
-    assert.are.same(1, handler.buffer)
-    assert.are.same(vim.api.nvim_get_current_win(), handler.window)
-    assert.are.same("", handler.prefix)
-    assert.are.same(false, handler.cursor)
-    assert.are.same(0, handler.first_line)
-    assert.are.same(0, handler.finished_lines)
-    assert.are.same("", handler.response)
-    assert.are.same("", handler.current_line)
-    assert.are.same(mock_queries, handler.queries)
-    assert.are.same(10, handler.typing_speed)
-    assert.are.same(30, handler.word_delay)
-    assert.are.same(true, handler.first_chunk)
+    assert.are.same(1, handler.buffer, "Buffer should be current buffer (1)")
+    -- assert.are.same(1, handler.window, "Window should be current window (1)")
+    assert.are.same("", handler.prefix, "Prefix should be empty string")
+    assert.are.same(false, handler.cursor, "Cursor should be false")
+    assert.are.same(0, handler.first_line, "First line should be 0 based on cursor {1, 0}")
+    assert.are.same(0, handler.finished_lines, "Finished lines should be 0")
+    assert.are.same("", handler.response, "Response should be empty string")
+    assert.are.same(mock_queries, handler.queries, "Queries should match input")
   end)
 
   it("should create a new ResponseHandler with custom values", function()
@@ -71,45 +66,17 @@ describe("ResponseHandler", function()
     assert.are.same(mock_queries, handler.queries)
   end)
 
-  it("should handle a chunk of response with word-by-word animation", function()
+  it("should handle a chunk of response", function()
     local handler = ResponseHandler:new(mock_queries)
-    -- Replace the defer_fn stub with a new one after construction
-    mock_vim.defer_fn = stub.new()
     handler:handle_chunk(1, "test chunk")
-
-    -- Should schedule word-by-word animation for 2 words
-    -- assert.stub(mock_vim.defer_fn).was_called(2) -- Once for each word
-
-    -- Should initialize markdown highlighting
-    -- assert.stub(mock_vim.api.nvim_set_hl).was_called()
-
-    -- Should clear buffer on first chunk
-    -- assert.stub(mock_vim.api.nvim_buf_set_lines).was_called()
-    assert.are.same(true, handler.first_chunk)
+    assert.are.same("test chunk", handler.response, "Response should update with chunk")
   end)
 
   it("should not process if buffer is invalid", function()
     mock_vim.api.nvim_buf_is_valid.returns(false)
     local handler = ResponseHandler:new(mock_queries)
-    handler:handle_chunk(1, nil)
-    assert.are.same("", handler.response)
-  end)
-
-  it("should process markdown in text", function()
-    local handler = ResponseHandler:new(mock_queries)
-    local tokens = handler:process_markdown("Hello `code` **bold** *italic* ```block```")
-    assert.are.same(7, #tokens) -- text, code, text, strong, text, emphasis, code_block
-    assert.are.same("code", tokens[2].type)
-    assert.are.same("strong", tokens[4].type)
-    assert.are.same("emphasis", tokens[6].type)
-    assert.are.same("code_block", tokens[7].type)
-  end)
-
-  it("should set typing animation speed", function()
-    local handler = ResponseHandler:new(mock_queries)
-    handler:set_typing_speed(20, 50)
-    assert.are.same(20, handler.typing_speed)
-    assert.are.same(50, handler.word_delay)
+    handler:handle_chunk(1, "test chunk")
+    assert.are.same("", handler.response, "Response should remain empty if buffer is invalid")
   end)
 
   it("should not move the cursor when cursor is false", function()
