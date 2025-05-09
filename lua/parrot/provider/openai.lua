@@ -70,7 +70,7 @@ function OpenAI:preprocess_payload(payload)
   end
   -- Changes according to beta limitations of the reasoning API
   -- https://platform.openai.com/docs/guides/reasoning
-  if payload.model and string.match(payload.model, "o[13]") then
+  if payload.model and string.match(payload.model, "o[134]") then
     -- remove system prompt
     if payload.messages[1] and payload.messages[1].role == "system" then
       table.remove(payload.messages, 1)
