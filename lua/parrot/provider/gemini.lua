@@ -151,6 +151,7 @@ function Gemini:get_available_models(online)
   end
   local ids = {
     "gemini-2.5-flash-preview-04-17",
+    "gemini-2.5-pro-preview-05-06",
     "chat-bison-001",
     "text-bison-001",
     "gemini-1.5-pro-latest",
@@ -168,7 +169,6 @@ function Gemini:get_available_models(online)
     "gemini-1.5-flash-8b-exp-0827",
     "gemini-1.5-flash-8b-exp-0924",
     "gemini-2.5-pro-exp-03-25",
-    "gemini-2.5-pro-preview-03-25",
     "gemini-2.0-flash-exp",
     "gemini-2.0-flash",
     "gemini-2.0-flash-001",
