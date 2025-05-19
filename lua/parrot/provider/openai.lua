@@ -169,6 +169,7 @@ function OpenAI:get_available_models(online)
     "gpt-4.1-nano-2025-04-14",
     "o3-mini-2025-01-31",
     "o3-mini",
+    "o4-mini",
     "gpt-4",
     "gpt-4-0125-preview",
     "gpt-4-turbo-preview",
