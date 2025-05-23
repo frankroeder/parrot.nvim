@@ -150,6 +150,7 @@ function Gemini:get_available_models(online)
     return self.models
   end
   local ids = {
+    "gemini-2.5-flash-preview-05-20",
     "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro-preview-05-06",
     "chat-bison-001",

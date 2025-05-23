@@ -195,6 +195,7 @@ function Anthropic:get_available_models(online)
     return self.models
   end
   local ids = {
+    "claude-sonnet-4-20250514",
     "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20241022",
     "claude-3-5-haiku-20241022",
