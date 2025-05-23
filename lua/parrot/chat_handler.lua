@@ -1070,7 +1070,7 @@ function ChatHandler:provider(params)
           results = self.available_providers,
         }),
         sorter = sorters.values.generic_sorter({}),
-        attach_mappings = function(prompt_bufnr, map)
+        attach_mappings = function(_, map)
           local on_select = function(prompt_bufnr)
             local selection = action_state.get_selected_entry(prompt_bufnr)
             actions.close(prompt_bufnr)
@@ -1154,7 +1154,7 @@ function ChatHandler:model(params)
         }),
         sorter = sorters.values.generic_sorter({}),
         attach_mappings = function(_, map)
-          map("i", "<CR>", function(prompt_bufnr)
+          local on_select = function(prompt_bufnr)
             local selected_entry = action_state.get_selected_entry()
             actions.close(prompt_bufnr)
             if not selected_entry then
@@ -1163,7 +1163,9 @@ function ChatHandler:model(params)
             end
             local selected_model = selected_entry[1]
             self:switch_model(is_chat, selected_model, prov)
-          end)
+          end
+          map("i", "<CR>", on_select)
+          map("n", "<CR>", on_select)
 
           return true
         end,
