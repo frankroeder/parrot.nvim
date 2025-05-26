@@ -27,7 +27,8 @@ While this project is still under development, a substantial part of the code is
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + [GitHub Models](https://github.com/marketplace/models)
     + [NVIDIA API](https://docs.api.nvidia.com)
-    + [xAI API](https://console.x.ai) for **Grok**
+    + [xAI API](https://console.x.ai)
+    + [DeepSeek API](https://platform.deepseek.com)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -189,6 +190,9 @@ The minimal requirement is to at least set up one provider, hence one from the s
         },
         xai = {
           api_key = os.getenv "XAI_API_KEY",
+        },
+        deepseek = {
+          api_key = os.getenv "DEEPSEEK_API_KEY",
         },
       },
     }
