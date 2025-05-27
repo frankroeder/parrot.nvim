@@ -337,14 +337,6 @@ function ChatHandler:Cmd(params)
     local sys_prompt = sys_placeholders:return_render()
     sys_prompt = sys_prompt or ""
 
-    if sys_prompt ~= "" then
-      local repo_instructions = futils.find_repo_instructions()
-      if repo_instructions ~= "" and sys_prompt ~= "" then
-        sys_prompt = sys_prompt .. "\n" .. repo_instructions
-      end
-      table.insert(messages, { role = "system", content = sys_prompt })
-    end
-
     local user_placeholders = Placeholders:new(template, command, "", "", "", "", "")
     local user_prompt = user_placeholders:return_render()
     table.insert(messages, { role = "user", content = user_prompt })
@@ -386,7 +378,14 @@ function ChatHandler:Cmd(params)
     )
   end
 
-  -- Get user input
+  if params.args then
+    local args = params.args or ""
+    if args:match("%S") then
+      callback(args)
+      return
+    end
+  end
+
   local input_function = self.options.user_input_ui == "buffer" and ui.input
     or self.options.user_input_ui == "native" and vim.ui.input
   if input_function then

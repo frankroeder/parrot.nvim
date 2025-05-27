@@ -222,7 +222,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
 | `PrtStatus`               | Prints current provider and model selection   |
 | `PrtThinking`             | Toggle or configure thinking mode for supported providers    |
-| `PrtCmd`             | Directly generate executable Neovim commands|
+| `PrtCmd <optional prompt>` | Directly generate executable Neovim commands (requires explicit Return to execute) |
 |  __Interactive__          | |
 | `PrtRewrite <optional prompt>` | Rewrites the visual selection based on a provided prompt (direct input, input dialog or from collection) |
 | `PrtEdit`                 | Like `PrtRewrite` but you can change the last prompt |
