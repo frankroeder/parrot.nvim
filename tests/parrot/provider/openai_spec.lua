@@ -4,14 +4,19 @@ local mock = require("luassert.mock")
 -- Mock the required modules
 local logger_mock = mock(require("parrot.logger"), true)
 
-local OpenAI = require("parrot.provider.openai")
+local Provider = require("parrot.provider.openai")
 
-describe("OpenAI", function()
-  local openai
+describe("Provider", function()
+  local provider
 
   before_each(function()
-    openai = OpenAI:new("https://api.openai.com/v1/chat/completions", "test_api_key")
-    assert.are.same(openai.name, "openai")
+    provider = Provider:new({
+      name = "openai",
+      endpoint = "https://api.openai.com/v1/chat/completions",
+      api_key = "test_api_key",
+      model = "gpt-4o"
+    })
+    assert.are.same(provider.name, "openai")
     -- Reset mocks
     logger_mock.error:clear()
     logger_mock.debug:clear()
@@ -28,17 +33,17 @@ describe("OpenAI", function()
         },
       })
 
-      openai:process_onexit(input)
+      provider:process_onexit(input)
 
       assert.spy(logger_mock.error).was_called_with(
-        "OpenAI - code: invalid_api_key message: Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys. type: invalid_request_error"
+        "Provider error: Incorrect API key provided: sk-nkA3C********************************************sdas. You can find your API key at https://platform.openai.com/account/api-keys."
       )
     end)
 
     it("should handle invalid JSON gracefully", function()
       local input = "invalid json"
 
-      openai:process_onexit(input)
+      provider:process_onexit(input)
 
       assert.spy(logger_mock.error).was_not_called()
     end)
@@ -46,27 +51,33 @@ describe("OpenAI", function()
 
   describe("process_stdout", function()
     it("should extract content from a valid chat.completion.chunk response", function()
-      local input =
-        '{"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" Assistant"},"logprobs":null,"finish_reason":null}]}'
+      local input = 'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" Assistant"},"logprobs":null,"finish_reason":null}]}'
 
-      local result = openai:process_stdout(input)
+      local result = provider:process_stdout(input)
 
       assert.equals(" Assistant", result)
     end)
 
     it("should handle responses without content", function()
-      local input =
-        '{"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}'
+      local input = 'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}'
 
-      local result = openai:process_stdout(input)
+      local result = provider:process_stdout(input)
 
       assert.equals("", result)
     end)
 
     it("should return nil for non-matching responses", function()
-      local input = '{"type":"other_response"}'
+      local input = 'data: {"type":"other_response"}'
 
-      local result = openai:process_stdout(input)
+      local result = provider:process_stdout(input)
+
+      assert.is_nil(result)
+    end)
+
+    it("should return nil for [DONE] message", function()
+      local input = 'data: [DONE]'
+
+      local result = provider:process_stdout(input)
 
       assert.is_nil(result)
     end)
@@ -76,14 +87,14 @@ describe("OpenAI", function()
     it("should trim whitespace from message content", function()
       local payload = {
         messages = {
-          { role = "user", content = "  Hello, OpenAI!  " },
+          { role = "user", content = "  Hello, AI!  " },
           { role = "assistant", content = " How can I help?  " },
         },
       }
 
-      local result = openai:preprocess_payload(payload)
+      local result = provider:preprocess_payload(payload)
 
-      assert.equals("Hello, OpenAI!", result.messages[1].content)
+      assert.equals("Hello, AI!", result.messages[1].content)
       assert.equals("How can I help?", result.messages[2].content)
     end)
 
@@ -122,19 +133,19 @@ describe("OpenAI", function()
         top_p = 1,
       }
 
-      local result = openai:preprocess_payload(input)
+      local result = provider:preprocess_payload(input)
       assert.are.same(result, expected)
     end)
   end)
 
   describe("verify", function()
     it("should return true for a valid API key", function()
-      assert.is_true(openai:verify())
+      assert.is_true(provider:verify())
     end)
 
     it("should return false and log an error for an invalid API key", function()
-      openai.api_key = ""
-      assert.is_false(openai:verify())
+      provider.api_key = ""
+      assert.is_false(provider:verify())
       assert.spy(logger_mock.error).was_called()
     end)
   end)
@@ -147,9 +158,14 @@ describe("OpenAI", function()
         "o1",
         "gpt-4",
       }
-      openai = OpenAI:new("https://api.openai.com/v1/chat/completions", "test_api_key", my_models)
-      assert.are.same(openai.models, my_models)
-      assert.are.same(openai:get_available_models(false), my_models)
+      provider = Provider:new({
+        name = "openai",
+        endpoint = "https://api.openai.com/v1/chat/completions",
+        api_key = "test_api_key",
+        model = my_models
+      })
+      assert.are.same(provider.models, my_models)
+      assert.are.same(provider:get_available_models(false), my_models)
     end)
   end)
 
@@ -161,10 +177,61 @@ describe("OpenAI", function()
         "agi-v1",
         "agi-system-2",
       }
-      openai = OpenAI:new("https://api.openai.com/v1/chat/completions", "test_api_key", custom_models, custom_name)
-      assert.are.same(openai.models, custom_models)
-      assert.are.same(openai:get_available_models(false), custom_models)
-      assert.are.same(openai.name, custom_name)
+      provider = Provider:new({
+        name = custom_name,
+        endpoint = "https://api.example.com/v1/chat/completions",
+        api_key = "test_api_key",
+        model = custom_models
+      })
+      assert.are.same(provider.models, custom_models)
+      assert.are.same(provider:get_available_models(false), custom_models)
+      assert.are.same(provider.name, custom_name)
+    end)
+  end)
+
+  describe("custom functions", function()
+    it("should use custom headers function", function()
+      local custom_provider = Provider:new({
+        name = "custom",
+        endpoint = "https://api.custom.com/v1/chat/completions",
+        api_key = "test_key",
+        headers = function(api_key)
+          return {
+            ["Content-Type"] = "application/json",
+            ["X-API-Key"] = api_key,
+            ["X-Custom"] = "custom-value",
+          }
+        end
+      })
+
+      local curl_params = custom_provider:curl_params()
+      local found_custom_header = false
+      for i, param in ipairs(curl_params) do
+        if param == "X-Custom: custom-value" then
+          found_custom_header = true
+          break
+        end
+      end
+      assert.is_true(found_custom_header)
+    end)
+
+    it("should use custom process_stdout function", function()
+      local custom_provider = Provider:new({
+        name = "custom",
+        endpoint = "https://api.custom.com/v1/chat/completions",
+        api_key = "test_key",
+        process_stdout = function(response)
+          if response:match("custom_content") then
+            local decoded = vim.json.decode(response)
+            return decoded.custom_content
+          end
+          return nil
+        end
+      })
+
+      local response = '{"custom_content": "Hello from custom provider"}'
+      local result = custom_provider:process_stdout(response)
+      assert.equals("Hello from custom provider", result)
     end)
   end)
 end)
