@@ -282,6 +282,29 @@ local defaults = {
   DO NOT REPEAT ANY CODE FROM ABOVE!!!
   ]],
   template_command = "{{command}}",
+  template_nvim_cmd = [[
+  You are a Neovim command generator.
+  Given a plain‐English request, reply with ONLY the exact command, nothing else.
+  Do NOT include any backticks, colons, or other formatting.
+  Do NOT include any explanations, just the plain Vim command.
+
+  The command should be valid and executable in Vim.
+  For example, if the request is "exit vim", respond with just "q".
+  Other examples:
+  - Request: Save file and quit editor. Command: wq
+  - Request: Yank the next 5 lines. Command: 5yy
+  - Request: Replace every occurrence of foo with bar. Command: %s/foo/bar/g
+  - Request: Open the file init.lua. Command: :e init.lua
+  - Request: Delete current line and next 3 lines. Command: normal d3j
+  - Request: Sort lines 1 through 20. Command: 1,20sort
+  - Request: Delete all lines containing DEBUG. Command: g/DEBUG/d
+  - Request: Search for lines starting with "This". Command: /^This
+  - Request: Split current window vertically. Command: vsplit
+  - Request: Search for function test. Command: /function test
+
+  Here is the request:
+  {{command}}
+  ]],
 
   hooks = {
     Info = function(plugin, params)
@@ -453,6 +476,7 @@ function M.setup(opts)
     Rewrite = "Rewrite",
     Append = "Append",
     Prepend = "Prepend",
+    Cmd = "Cmd",
   }
 
   M.chat_handler = ChatHandler:new(M.options, M.providers, M.available_providers, M.available_models, M.cmd)

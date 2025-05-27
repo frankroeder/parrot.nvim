@@ -321,6 +321,86 @@ function ChatHandler:addCommand(command, cmd)
   end
 end
 
+-- Command to output a Neovim command to the commandline
+function ChatHandler:Cmd(params)
+  local model_obj = self:get_model("command")
+  local template = self.options.template_nvim_cmd
+
+  local callback = function(command)
+    if not command or command == "" then
+      return
+    end
+
+    -- Prepare messages
+    local messages = {}
+    local sys_placeholders = Placeholders:new(model_obj.system_prompt, command, "", "", "", nil, nil)
+    local sys_prompt = sys_placeholders:return_render()
+    sys_prompt = sys_prompt or ""
+
+    if sys_prompt ~= "" then
+      local repo_instructions = futils.find_repo_instructions()
+      if repo_instructions ~= "" and sys_prompt ~= "" then
+        sys_prompt = sys_prompt .. "\n" .. repo_instructions
+      end
+      table.insert(messages, { role = "system", content = sys_prompt })
+    end
+
+    local user_placeholders = Placeholders:new(template, command, "", "", "", "", "")
+    local user_prompt = user_placeholders:return_render()
+    table.insert(messages, { role = "user", content = user_prompt })
+
+    -- Call the model
+    local spinner = nil
+    if self.options.enable_spinner then
+      spinner = Spinner:new(self.options.spinner_type)
+      spinner:start("calling API...")
+    end
+
+    local prov = model_obj.provider
+    prov:set_model(model_obj.name)
+    local full_response = ""
+    self:query(
+      nil,
+      prov,
+      utils.prepare_payload(messages, model_obj.name, self.providers[prov.name].params["command"]),
+      function(qid, chunk)
+        if chunk then
+          full_response = full_response .. chunk
+        end
+      end,
+      vim.schedule_wrap(function(qid)
+        if self.options.enable_spinner and spinner then
+          spinner:stop()
+        end
+        -- Clean the full response at the end
+        local clean_response = full_response
+          :gsub("```", "") -- Remove backticks
+          :gsub("^:*", "") -- Remove leading colons
+          :gsub(":*$", "") -- Remove trailing colons
+          :gsub("\n", " ") -- Replace newlines with spaces
+          :gsub("%s+", " ") -- Collapse multiple spaces
+        -- Feed the cleaned response to the command line
+        vim.api.nvim_feedkeys(":" .. clean_response, "n", true)
+        vim.cmd("doautocmd User PrtDone")
+      end)
+    )
+  end
+
+  -- Get user input
+  local input_function = self.options.user_input_ui == "buffer" and ui.input
+    or self.options.user_input_ui == "native" and vim.ui.input
+  if input_function then
+    input_function({ prompt = "🤖 Command ~ " }, function(input)
+      if not input or input == "" or input:match("^%s*$") then
+        return
+      end
+      callback(input)
+    end)
+  else
+    logger.error("Invalid user input ui option: " .. self.options.user_input_ui)
+  end
+end
+
 --- Stops all ongoing processes by killing associated jobs.
 ---@param signal number | nil Signal to send to the processes.
 function ChatHandler:stop(signal)

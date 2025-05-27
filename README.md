@@ -222,6 +222,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
 | `PrtStatus`               | Prints current provider and model selection   |
 | `PrtThinking`             | Toggle or configure thinking mode for supported providers    |
+| `PrtCmd`             | Directly generate executable Neovim commands|
 |  __Interactive__          | |
 | `PrtRewrite <optional prompt>` | Rewrites the visual selection based on a provided prompt (direct input, input dialog or from collection) |
 | `PrtEdit`                 | Like `PrtRewrite` but you can change the last prompt |
@@ -701,6 +702,7 @@ ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
 
 - [parrot.nvim](https://github.com/frankroeder/parrot.nvim) is a fork of an earlier version of [robitx/gp.nvim](https://github.com/Robitx/gp.nvim), branching off the commit `607f94d361f36b8eabb148d95993604fdd74d901` in January 2024. Since then, a significant portion of the original code has been removed or rewritten, and this effort will continue until `parrot.nvim` evolves into its own independent version. The original `MIT` license has been retained and will be maintained.
 - [huynle/ogpt.nvim](https://github.com/huynle/ogpt.nvim)
+- The idea for `PrtCmd` was inspired by [exit.nvim](https://github.com/3v0k4/exit.nvim).
 
 ## Star History
 
