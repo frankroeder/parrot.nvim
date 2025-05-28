@@ -14,7 +14,7 @@ describe("Provider", function()
       name = "openai",
       endpoint = "https://api.openai.com/v1/chat/completions",
       api_key = "test_api_key",
-      model = "gpt-4o"
+      model = "gpt-4o",
     })
     assert.are.same(provider.name, "openai")
     -- Reset mocks
@@ -51,7 +51,8 @@ describe("Provider", function()
 
   describe("process_stdout", function()
     it("should extract content from a valid chat.completion.chunk response", function()
-      local input = 'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" Assistant"},"logprobs":null,"finish_reason":null}]}'
+      local input =
+        'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" Assistant"},"logprobs":null,"finish_reason":null}]}'
 
       local result = provider:process_stdout(input)
 
@@ -59,7 +60,8 @@ describe("Provider", function()
     end)
 
     it("should handle responses without content", function()
-      local input = 'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}'
+      local input =
+        'data: {"id":"chatcmpl-9le9RfPtnfSdO84duGZ42emCzH41s","object":"chat.completion.chunk","created":1721142785,"model":"gpt-3.5-turbo-0125","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}'
 
       local result = provider:process_stdout(input)
 
@@ -75,7 +77,7 @@ describe("Provider", function()
     end)
 
     it("should return nil for [DONE] message", function()
-      local input = 'data: [DONE]'
+      local input = "data: [DONE]"
 
       local result = provider:process_stdout(input)
 
@@ -162,7 +164,7 @@ describe("Provider", function()
         name = "openai",
         endpoint = "https://api.openai.com/v1/chat/completions",
         api_key = "test_api_key",
-        model = my_models
+        model = my_models,
       })
       assert.are.same(provider.models, my_models)
       assert.are.same(provider:get_available_models(false), my_models)
@@ -181,7 +183,7 @@ describe("Provider", function()
         name = custom_name,
         endpoint = "https://api.example.com/v1/chat/completions",
         api_key = "test_api_key",
-        model = custom_models
+        model = custom_models,
       })
       assert.are.same(provider.models, custom_models)
       assert.are.same(provider:get_available_models(false), custom_models)
@@ -201,7 +203,7 @@ describe("Provider", function()
             ["X-API-Key"] = api_key,
             ["X-Custom"] = "custom-value",
           }
-        end
+        end,
       })
 
       local curl_params = custom_provider:curl_params()
@@ -226,7 +228,7 @@ describe("Provider", function()
             return decoded.custom_content
           end
           return nil
-        end
+        end,
       })
 
       local response = '{"custom_content": "Hello from custom provider"}'
