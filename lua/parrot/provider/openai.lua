@@ -267,7 +267,7 @@ end
 -- Returns the list of available models
 ---@return string[]
 function Provider:get_available_models()
-  if self.model_endpoint and self:verify() then
+  if self.model_endpoint ~= "" and self:verify() then
     local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
     local args = type(self.model_endpoint) == "function" and self.model_endpoint(self) or { self.model_endpoint }
     for k, v in pairs(hdrs) do
