@@ -73,16 +73,6 @@ function ChatHandler:set_provider(selected_prov, is_chat)
   self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
 
-  -- Apply saved thinking config from state (if any)
-  local mode = is_chat and "chat" or "command"
-  local thinking_config = self.state:get_thinking(selected_prov, mode)
-  if thinking_config then
-    if not self.providers[selected_prov].params[mode].thinking then
-      self.providers[selected_prov].params[mode].thinking = {}
-    end
-    self.providers[selected_prov].params[mode].thinking = thinking_config
-  end
-
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
 end
@@ -97,16 +87,6 @@ function ChatHandler:get_provider(is_chat)
     end
     self:set_provider(prov, is_chat)
     current_prov = self.current_provider[is_chat and "chat" or "command"]
-
-    -- Apply saved thinking config from state (if any)
-    local mode = is_chat and "chat" or "command"
-    local thinking_config = self.state:get_thinking(prov, mode)
-    if thinking_config then
-      if not self.providers[prov].params[mode].thinking then
-        self.providers[prov].params[mode].thinking = {}
-      end
-      self.providers[prov].params[mode].thinking = thinking_config
-    end
   end
   return current_prov
 end
@@ -1686,30 +1666,6 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       logger.error("Invalid user input ui option: " .. self.options.user_input_ui)
     end
   end)
-end
-
---- Sends a query to the provider's API.
----@param buf number | nil Buffer number.
----@param provider table Provider information.
----@param payload table Payload for the API.
----@param handler function Response handler function.
----@param on_exit function | nil Optional on_exit handler.
---- Toggle or configure thinking functionality for providers that support it
----@param params table Parameters for thinking configuration
-function ChatHandler:thinking(params)
-  local buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(buf)
-  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
-  local provider = self:get_provider(is_chat)
-
-  -- Delegate to provider-specific thinking configuration if available
-  if provider.configure_thinking then
-    provider:configure_thinking(params, is_chat, self.providers, self.state)
-    return
-  end
-
-  -- If the provider doesn't have a configure_thinking method, warn and return
-  logger.warning("Thinking is not supported by the " .. provider.name .. " provider")
 end
 
 function ChatHandler:query(buf, provider, payload, handler, on_exit)

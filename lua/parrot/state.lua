@@ -21,7 +21,6 @@ function State:init_file_state(available_providers)
       self.file_state[prov] = {
         chat_model = nil,
         command_model = nil,
-        thinking = nil,
       }
     end
   end
@@ -38,11 +37,9 @@ function State:init_state(available_providers, available_models)
       or {
         chat_model = nil,
         command_model = nil,
-        thinking = nil,
       }
     self:load_models(provider, "chat_model", available_models)
     self:load_models(provider, "command_model", available_models)
-    self:load_thinking(provider)
   end
 end
 
@@ -60,14 +57,6 @@ function State:load_models(provider, model_type, available_models)
     else
       self._state[provider][model_type] = available_models[provider][1]
     end
-  end
-end
-
---- Loads thinking configuration for the specified provider.
---- @param provider string # Name of the provider.
-function State:load_thinking(provider)
-  if self.file_state and self.file_state[provider] and self.file_state[provider].thinking then
-    self._state[provider].thinking = vim.deepcopy(self.file_state[provider].thinking)
   end
 end
 
@@ -151,35 +140,6 @@ end
 --- @return string|nil
 function State:get_last_chat()
   return self._state.last_chat
-end
-
---- Sets thinking configuration for a specific provider and mode.
---- @param provider string # Provider name.
---- @param mode string # Mode type ('chat' or 'command').
---- @param thinking_config table|nil # Thinking configuration or nil to disable
-function State:set_thinking(provider, mode, thinking_config)
-  if not self._state[provider] then
-    return
-  end
-
-  if not self._state[provider].thinking then
-    self._state[provider].thinking = {}
-  end
-
-  self._state[provider].thinking[mode] = thinking_config
-  self:save()
-end
-
---- Gets thinking configuration for a specific provider and mode.
---- @param provider string # Provider name.
---- @param mode string # Mode type ('chat' or 'command').
---- @return table|nil # Thinking configuration or nil if not set
-function State:get_thinking(provider, mode)
-  if not self._state[provider] or not self._state[provider].thinking or not self._state[provider].thinking[mode] then
-    return nil
-  end
-
-  return self._state[provider].thinking[mode]
 end
 
 return State
