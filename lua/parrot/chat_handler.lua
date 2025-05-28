@@ -1774,8 +1774,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     json_payload = json_payload,
   }))
 
-  vim.print("FINAL CURL PARAMS", curl_params)
-  vim.print("FINAL PAYLOAD", json_payload)
 
   local job = Job:new({
     command = "curl",
@@ -1841,7 +1839,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       for _, line in ipairs(lines) do
         local raw_json = string.gsub(line, "^data:", "")
         local content = provider:process_stdout(raw_json)
-        if content then
+        if type(content) == "string" and #content > 0 then
           qt.response = qt.response .. content
           handler(qid, content)
         end

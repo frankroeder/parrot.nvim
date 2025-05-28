@@ -100,6 +100,8 @@ local defaults = {
       return decoded.choices[1].message.content
     elseif decoded.message and decoded.message.content then
       return decoded.message.content
+    elseif decoded.content and decoded.content[1] and decoded.content[1].text then
+      return decoded.content[1].text
     end
 
     return nil
