@@ -146,7 +146,7 @@ git clone --depth=1 https://github.com/frankroeder/parrot.nvim.git \
 
 ### Setup
 
-The minimal requirement is to at least set up one provider, hence one from the [provider configuration examples](#provider-configuration-examples).
+The minimal requirement is to at least set up one provider, such as the one provided below or one from the [provider configuration examples](#provider-configuration-examples).
 
 ```lua
 {
@@ -161,17 +161,14 @@ The minimal requirement is to at least set up one provider, hence one from the [
           name = "openai",
           api_key = os.getenv "OPENAI_API_KEY",
           endpoint = "https://api.openai.com/v1/chat/completions",
-          -- default parameters
           params = {
             chat = { temperature = 1.1, top_p = 1 },
             command = { temperature = 1.1, top_p = 1 },
           },
-          -- model and parameters to create chat headline
           topic = {
             model = "gpt-4.1-nano",
             params = { max_completion_tokens = 64 },
           },
-          -- model selection for `PrtModel`
           models ={
             "gpt-4o",
             "o4-mini",
@@ -244,32 +241,39 @@ to consider a visual selection within an API request.
     -- for your providers and configure them with custom functions.
     providers = {
       openai = {
-        api_key = os.getenv("OPENAI_API_KEY"),
+        name = "openai",
         endpoint = "https://api.openai.com/v1/chat/completions",
-        -- provide a small selection of models for `PrtProvider`
-        model = {
-          "gpt-4o",
-          "o4-mini"
+        -- endpoint to query the available models online
+        model_endpoint = "https://api.openai.com/v1/models",
+        api_key = os.getenv("OPENAI_API_KEY"),
+        -- OPTIONAL: Alternative methods to retrieve API key
+        -- Using GPG for decryption:
+        -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/my_api_key.txt.gpg" },
+        -- Using macOS Keychain:
+        -- api_key = { "/usr/bin/security", "find-generic-password", "-s my-api-key", "-w" },
+        --- default model parameters used for chat and interactive commands
+        params = {
+          chat = { temperature = 1.1, top_p = 1 },
+          command = { temperature = 1.1, top_p = 1 },
         },
-        topic_prompt = "Summarize the topic of our conversation above in three or four words. Respond only with those words.",
+        -- topic model parameters to summarize chats
         topic = {
           model = "gpt-4.1-nano",
           params = { max_completion_tokens = 64 },
         },
-        params = {
-          chat = { temperature = 1.1, top_p = 1 },
-          command = { temperature = 1.1, top_p = 1 },
+        --  a selection of models that parrot can remember across sessions
+        --  NOTE: This will be handled more intelligently in a future version
+        models = {
+          "gpt-4.1",
+          "o4-mini",
+          "gpt-4.1-mini",
+          "gpt-4.1-nano",
         },
       },
       -- Example with custom functions for non-OpenAI APIs
       my_custom_provider = {
         name = "my_custom_provider",
         api_key = os.getenv("MY_API_KEY"),
-        -- OPTIONAL: Alternative methods to retrieve API key
-        -- Using GPG for decryption:
-        -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/my_api_key.txt.gpg" },
-        -- Using macOS Keychain:
-        -- api_key = { "/usr/bin/security", "find-generic-password", "-s my-api-key", "-w" },
         endpoint = "https://api.example.com/v1/chat/completions",
         model = { "model-1", "model-2" },
         -- Custom headers function
@@ -433,7 +437,8 @@ providers = {
   anthropic = {
     name = "anthropic",
     endpoint = "https://api.anthropic.com/v1/messages",
-    api_key = os.getenv "ANTHROPIC_API_KEY",
+    model_endpoint = "https://api.anthropic.com/v1/models",
+    api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
     params = {
       chat = { max_tokens = 4096 },
       command = { max_tokens = 4096 },
@@ -442,81 +447,30 @@ providers = {
       model = "claude-3-5-haiku-latest",
       params = { max_tokens = 32 },
     },
-    models = {
-      "claude-sonnet-4-20250514",
-      "claude-opus-4-20250514",
-      "claude-3-7-sonnet-20250219",
-      "claude-3-5-sonnet-20241022",
-      "claude-3-5-haiku-20241022",
-      "claude-3-5-sonnet-20240620",
-      "claude-3-haiku-20240307",
-      "claude-3-opus-20240229",
-      "claude-3-sonnet-20240229",
-      "claude-2.1",
-      "claude-2.0",
-    },
-    headers = function(api_key)
+    headers = function(self)
       return {
         ["Content-Type"] = "application/json",
-        ["x-api-key"] = api_key,
+        ["x-api-key"] = self.api_key,
         ["anthropic-version"] = "2023-06-01",
       }
     end,
+    models = {
+      "claude-sonnet-4-20250514",
+      "claude-3-7-sonnet-20250219",
+      "claude-3-5-sonnet-20241022",
+      "claude-3-5-haiku-20241022",
+    },
     preprocess_payload = function(payload)
       for _, message in ipairs(payload.messages) do
         message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
       end
       if payload.messages[1] and payload.messages[1].role == "system" then
-        -- remove the first message that serves as the system prompt as Anthropic
+        -- remove the first message that serves as the system prompt as anthropic
         -- expects the system prompt to be part of the API call body and not the messages
         payload.system = payload.messages[1].content
         table.remove(payload.messages, 1)
       end
       return payload
-    end,
-    process_stdout  = function(response)
-      local success, decoded_line = pcall(vim.json.decode, response)
-      if not success then
-        return nil
-      end
-
-      if decoded_line.delta then
-        if decoded_line.delta.type == "text_delta" and decoded_line.delta.text then
-          return decoded_line.delta.text
-        end
-      end
-
-      return nil
-    end
-    get_available_models = function(self)
-      local ids = self.models
-      if self:verify() then
-        local job = Job:new {
-          command = "curl",
-          args = {
-            "https://api.anthropic.com/v1/models",
-            "-H",
-            "x-api-key: " .. self.api_key,
-            "-H",
-            "anthropic-version: 2023-06-01",
-          },
-          on_exit = function(job)
-            local parsed_response = require("parrot.utils").parse_raw_response(job:result())
-            self:process_onexit(parsed_response)
-            ids = {}
-            local success, decoded = pcall(vim.json.decode, parsed_response)
-            if success and decoded.data then
-              for _, item in ipairs(decoded.data) do
-                table.insert(ids, item.id)
-              end
-            end
-            return ids
-          end,
-        }
-        job:start()
-        job:wait()
-      end
-      return ids
     end,
   },
 }
@@ -530,7 +484,14 @@ providers = {
 providers = {
   gemini = {
     name = "gemini",
-    endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?alt=sse",
+    endpoint = function(self)
+      return "https://generativelanguage.googleapis.com/v1beta/models/"
+        .. self._model
+        .. ":streamGenerateContent?alt=sse"
+    end,
+    model_endpoint = function(self)
+      return { "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key }
+    end,
     api_key = os.getenv "GEMINI_API_KEY",
     params = {
       chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
@@ -540,102 +501,65 @@ providers = {
       model = "gemini-1.5-flash",
       params = { maxOutputTokens = 64 },
     },
-    headers = function(api_key)
+    headers = function(self)
       return {
         ["Content-Type"] = "application/json",
-        ["x-goog-api-key"] = api_key,
+        ["x-goog-api-key"] = self.api_key,
       }
     end,
     models = {
       "gemini-2.5-flash-preview-05-20",
-      "gemini-2.5-flash-preview-04-17",
       "gemini-2.5-pro-preview-05-06",
-      "chat-bison-001",
-      "text-bison-001",
       "gemini-1.5-pro-latest",
-      "gemini-1.5-pro-001",
-      "gemini-1.5-pro-002",
-      "gemini-1.5-pro",
       "gemini-1.5-flash-latest",
-      "gemini-1.5-flash-001",
-      "gemini-1.5-flash-001-tuning",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-002",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-flash-8b-001",
-      "gemini-1.5-flash-8b-latest",
-      "gemini-1.5-flash-8b-exp-0827",
-      "gemini-1.5-flash-8b-exp-0924",
       "gemini-2.5-pro-exp-03-25",
-      "gemini-2.0-flash-exp",
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-001",
-      "gemini-2.0-flash-lite-001",
       "gemini-2.0-flash-lite",
-      "gemini-2.0-flash-lite-preview-02-05",
-      "gemini-2.0-flash-lite-preview",
-      "gemini-2.0-pro-exp",
-      "gemini-2.0-pro-exp-02-05",
-      "gemini-exp-1206",
-      "gemini-2.0-flash-thinking-exp-01-21",
       "gemini-2.0-flash-thinking-exp",
-      "gemini-2.0-flash-thinking-exp-1219",
-      "learnlm-1.5-pro-experimental",
-      "learnlm-2.0-flash-experimental",
-      "gemma-3-1b-it",
-      "gemma-3-4b-it",
-      "gemma-3-12b-it",
       "gemma-3-27b-it",
     },
     preprocess_payload = function(payload)
-      local new_messages = {}
+      local contents = {}
+      local system_instruction = nil
       for _, message in ipairs(payload.messages) do
         if message.role == "system" then
-          payload.system_instruction = {
-            parts = {
-              text = (message.parts and message.parts.text or message.content):gsub(
-                "^%s*(.-)%s*$",
-                "%1"
-              ),
-            },
-          }
+          system_instruction = { parts = { { text = message.content } } }
         else
-          local _role = message.role == "assistant" and "model" or message.role
-          if message.content then
-            table.insert(new_messages, {
-              parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } },
-              role = _role,
-            })
-          end
+          local role = message.role == "assistant" and "model" or "user"
+          table.insert(
+            contents,
+            { role = role, parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } } }
+          )
         end
       end
-      payload.contents = vim.deepcopy(new_messages)
-      return payload
-    end,
-    get_available_models = function(self)
-      local ids = self.model
-      if self:verify() then
-        local job = Job:new {
-          command = "curl",
-          args = {
-            "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key,
-          },
-          on_exit = function(job)
-            local parsed_response = require("parrot.utils").parse_raw_response(job:result())
-            self:process_onexit(parsed_response)
-            ids = {}
-            local success, decoded = pcall(vim.json.decode, parsed_response)
-            if success and decoded.models then
-              for _, item in ipairs(decoded.models) do
-                table.insert(ids, string.sub(item.name, 8))
-              end
-            end
-          end,
-        }
-        job:start()
-        job:wait()
+      local gemini_payload = {
+        contents = contents,
+        generationConfig = {
+          temperature = payload.temperature,
+          topP = payload.topP or payload.top_p,
+          maxOutputTokens = payload.max_tokens or payload.maxOutputTokens,
+        },
+      }
+      if system_instruction then
+        gemini_payload.systemInstruction = system_instruction
       end
-      return ids
+      return gemini_payload
+    end,
+    process_stdout = function(response)
+      if not response or response == "" then
+        return nil
+      end
+      local success, decoded = pcall(vim.json.decode, response)
+      if
+        success
+        and decoded.candidates
+        and decoded.candidates[1]
+        and decoded.candidates[1].content
+        and decoded.candidates[1].content.parts
+        and decoded.candidates[1].content.parts[1]
+      then
+        return decoded.candidates[1].content.parts[1].text
+      end
+      return nil
     end,
   },
 }
@@ -650,6 +574,7 @@ providers = {
   xai = {
     name = "xai",
     endpoint = "https://api.x.ai/v1/chat/completions",
+    model_endpoint = "https://api.x.ai/v1/language-models",
     api_key = os.getenv "XAI_API_KEY",
     params = {
       chat = { temperature = 1.1, top_p = 1 },
@@ -661,40 +586,8 @@ providers = {
     },
     models = {
       "grok-3-beta",
-      "grok-3-fast-beta",
       "grok-3-mini-beta",
-      "grok-3-mini-fast-beta",
-      "grok-2-1212",
-      "grok-beta",
     },
-    get_available_models = function(self)
-      local ids = self.models
-      if self:verify() then
-        local job = Job:new {
-          command = "curl",
-          args = {
-            "https://api.x.ai/v1/language-models",
-            "-H",
-            "Authorization: Bearer " .. self.api_key,
-          },
-          on_exit = function(job)
-            local parsed_response = require("parrot.utils").parse_raw_response(job:result())
-            self:process_onexit(parsed_response)
-            ids = {}
-            local success, decoded = pcall(vim.json.decode, parsed_response)
-            if success and decoded.models then
-              for _, item in ipairs(decoded.models) do
-                table.insert(ids, item.id)
-              end
-            end
-            return ids
-          end,
-        }
-        job:start()
-        job:wait()
-      end
-      return ids
-    end,
   },
 }
 ```
