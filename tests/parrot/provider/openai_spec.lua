@@ -160,14 +160,14 @@ describe("Provider", function()
         "o1",
         "gpt-4",
       }
-      provider = Provider:new({
+      local test_provider = Provider:new({
         name = "openai",
         endpoint = "https://api.openai.com/v1/chat/completions",
         api_key = "test_api_key",
         model = my_models,
       })
-      assert.are.same(provider.models, my_models)
-      assert.are.same(provider:get_available_models(false), my_models)
+      assert.are.same(test_provider.models, my_models)
+      assert.are.same(test_provider:get_available_models(), my_models)
     end)
   end)
 
@@ -179,15 +179,15 @@ describe("Provider", function()
         "agi-v1",
         "agi-system-2",
       }
-      provider = Provider:new({
+      local test_provider = Provider:new({
         name = custom_name,
         endpoint = "https://api.example.com/v1/chat/completions",
         api_key = "test_api_key",
         model = custom_models,
       })
-      assert.are.same(provider.models, custom_models)
-      assert.are.same(provider:get_available_models(false), custom_models)
-      assert.are.same(provider.name, custom_name)
+      assert.are.same(test_provider.models, custom_models)
+      assert.are.same(test_provider:get_available_models(), custom_models)
+      assert.are.same(test_provider.name, custom_name)
     end)
   end)
 

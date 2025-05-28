@@ -154,7 +154,6 @@ local defaults = {
       on_exit = function(job)
         local parsed_response = utils.parse_raw_response(job:result())
         self:process_onexit(parsed_response)
-        ids = {}
         local success, decoded = pcall(vim.json.decode, parsed_response)
         if success and decoded.models then
           for _, item in ipairs(decoded.models) do
@@ -169,7 +168,6 @@ local defaults = {
             table.insert(ids, item.id)
           end
         end
-        return ids
       end,
     })
     job:start()
@@ -229,7 +227,8 @@ function Provider:curl_params()
 
   for k, v in pairs(hdrs) do
     table.insert(args, "-H")
-    table.insert(args, k .. ": " .. v)
+    local header_value = type(v) == "table" and table.concat(v, " ") or tostring(v)
+    table.insert(args, k .. ": " .. header_value)
   end
   return args
 end
