@@ -164,12 +164,9 @@ local defaults = {
         logger.error("Error verifying API key for provider " .. self.name .. ": failed to execute command")
         return false
       end
-    elseif api_key and api_key:match("%S") then
+    elseif type(api_key) == "string" and api_key:match("%S") then
       -- Trim surrounding whitespace from API key
-      if type(api_key) == "string" then
-        return api_key:gsub("^%s*(.-)%s*$", "%1")
-      end
-      return api_key
+      return api_key:gsub("^%s*(.-)%s*$", "%1")
     else
       logger.error("Error with API key for provider " .. self.name .. ": API key is nil, empty, or whitespace-only")
       return false
