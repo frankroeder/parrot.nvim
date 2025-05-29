@@ -147,17 +147,10 @@ local defaults = {
 
       local command = table.concat(api_key, " ")
       -- Use a timeout to prevent hanging on command execution
-      local handle = io.popen(command .. " 2>&1") -- Capture stderr as well
+      local handle = io.popen(command) -- Capture stderr as well
       if handle then
         local resolved_key = handle:read("*a")
-        local success, exit_type, exit_code = handle:close()
-
-        if not success or exit_code ~= 0 then
-          logger.error(
-            "Error executing API key command for provider " .. self.name .. ": exit code " .. (exit_code or "unknown")
-          )
-          return false
-        end
+        handle:close()
 
         -- Clean up the resolved key
         resolved_key = resolved_key:gsub("%s+$", ""):gsub("^%s+", "")
