@@ -1,5 +1,7 @@
 local ChatHandler = require("parrot.chat_handler")
 local init_provider = require("parrot.provider").init_provider
+local utils = require("parrot.utils")
+local Spinner = require("parrot.spinner")
 
 local M = {
   ui = require("parrot.ui"),
@@ -56,6 +58,7 @@ local defaults = {
   style_popup_max_width = 160,
   command_prompt_prefix_template = "🤖 {{llm}} ~ ",
   command_auto_select_response = true,
+  model_cache_expiry_hours = 48,
   fzf_lua_opts = {
     ["--ansi"] = true,
     ["--sort"] = "",
@@ -282,7 +285,16 @@ function M.setup(opts)
 
   M.available_providers = vim.tbl_keys(M.providers)
 
+  -- Initialize state early to enable caching
+  local State = require("parrot.state")
+  local temp_state = State:new(M.options.state_dir)
+
+  -- Clean up cache for removed providers
+  temp_state:cleanup_cache(M.available_providers)
+
   local available_models = {}
+
+  -- Check each provider individually and fetch models
   for _, prov_name in ipairs(M.available_providers) do
     -- Create the new provider config format
     local provider_config = vim.tbl_deep_extend("force", {
@@ -290,9 +302,30 @@ function M.setup(opts)
     }, M.providers[prov_name])
     local _prov = init_provider(provider_config)
 
-    -- do not make an API call on startup
-    available_models[prov_name] = _prov.models -- or _prov:get_available_models()
+    -- Use cached model fetching if provider has model_endpoint
+    if _prov:online_model_fetching() then
+      -- Check cache validity for this specific provider
+      local endpoint_hash = utils.generate_endpoint_hash(_prov)
+      local needs_update = not temp_state:is_cache_valid(prov_name, M.options.model_cache_expiry_hours, endpoint_hash)
+
+      -- Show spinner only for this provider if needed
+      local spinner = nil
+      if needs_update and M.options.enable_spinner then
+        spinner = Spinner:new(M.options.spinner_type)
+        vim.notify("Updating model cache for " .. prov_name .. "...", vim.log.levels.INFO)
+      end
+
+      available_models[prov_name] =
+        _prov:get_available_models_cached(temp_state, M.options.model_cache_expiry_hours, spinner)
+    else
+      -- Fall back to static models for providers without model_endpoint
+      available_models[prov_name] = _prov.models
+    end
   end
+
+  -- Now refresh the state with all available models
+  temp_state:refresh(M.available_providers, available_models)
+
   M.available_models = available_models
 
   table.sort(M.available_providers)
@@ -382,7 +415,11 @@ M.add_default_commands = function(commands, hooks, options)
             return completions[cmd]
           end
           if cmd == "Model" then
-            return M.available_models[M.chat_handler.state:get_provider()]
+            local current_provider = M.chat_handler.state:get_provider(true) -- Use chat provider by default
+            if current_provider and M.available_models[current_provider] then
+              return M.available_models[current_provider]
+            end
+            return {}
           elseif cmd == "Provider" then
             return M.available_providers
           end
