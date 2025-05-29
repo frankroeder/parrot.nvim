@@ -67,23 +67,11 @@ end
 ---@param selected_prov string Selected provider name.
 ---@param is_chat boolean True for chat provider, false for command provider.
 function ChatHandler:set_provider(selected_prov, is_chat)
-  local endpoint = self.providers[selected_prov].endpoint
-  local api_key = self.providers[selected_prov].api_key
-  local style = self.providers[selected_prov].style
-  local models = self.providers[selected_prov].models
-  local _prov = init_provider(selected_prov, endpoint, api_key, style, models)
+  -- Ensure params table exists for this provider
+  local provider_config = self.providers[selected_prov]
+  local _prov = init_provider(provider_config)
   self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
-
-  -- Apply saved thinking config from state (if any)
-  local mode = is_chat and "chat" or "command"
-  local thinking_config = self.state:get_thinking(selected_prov, mode)
-  if thinking_config then
-    if not self.providers[selected_prov].params[mode].thinking then
-      self.providers[selected_prov].params[mode].thinking = {}
-    end
-    self.providers[selected_prov].params[mode].thinking = thinking_config
-  end
 
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
@@ -99,16 +87,6 @@ function ChatHandler:get_provider(is_chat)
     end
     self:set_provider(prov, is_chat)
     current_prov = self.current_provider[is_chat and "chat" or "command"]
-
-    -- Apply saved thinking config from state (if any)
-    local mode = is_chat and "chat" or "command"
-    local thinking_config = self.state:get_thinking(prov, mode)
-    if thinking_config then
-      if not self.providers[prov].params[mode].thinking then
-        self.providers[prov].params[mode].thinking = {}
-      end
-      self.providers[prov].params[mode].thinking = thinking_config
-    end
   end
   return current_prov
 end
@@ -351,10 +329,13 @@ function ChatHandler:Cmd(params)
     local prov = model_obj.provider
     prov:set_model(model_obj.name)
     local full_response = ""
+    -- determine command params or fallback to {}
+    local prov_cfg = self.providers[prov.name] or {}
+    local cmd_params = (prov_cfg.params and prov_cfg.params.command) or {}
     self:query(
       nil,
       prov,
-      utils.prepare_payload(messages, model_obj.name, self.providers[prov.name].params["command"]),
+      utils.prepare_payload(messages, model_obj.name, cmd_params),
       function(qid, chunk)
         if chunk then
           full_response = full_response .. chunk
@@ -860,11 +841,13 @@ function ChatHandler:_chat_respond(params)
     message.content = self.has_completion and insert_contexts(message.content) or message.content
   end
 
-  -- call the model and write response
+  -- determine chat params or fallback to {}
+  local chat_cfg = self.providers[query_prov.name] or {}
+  local chat_params = (chat_cfg.params and chat_cfg.params.chat) or {}
   self:query(
     buf,
     query_prov,
-    utils.prepare_payload(messages, model_obj.name, self.providers[query_prov.name].params["chat"]),
+    utils.prepare_payload(messages, model_obj.name, chat_params),
     ResponseHandler
       :new(self.queries, buf, win, utils.last_content_line(buf), true, "", not self.options.chat_free_cursor)
       :create_handler(),
@@ -896,73 +879,65 @@ function ChatHandler:_chat_respond(params)
       utils.undojoin(buf)
       vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
 
-      -- if topic is ?, then generate it
+      -- if topic is "?" and provider has a topic config, then generate it
       if headers.topic == "?" then
-        -- insert last model response
-        table.insert(messages, { role = "assistant", content = qt.response })
-
         local topic_prov = model_obj.provider
-
-        -- ask model to generate topic/title for the chat
-        local topic_prompt = self.providers[topic_prov.name].topic_prompt
-        if topic_prompt ~= "" then
+        local cfg = self.providers[topic_prov.name] or {}
+        if cfg.topic and cfg.topic.model then
+          -- insert last model response and prepare new topic request
+          table.insert(messages, { role = "assistant", content = qt.response })
+          local topic_prompt = self.options.topic_prompt or cfg.topic_prompt or ""
+          if topic_prompt == "" then
+            logger.warning("No global or provider topic_prompt set for " .. topic_prov.name)
+          end
           table.insert(messages, { role = "user", content = topic_prompt })
+
+          -- prepare invisible buffer for the model to write to
+          local topic_buf = vim.api.nvim_create_buf(false, true)
+          local topic_resp_handler = ResponseHandler:new(self.queries, topic_buf, nil, 0, false, "", false)
+          local topic_handler = topic_resp_handler:create_handler()
+          topic_prov:set_model(cfg.topic.model)
+
+          local topic_spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
+          if topic_spinner then
+            topic_spinner:start("summarizing...")
+          end
+          local topic_payload = utils.prepare_payload(messages, cfg.topic.model, cfg.topic.params or {})
+          logger.debug(vim.inspect({
+            location = "ChatHandler:query",
+            messages = messages,
+            topic_prov = topic_prov,
+            payload = topic_payload,
+          }))
+          self:query(
+            nil,
+            topic_prov,
+            topic_payload,
+            topic_handler,
+            vim.schedule_wrap(function()
+              if self.options.enable_spinner and topic_spinner then
+                topic_spinner:stop()
+              end
+              -- get topic from invisible buffer
+              local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
+              -- close invisible buffer
+              vim.api.nvim_buf_delete(topic_buf, { force = true })
+              -- strip whitespace from ends of topic
+              topic = topic:gsub("^%s*(.-)%s*$", "%1")
+              -- strip dot from end of topic
+              topic = topic:gsub("%.$", "")
+
+              -- if topic is empty do not replace it
+              if topic == "" then
+                return
+              end
+
+              -- replace topic in current buffer
+              utils.undojoin(buf)
+              vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
+            end)
+          )
         end
-
-        -- prepare invisible buffer for the model to write to
-        local topic_buf = vim.api.nvim_create_buf(false, true)
-        local topic_resp_handler = ResponseHandler:new(self.queries, topic_buf, nil, 0, false, "", false)
-        local topic_handler = topic_resp_handler:create_handler()
-        topic_prov:set_model(self.providers[topic_prov.name].topic.model)
-
-        local topic_spinner = nil
-        if self.options.enable_spinner then
-          topic_spinner = Spinner:new(self.options.spinner_type)
-          topic_spinner:start("summarizing...")
-        end
-        logger.debug(vim.inspect({
-          location = "ChatHandler:query",
-          messages = messages,
-          topic_prov = topic_prov,
-          payload = utils.prepare_payload(
-            messages,
-            self.providers[topic_prov.name].topic.model,
-            self.providers[topic_prov.name].topic.params
-          ),
-        }))
-        -- call the model
-        self:query(
-          nil,
-          topic_prov,
-          utils.prepare_payload(
-            messages,
-            self.providers[topic_prov.name].topic.model,
-            self.providers[topic_prov.name].topic.params
-          ),
-          topic_handler,
-          vim.schedule_wrap(function()
-            if self.options.enable_spinner and topic_spinner then
-              topic_spinner:stop()
-            end
-            -- get topic from invisible buffer
-            local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
-            -- close invisible buffer
-            vim.api.nvim_buf_delete(topic_buf, { force = true })
-            -- strip whitespace from ends of topic
-            topic = topic:gsub("^%s*(.-)%s*$", "%1")
-            -- strip dot from end of topic
-            topic = topic:gsub("%.$", "")
-
-            -- if topic is empty do not replace it
-            if topic == "" then
-              return
-            end
-
-            -- replace topic in current buffer
-            utils.undojoin(buf)
-            vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "# topic: " .. topic })
-          end)
-        )
       end
 
       if not self.options.chat_free_cursor then
@@ -1200,12 +1175,11 @@ function ChatHandler:model(params)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   local has_telescope, telescope = pcall(require, "telescope")
-  local fetch_online = self.options.online_model_selection
 
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
   elseif has_fzf then
-    fzf_lua.fzf_exec(prov:get_available_models(fetch_online), {
+    fzf_lua.fzf_exec(prov:get_available_models(), {
       prompt = "Model selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       actions = {
@@ -1229,7 +1203,7 @@ function ChatHandler:model(params)
       .new({}, {
         prompt_title = "Model selection",
         finder = finders.new_table({
-          results = prov:get_available_models(fetch_online),
+          results = prov:get_available_models(),
         }),
         sorter = sorters.values.generic_sorter({}),
         attach_mappings = function(_, map)
@@ -1251,7 +1225,7 @@ function ChatHandler:model(params)
       })
       :find()
   else
-    vim.ui.select(prov:get_available_models(fetch_online), {
+    vim.ui.select(prov:get_available_models(), {
       prompt = "Select your model:",
     }, function(selected_model)
       self:switch_model(is_chat, selected_model, prov)
@@ -1641,10 +1615,13 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       message.content = self.has_completion and insert_contexts(message.content) or message.content
     end
 
+    -- determine command params or fallback to {}
+    local prov_cfg = self.providers[prov.name] or {}
+    local cmd_params = (prov_cfg.params and prov_cfg.params.command) or {}
     self:query(
-      buf,
+      nil,
       prov,
-      utils.prepare_payload(messages, model_obj.name, self.providers[prov.name].params["command"]),
+      utils.prepare_payload(messages, model_obj.name, cmd_params),
       handler,
       vim.schedule_wrap(function(qid)
         if self.options.enable_spinner and spinner then
@@ -1691,30 +1668,6 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   end)
 end
 
---- Sends a query to the provider's API.
----@param buf number | nil Buffer number.
----@param provider table Provider information.
----@param payload table Payload for the API.
----@param handler function Response handler function.
----@param on_exit function | nil Optional on_exit handler.
---- Toggle or configure thinking functionality for providers that support it
----@param params table Parameters for thinking configuration
-function ChatHandler:thinking(params)
-  local buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(buf)
-  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
-  local provider = self:get_provider(is_chat)
-
-  -- Delegate to provider-specific thinking configuration if available
-  if provider.configure_thinking then
-    provider:configure_thinking(params, is_chat, self.providers, self.state)
-    return
-  end
-
-  -- If the provider doesn't have a configure_thinking method, warn and return
-  logger.warning("Thinking is not supported by the " .. provider.name .. " provider")
-end
-
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
@@ -1758,21 +1711,18 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   local args = {
     "--no-buffer",
     "--silent",
-    "-H",
-    "accept: application/json",
-    "-H",
-    "content-type: application/json",
     "-d",
     "@-",
   }
+
+  for _, parg in ipairs(provider:curl_params()) do
+    table.insert(curl_params, parg)
+  end
 
   for _, arg in ipairs(args) do
     table.insert(curl_params, arg)
   end
 
-  for _, parg in ipairs(provider:curl_params()) do
-    table.insert(curl_params, parg)
-  end
   local json_payload = vim.json.encode(payload)
   logger.debug(vim.inspect({
     msg = "Query json payload",
@@ -1844,7 +1794,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       for _, line in ipairs(lines) do
         local raw_json = string.gsub(line, "^data:", "")
         local content = provider:process_stdout(raw_json)
-        if content then
+        if type(content) == "string" and #content > 0 then
           qt.response = qt.response .. content
           handler(qid, content)
         end

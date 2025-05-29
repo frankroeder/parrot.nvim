@@ -1,4 +1,3 @@
-local utils = require("parrot.utils")
 local ChatHandler = require("parrot.chat_handler")
 local init_provider = require("parrot.provider").init_provider
 
@@ -28,170 +27,8 @@ responses should strictly pertain to the code provided. Please ensure
 that your reply is solely focused on the code snippet in question.
 ]]
 
-local topic_prompt = [[
-Summarize the topic of our conversation above
-in three or four words. Respond only with those words.
-]]
-
 local defaults = {
-  providers = {
-    pplx = {
-      api_key = "",
-      endpoint = "https://api.perplexity.ai/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "sonar",
-        params = { max_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    },
-    openai = {
-      api_key = "",
-      endpoint = "https://api.openai.com/v1/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "gpt-4.1-nano",
-        params = { max_completion_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    },
-    gemini = {
-      api_key = "",
-      endpoint = "https://generativelanguage.googleapis.com/v1beta/models/",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "gemini-1.5-flash",
-        params = { maxOutputTokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
-        command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
-      },
-    },
-    ollama = {
-      endpoint = "http://localhost:11434/api/chat",
-      topic_prompt = [[
-      Summarize the chat above and only provide a short headline of 2 to 3
-      words without any opening phrase like "Sure, here is the summary",
-      "Sure! Here's a shortheadline summarizing the chat" or anything similar.
-      ]],
-      topic = {
-        model = "llama3.2:latest",
-        params = { max_tokens = 32 },
-      },
-      params = {
-        chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-        command = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-      },
-    },
-    anthropic = {
-      api_key = "",
-      endpoint = "https://api.anthropic.com/v1/messages",
-      topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
-      topic = {
-        model = "claude-3-5-haiku-latest",
-        params = { max_tokens = 32 },
-      },
-      params = {
-        chat = { max_tokens = 4096 },
-        command = { max_tokens = 4096 },
-      },
-    },
-    mistral = {
-      api_key = "",
-      endpoint = "https://api.mistral.ai/v1/chat/completions",
-      topic_prompt = [[
-      Summarize the chat above and only provide a short headline of 3 to 4
-      words without any opening phrase like "Sure, here is the summary",
-      "Sure! Here's a shortheadline summarizing the chat" or anything similar.
-      ]],
-      topic = {
-        model = "mistral-small-latest",
-        params = { max_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.5, top_p = 1 },
-        command = { temperature = 1.5, top_p = 1 },
-      },
-    },
-    groq = {
-      api_key = "",
-      endpoint = "https://api.groq.com/openai/v1/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "llama-3.1-8b-instant",
-        params = {},
-      },
-      params = {
-        chat = { temperature = 1.5, top_p = 1 },
-        command = { temperature = 1.5, top_p = 1 },
-      },
-    },
-    github = {
-      api_key = "",
-      endpoint = "https://models.inference.ai.azure.com/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "gpt-4o-mini",
-        params = {},
-      },
-      params = {
-        chat = { temperature = 1.5, top_p = 1 },
-        command = { temperature = 1.5, top_p = 1 },
-      },
-    },
-    nvidia = {
-      api_key = "",
-      endpoint = "https://integrate.api.nvidia.com/v1/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "nvidia/llama-3.1-nemotron-51b-instruct",
-        params = { max_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    },
-    xai = {
-      api_key = "",
-      endpoint = "https://api.x.ai/v1/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "grok-3-mini-beta",
-        params = { max_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    },
-    deepseek = {
-      api_key = "",
-      endpoint = "https://api.deepseek.com/chat/completions",
-      topic_prompt = topic_prompt,
-      topic = {
-        model = "deepseek-chat",
-        params = { max_tokens = 64 },
-      },
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    },
-    custom = {
-      style = "openai",
-      api_key = "",
-      endpoint = "https://api.openai.com/v1/chat/completions",
-      topic_prompt = topic_prompt,
-    },
-  },
+  providers = {},
   cmd_prefix = "Prt",
   curl_params = {},
   system_prompt = {
@@ -203,7 +40,6 @@ local defaults = {
   chat_user_prefix = "🗨:",
   llm_prefix = "🦜:",
   chat_confirm_delete = true,
-  online_model_selection = false,
   chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
   chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
@@ -230,13 +66,17 @@ local defaults = {
   enable_spinner = true,
   spinner_type = "dots",
   show_context_hints = false,
-  show_thinking_window = true,
   chat_template = [[
   # topic: ?
   {{optional}}
   ---
 
   {{user}}]],
+
+  topic_prompt = [[
+  Summarize the topic of our conversation above
+  in three or four words. Respond only with those words.
+  ]],
   template_selection = [[
   I have the following content from {{filename}}:
 
@@ -410,13 +250,13 @@ function M.setup(opts)
 
   math.randomseed(os.time())
 
-  local valid_provider_names = vim.tbl_keys(defaults.providers)
-  if not utils.has_valid_key(opts.providers, valid_provider_names) then
-    return vim.notify("Invalid provider configuration", vim.log.levels.ERROR)
-  end
-
   M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
-  M.providers = M.merge_providers(defaults.providers, opts.providers)
+  M.providers = opts.providers -- M.merge_providers(defaults.providers, opts.providers)
+  -- Ensure each provider has params for chat and command, defaulting to OpenAI-style params or empty
+  -- local default_params = (defaults.providers.openai and defaults.providers.openai.params) or { chat = {}, command = {} }
+  -- for _, prov in pairs(M.providers) do
+  --   prov.params = vim.tbl_deep_extend("force", {}, default_params, prov.params or {})
+  -- end
   M.options.providers = nil
   M.hooks = M.options.hooks
   M.options.hooks = nil
@@ -444,15 +284,14 @@ function M.setup(opts)
 
   local available_models = {}
   for _, prov_name in ipairs(M.available_providers) do
-    local _prov = init_provider(
-      prov_name,
-      M.providers[prov_name].endpoint,
-      M.providers[prov_name].api_key,
-      M.providers[prov_name].style or nil,
-      M.providers[prov_name].models or nil
-    )
+    -- Create the new provider config format
+    local provider_config = vim.tbl_deep_extend("force", {
+      name = prov_name,
+    }, M.providers[prov_name])
+    local _prov = init_provider(provider_config)
+
     -- do not make an API call on startup
-    available_models[prov_name] = _prov:get_available_models(false)
+    available_models[prov_name] = _prov.models -- or _prov:get_available_models()
   end
   M.available_models = available_models
 
@@ -472,7 +311,6 @@ function M.setup(opts)
     Provider = "provider",
     Retry = "retry",
     Edit = "edit",
-    Thinking = "thinking",
     Rewrite = "Rewrite",
     Append = "Append",
     Prepend = "Prepend",
@@ -529,7 +367,6 @@ M.add_default_commands = function(commands, hooks, options)
     Rewrite = M.get_prompt_keys(options),
     Append = M.get_prompt_keys(options),
     Prepend = M.get_prompt_keys(options),
-    Thinking = { "status" },
   }
   -- register default commands
   for cmd, cmd_func in pairs(commands) do

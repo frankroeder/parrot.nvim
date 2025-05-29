@@ -2,6 +2,10 @@
 
 # parrot.nvim 🦜
 
+> [!ATTENTION]
+> For best stability, I recommend using version 1.8.0 or earlier.
+> Future releases may include new features and enhancements that could affect your experience.
+
 This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate [stochastic parrot](https://en.wikipedia.org/wiki/Stochastic_parrot) to support your text editing inside Neovim.
 
 [Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
@@ -17,18 +21,13 @@ While this project is still under development, a substantial part of the code is
 
 - Persistent conversations stored as markdown files within Neovim's standard path or a user-defined location
 - Custom hooks for inline text editing based on user instructions and chats with predefined system prompts
-- Support for multiple providers:
-    + [Anthropic API](https://www.anthropic.com/api)
-    + [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api)
+- Unified provider system supporting any OpenAI-compatible API:
     + [OpenAI API](https://platform.openai.com/)
-    + [Mistral API](https://docs.mistral.ai/api/)
-    + [Gemini API](https://ai.google.dev/gemini-api/docs)
-    + [Groq API](https://console.groq.com)
-    + Local and offline serving via [ollama](https://github.com/ollama/ollama)
-    + [GitHub Models](https://github.com/marketplace/models)
-    + [NVIDIA API](https://docs.api.nvidia.com)
+    + [Anthropic API](https://www.anthropic.com/api)
+    + [Google Gemini API](https://ai.google.dev/gemini-api/docs)
     + [xAI API](https://console.x.ai)
-    + [DeepSeek API](https://platform.deepseek.com)
+    + Local and offline serving via [ollama](https://github.com/ollama/ollama)
+    + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), and [NVIDIA API](https://docs.api.nvidia.com)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -151,7 +150,7 @@ git clone --depth=1 https://github.com/frankroeder/parrot.nvim.git \
 
 ### Setup
 
-The minimal requirement is to at least set up one provider, hence one from the selection below.
+The minimal requirement is to at least set up one provider, such as the one provided below or one from the [provider configuration examples](#provider-configuration-examples).
 
 ```lua
 {
@@ -160,39 +159,25 @@ The minimal requirement is to at least set up one provider, hence one from the s
   -- optionally include "folke/noice.nvim" or "rcarriga/nvim-notify" for beautiful notifications
   config = function()
     require("parrot").setup {
-      -- Providers must be explicitly added to make them available.
+      -- Providers must be explicitly set up to make them available.
       providers = {
-        anthropic = {
-          api_key = os.getenv "ANTHROPIC_API_KEY",
-        },
-        gemini = {
-          api_key = os.getenv "GEMINI_API_KEY",
-        },
-        groq = {
-          api_key = os.getenv "GROQ_API_KEY",
-        },
-        mistral = {
-          api_key = os.getenv "MISTRAL_API_KEY",
-        },
-        pplx = {
-          api_key = os.getenv "PERPLEXITY_API_KEY",
-        },
-        -- provide an empty list to make provider available (no API key required)
-        ollama = {},
         openai = {
+          name = "openai",
           api_key = os.getenv "OPENAI_API_KEY",
-        },
-        github = {
-          api_key = os.getenv "GITHUB_TOKEN",
-        },
-        nvidia = {
-          api_key = os.getenv "NVIDIA_API_KEY",
-        },
-        xai = {
-          api_key = os.getenv "XAI_API_KEY",
-        },
-        deepseek = {
-          api_key = os.getenv "DEEPSEEK_API_KEY",
+          endpoint = "https://api.openai.com/v1/chat/completions",
+          params = {
+            chat = { temperature = 1.1, top_p = 1 },
+            command = { temperature = 1.1, top_p = 1 },
+          },
+          topic = {
+            model = "gpt-4.1-nano",
+            params = { max_completion_tokens = 64 },
+          },
+          models ={
+            "gpt-4o",
+            "o4-mini",
+            "gpt-4.1-nano",
+          }
         },
       },
     }
@@ -221,7 +206,6 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
 | `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
 | `PrtStatus`               | Prints current provider and model selection   |
-| `PrtThinking`             | Toggle or configure thinking mode for supported providers    |
 | `PrtCmd <optional prompt>` | Directly generate executable Neovim commands (requires explicit Return to execute) |
 |  __Interactive__          | |
 | `PrtRewrite <optional prompt>` | Rewrites the visual selection based on a provided prompt (direct input, input dialog or from collection) |
@@ -256,34 +240,66 @@ to consider a visual selection within an API request.
 ```lua
 {
     -- The provider definitions include endpoints, API keys, default parameters,
-    -- and topic model arguments for chat summarization, with an example provided for Anthropic.
+    -- and topic model arguments for chat summarization. You can use any name
+    -- for your providers and configure them with custom functions.
     providers = {
-      anthropic = {
-        api_key = os.getenv("ANTHROPIC_API_KEY"),
+      openai = {
+        name = "openai",
+        endpoint = "https://api.openai.com/v1/chat/completions",
+        -- endpoint to query the available models online
+        model_endpoint = "https://api.openai.com/v1/models",
+        api_key = os.getenv("OPENAI_API_KEY"),
         -- OPTIONAL: Alternative methods to retrieve API key
         -- Using GPG for decryption:
-        -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/anthropic_api_key.txt.gpg" },
+        -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/my_api_key.txt.gpg" },
         -- Using macOS Keychain:
-        -- api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
-        endpoint = "https://api.anthropic.com/v1/messages",
-        topic_prompt = "You only respond with 3 to 4 words to summarize the past conversation.",
-        -- usually a cheap and fast model to generate the chat topic based on
-        -- the whole chat history
-        topic = {
-          model = "claude-3-haiku-20240307",
-          params = { max_tokens = 32 },
-        },
-        -- default parameters for the actual model
+        -- api_key = { "/usr/bin/security", "find-generic-password", "-s my-api-key", "-w" },
+        --- default model parameters used for chat and interactive commands
         params = {
-          chat = { max_tokens = 4096 },
-          command = { max_tokens = 4096 },
+          chat = { temperature = 1.1, top_p = 1 },
+          command = { temperature = 1.1, top_p = 1 },
         },
-        -- optionally provide a selection of your favorite models
+        -- topic model parameters to summarize chats
+        topic = {
+          model = "gpt-4.1-nano",
+          params = { max_completion_tokens = 64 },
+        },
+        --  a selection of models that parrot can remember across sessions
+        --  NOTE: This will be handled more intelligently in a future version
         models = {
-          "claude-3-haiku-20240307",
-          "claude-3-opus-20240229",
-          "claude-3-sonnet-20240229",
-        }
+          "gpt-4.1",
+          "o4-mini",
+          "gpt-4.1-mini",
+          "gpt-4.1-nano",
+        },
+      },
+      -- Example with custom functions for non-OpenAI APIs
+      my_custom_provider = {
+        name = "my_custom_provider",
+        api_key = os.getenv("MY_API_KEY"),
+        endpoint = "https://api.example.com/v1/chat/completions",
+        model = { "model-1", "model-2" },
+        -- Custom headers function
+        headers = function(api_key)
+          return {
+            ["Content-Type"] = "application/json",
+            ["Authorization"] = "Bearer " .. api_key,
+            ["X-Custom-Header"] = "custom-value",
+          }
+        end,
+        -- Custom payload preprocessing
+        preprocess_payload = function(payload)
+          -- Modify payload for your API format
+          return payload
+        end,
+        -- Custom response processing
+        process_stdout = function(response)
+          -- Parse streaming response from your API
+          local success, decoded = pcall(vim.json.decode, response)
+          if success and decoded.content then
+            return decoded.content
+          end
+        end,
       },
       ...
     }
@@ -315,9 +331,6 @@ to consider a visual selection within an API request.
 
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
-
-    -- When available, call API for model selection
-    online_model_selection = false,
 
     -- Local chat buffer shortcuts
     chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
@@ -375,8 +388,6 @@ to consider a visual selection within an API request.
     spinner_type = "star",
     -- Show hints for context added through completion with @file, @buffer or @directory
     show_context_hints = true
-    -- Controls visibility of the thinking window
-    show_thinking_window = true,
 }
 ```
 
@@ -414,6 +425,252 @@ This plugin provides the following default key mappings:
 | `<C-g><C-g>` | Trigger the API to generate a response via `PrtChatRespond` |
 | `<C-g>s`     | Stop the current text generation via `PrtStop`              |
 | `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
+
+### Provider Configuration Examples
+
+The unified provider system allows you to configure any OpenAI-compatible API provider. Below are examples for popular providers:
+
+<details>
+<summary>Anthropic Claude</summary>
+
+```lua
+providers = {
+  anthropic = {
+    name = "anthropic",
+    endpoint = "https://api.anthropic.com/v1/messages",
+    model_endpoint = "https://api.anthropic.com/v1/models",
+    api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+    params = {
+      chat = { max_tokens = 4096 },
+      command = { max_tokens = 4096 },
+    },
+    topic = {
+      model = "claude-3-5-haiku-latest",
+      params = { max_tokens = 32 },
+    },
+    headers = function(self)
+      return {
+        ["Content-Type"] = "application/json",
+        ["x-api-key"] = self.api_key,
+        ["anthropic-version"] = "2023-06-01",
+      }
+    end,
+    models = {
+      "claude-sonnet-4-20250514",
+      "claude-3-7-sonnet-20250219",
+      "claude-3-5-sonnet-20241022",
+      "claude-3-5-haiku-20241022",
+    },
+    preprocess_payload = function(payload)
+      for _, message in ipairs(payload.messages) do
+        message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+      end
+      if payload.messages[1] and payload.messages[1].role == "system" then
+        -- remove the first message that serves as the system prompt as anthropic
+        -- expects the system prompt to be part of the API call body and not the messages
+        payload.system = payload.messages[1].content
+        table.remove(payload.messages, 1)
+      end
+      return payload
+    end,
+  },
+}
+```
+</details>
+
+<details>
+<summary>Google Gemini</summary>
+
+```lua
+providers = {
+  gemini = {
+    name = "gemini",
+    endpoint = function(self)
+      return "https://generativelanguage.googleapis.com/v1beta/models/"
+        .. self._model
+        .. ":streamGenerateContent?alt=sse"
+    end,
+    model_endpoint = function(self)
+      return { "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key }
+    end,
+    api_key = os.getenv "GEMINI_API_KEY",
+    params = {
+      chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+      command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+    },
+    topic = {
+      model = "gemini-1.5-flash",
+      params = { maxOutputTokens = 64 },
+    },
+    headers = function(self)
+      return {
+        ["Content-Type"] = "application/json",
+        ["x-goog-api-key"] = self.api_key,
+      }
+    end,
+    models = {
+      "gemini-2.5-flash-preview-05-20",
+      "gemini-2.5-pro-preview-05-06",
+      "gemini-1.5-pro-latest",
+      "gemini-1.5-flash-latest",
+      "gemini-2.5-pro-exp-03-25",
+      "gemini-2.0-flash-lite",
+      "gemini-2.0-flash-thinking-exp",
+      "gemma-3-27b-it",
+    },
+    preprocess_payload = function(payload)
+      local contents = {}
+      local system_instruction = nil
+      for _, message in ipairs(payload.messages) do
+        if message.role == "system" then
+          system_instruction = { parts = { { text = message.content } } }
+        else
+          local role = message.role == "assistant" and "model" or "user"
+          table.insert(
+            contents,
+            { role = role, parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } } }
+          )
+        end
+      end
+      local gemini_payload = {
+        contents = contents,
+        generationConfig = {
+          temperature = payload.temperature,
+          topP = payload.topP or payload.top_p,
+          maxOutputTokens = payload.max_tokens or payload.maxOutputTokens,
+        },
+      }
+      if system_instruction then
+        gemini_payload.systemInstruction = system_instruction
+      end
+      return gemini_payload
+    end,
+    process_stdout = function(response)
+      if not response or response == "" then
+        return nil
+      end
+      local success, decoded = pcall(vim.json.decode, response)
+      if
+        success
+        and decoded.candidates
+        and decoded.candidates[1]
+        and decoded.candidates[1].content
+        and decoded.candidates[1].content.parts
+        and decoded.candidates[1].content.parts[1]
+      then
+        return decoded.candidates[1].content.parts[1].text
+      end
+      return nil
+    end,
+  },
+}
+```
+</details>
+
+<details>
+<summary>xAI</summary>
+
+```lua
+providers = {
+  xai = {
+    name = "xai",
+    endpoint = "https://api.x.ai/v1/chat/completions",
+    model_endpoint = "https://api.x.ai/v1/language-models",
+    api_key = os.getenv "XAI_API_KEY",
+    params = {
+      chat = { temperature = 1.1, top_p = 1 },
+      command = { temperature = 1.1, top_p = 1 },
+    },
+    topic = {
+      model = "grok-3-mini-beta",
+      params = { max_completion_tokens = 64 },
+    },
+    models = {
+      "grok-3-beta",
+      "grok-3-mini-beta",
+    },
+  },
+}
+```
+</details>
+
+<details>
+<summary>Ollama</summary>
+
+```lua
+providers = {
+  ollama = {
+    name = "ollama",
+    endpoint = "http://localhost:11434/api/chat",
+    api_key = "", -- not required for local Ollama
+    params = {
+      chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+      command = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+    },
+    topic_prompt = [[
+    Summarize the chat above and only provide a short headline of 2 to 3
+    words without any opening phrase like "Sure, here is the summary",
+    "Sure! Here's a shortheadline summarizing the chat" or anything similar.
+    ]],
+    topic = {
+      model = "llama3.2",
+      params = { max_tokens = 32 },
+    },
+    headers = {
+      ["Content-Type"] = "application/json",
+    },
+    models = {
+      "codestral",
+      "llama3.2",
+      "gemma3",
+    },
+    resolve_api_key = function()
+      return true
+    end,
+    process_stdout = function(response)
+      if response:match "message" and response:match "content" then
+        local ok, data = pcall(vim.json.decode, response)
+        if ok and data.message and data.message.content then
+          return data.message.content
+        end
+      end
+    end,
+    get_available_models = function(self)
+      local url = self.endpoint:gsub("chat", "")
+      local logger = require "parrot.logger"
+      local job = Job:new({
+        command = "curl",
+        args = { "-H", "Content-Type: application/json", url .. "tags" },
+      }):sync()
+      local parsed_response = require("parrot.utils").parse_raw_response(job)
+      self:process_onexit(parsed_response)
+      if parsed_response == "" then
+        logger.debug("Ollama server not running on " .. endpoint_api)
+        return {}
+      end
+
+      local success, parsed_data = pcall(vim.json.decode, parsed_response)
+      if not success then
+        logger.error("Ollama - Error parsing JSON: " .. vim.inspect(parsed_data))
+        return {}
+      end
+
+      if not parsed_data.models then
+        logger.error "Ollama - No models found. Please use 'ollama pull' to download one."
+        return {}
+      end
+
+      local names = {}
+      for _, model in ipairs(parsed_data.models) do
+        table.insert(names, model.name)
+      end
+
+      return names
+    end,
+  },
+}
+```
+</details>
 
 ### Adding a new command
 
@@ -601,18 +858,6 @@ parrot = {
 ...
 ```
 
-
-## Thinking Mode
-
-The `PrtThinking` command allows you to toggle or configure the "thinking" feature for providers that support it:
-
-- `PrtThinking` - Toggle thinking on/off (default budget: 1024 tokens)
-- `PrtThinking 2048` - Enable thinking with a specific budget of 2048 tokens
-- `PrtThinking status` - Show current thinking settings
-
-The thinking feature allows models to show their intermediate reasoning steps in a popup window
-before providing a final response. Currently, this is fully implemented for the Anthropic provider,
-but the framework supports adding this capability to other providers that can stream intermediate thinking steps.
 
 ## Statusline Support
 
