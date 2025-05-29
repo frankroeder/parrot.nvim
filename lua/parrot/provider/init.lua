@@ -1,4 +1,4 @@
-local Provider = require("parrot.provider.openai")
+local MultiProvider = require("parrot.provider.multi_provider")
 local logger = require("parrot.logger")
 
 local M = {}
@@ -10,7 +10,7 @@ M.init_provider = function(config)
   assert(config.endpoint, "config.endpoint is required")
   assert(config.api_key, "config.api_key is required")
   assert(config.models, "config.model or config.models required")
-  return Provider:new(config)
+  return MultiProvider:new(config)
 end
 
 return M

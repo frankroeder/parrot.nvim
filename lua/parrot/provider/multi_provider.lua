@@ -2,7 +2,10 @@ local logger = require("parrot.logger")
 local utils = require("parrot.utils")
 local Job = require("plenary.job")
 
----@class Provider
+-- MultiProvider class - A universal provider based on OpenAI's API format
+-- This provider is designed to work with OpenAI and other OpenAI-compatible APIs
+-- that follow the OpenAI chat completions standard.
+---@class MultiProvider
 ---@field endpoint string
 ---@field api_key string|table|function
 ---@field model_endpoint string|table|function
@@ -15,8 +18,8 @@ local Job = require("plenary.job")
 ---@field resolve_api_key_func function
 ---@field curl_params_func function
 ---@field get_available_models_func function
-local Provider = {}
-Provider.__index = Provider
+local MultiProvider = {}
+MultiProvider.__index = MultiProvider
 
 -- Default OpenAI-style implementation
 local defaults = {
@@ -88,6 +91,7 @@ local defaults = {
 
     local success, decoded = pcall(vim.json.decode, response)
     if not success then
+      logger.error("Failed to decode API response: " .. response)
       return nil
     end
 
@@ -176,15 +180,21 @@ local defaults = {
   end,
 }
 
--- Creates a new Provider instance
+-- Creates a new MultiProvider instance
 ---@param config table
----@return Provider
-function Provider:new(config)
-  local self = setmetatable({}, Provider)
+---@return MultiProvider
+function MultiProvider:new(config)
+  local self = setmetatable({}, MultiProvider)
+
+  -- Validate required fields
+  assert(config.name, "Provider name is required")
+  assert(config.endpoint, "Provider endpoint is required")
+  assert(config.api_key, "Provider API key is required")
+  assert(config.model or config.models, "Provider model(s) are required")
 
   -- Basic configuration
-  self.name = config.name or "openai"
-  self.endpoint = config.endpoint or "https://api.openai.com/v1/chat/completions"
+  self.name = config.name
+  self.endpoint = config.endpoint
   self.model_endpoint = config.model_endpoint or ""
   self.api_key = config.api_key
   self.models = config.model or config.models
@@ -197,23 +207,83 @@ function Provider:new(config)
   self.resolve_api_key_func = config.resolve_api_key or defaults.resolve_api_key
   self.get_available_models_func = config.get_available_models or defaults.get_available_models
 
+  self:validate_config()
   return self
 end
 
-function Provider:set_model(model)
+-- Validates the MultiProvider configuration
+function MultiProvider:validate_config()
+  local logger = require("parrot.logger")
+
+  -- Validate endpoint format
+  if type(self.endpoint) == "string" and not self.endpoint:match("^https?://") then
+    logger.error(vim.inspect({
+      msg = "Invalid endpoint format for provider",
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      endpoint = self.endpoint,
+      expected = "URL must start with http:// or https://",
+    }))
+    error("Invalid endpoint format: " .. self.endpoint .. " for provider " .. self.name)
+  end
+
+  -- Validate model endpoint format if provided
+  if
+    self.model_endpoint
+    and type(self.model_endpoint) == "string"
+    and self.model_endpoint ~= ""
+    and not self.model_endpoint:match("^https?://")
+  then
+    logger.error(vim.inspect({
+      msg = "Invalid model endpoint format for provider",
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      model_endpoint = self.model_endpoint,
+      expected = "URL must start with http:// or https://",
+    }))
+    error("Invalid model endpoint format: " .. self.model_endpoint .. " for provider " .. self.name)
+  end
+
+  -- Validate models
+  if type(self.models) ~= "table" then
+    logger.error(vim.inspect({
+      msg = "Invalid models configuration for provider",
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      models_type = type(self.models),
+      models_value = self.models,
+      expected = "Models must be provided as a table/array",
+    }))
+    error("Models must be provided as a table for provider " .. self.name)
+  end
+
+  -- Validate models table is not empty
+  if #self.models == 0 then
+    logger.error(vim.inspect({
+      msg = "Empty models configuration for provider",
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      models = self.models,
+      expected = "Models table must contain at least one model",
+    }))
+    error("Models table cannot be empty for provider " .. self.name)
+  end
+end
+
+function MultiProvider:set_model(model)
   self._model = model
 end
 
 -- Preprocesses the payload before sending to the API
 ---@param payload table
 ---@return table
-function Provider:preprocess_payload(payload)
+function MultiProvider:preprocess_payload(payload)
   return self.preprocess_payload_func(payload)
 end
 
 -- Returns the curl parameters for the API request
 ---@return table
-function Provider:curl_params()
+function MultiProvider:curl_params()
   local api_key = self:resolve_api_key(self.api_key)
   if not api_key then
     return {}
@@ -235,7 +305,7 @@ end
 
 -- Verifies the API key or executes a routine to retrieve it
 ---@return boolean
-function Provider:verify()
+function MultiProvider:verify()
   local resolved_key = self:resolve_api_key(self.api_key)
   if resolved_key then
     self.api_key = resolved_key
@@ -247,26 +317,26 @@ end
 -- Resolves an API key, supporting string, table(task), or function generators
 ---@param api_key string|table|function
 ---@return string|false trimmed or resolved API key, or false on error
-function Provider:resolve_api_key(api_key)
+function MultiProvider:resolve_api_key(api_key)
   return self.resolve_api_key_func(self, api_key)
 end
 
 -- Processes the stdout from the API response
 ---@param response string
 ---@return string|nil
-function Provider:process_stdout(response)
+function MultiProvider:process_stdout(response)
   return self.process_stdout_func(response)
 end
 
 -- Processes the onexit event from the API response
 ---@param res string
-function Provider:process_onexit(res)
+function MultiProvider:process_onexit(res)
   return self.process_onexit_func(res)
 end
 
 -- Returns the list of available models
 ---@return string[]
-function Provider:get_available_models()
+function MultiProvider:get_available_models()
   if self.model_endpoint ~= "" and self:verify() then
     local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
     local args = type(self.model_endpoint) == "function" and self.model_endpoint(self) or { self.model_endpoint }
@@ -279,4 +349,4 @@ function Provider:get_available_models()
   return self.models
 end
 
-return Provider
+return MultiProvider

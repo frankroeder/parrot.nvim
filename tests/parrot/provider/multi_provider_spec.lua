@@ -4,22 +4,138 @@ local mock = require("luassert.mock")
 -- Mock the required modules
 local logger_mock = mock(require("parrot.logger"), true)
 
-local Provider = require("parrot.provider.openai")
+-- MultiProvider tests - This provider is based on OpenAI's API format
+-- and is designed to work with OpenAI and other OpenAI-compatible APIs
+local MultiProvider = require("parrot.provider.multi_provider")
 
-describe("Provider", function()
+describe("MultiProvider", function()
   local provider
 
   before_each(function()
-    provider = Provider:new({
+    provider = MultiProvider:new({
       name = "openai",
       endpoint = "https://api.openai.com/v1/chat/completions",
       api_key = "test_api_key",
-      model = "gpt-4o",
+      model = { "gpt-4o" },
     })
     assert.are.same(provider.name, "openai")
     -- Reset mocks
     logger_mock.error:clear()
     logger_mock.debug:clear()
+  end)
+
+  describe("validation", function()
+    it("should validate required fields", function()
+      assert.has_error(function()
+        MultiProvider:new({})
+      end, "Provider name is required")
+
+      assert.has_error(function()
+        MultiProvider:new({ name = "test" })
+      end, "Provider endpoint is required")
+
+      assert.has_error(function()
+        MultiProvider:new({ name = "test", endpoint = "https://api.test.com" })
+      end, "Provider API key is required")
+
+      assert.has_error(function()
+        MultiProvider:new({ name = "test", endpoint = "https://api.test.com", api_key = "test" })
+      end, "Provider model(s) are required")
+    end)
+
+    it("should validate endpoint format", function()
+      assert.has_error(function()
+        MultiProvider:new({
+          name = "test",
+          endpoint = "invalid-url",
+          api_key = "test",
+          model = { "test-model" },
+        })
+      end, "Invalid endpoint format: invalid-url for provider test")
+    end)
+
+    it("should accept both http and https endpoints", function()
+      local http_provider = MultiProvider:new({
+        name = "test-http",
+        endpoint = "http://api.test.com",
+        api_key = "test",
+        model = { "test-model" },
+      })
+      assert.equals("test-http", http_provider.name)
+
+      local https_provider = MultiProvider:new({
+        name = "test-https",
+        endpoint = "https://api.test.com",
+        api_key = "test",
+        model = { "test-model" },
+      })
+      assert.equals("test-https", https_provider.name)
+    end)
+
+    it("should validate model endpoint format", function()
+      assert.has_error(function()
+        MultiProvider:new({
+          name = "test",
+          endpoint = "https://api.test.com",
+          model_endpoint = "invalid-url",
+          api_key = "test",
+          model = { "test-model" },
+        })
+      end, "Invalid model endpoint format: invalid-url for provider test")
+    end)
+
+    it("should accept both http and https model endpoints", function()
+      local http_provider = MultiProvider:new({
+        name = "test-http-model",
+        endpoint = "https://api.test.com",
+        model_endpoint = "http://api.test.com/models",
+        api_key = "test",
+        model = { "test-model" },
+      })
+      assert.equals("test-http-model", http_provider.name)
+
+      local https_provider = MultiProvider:new({
+        name = "test-https-model",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "test-model" },
+      })
+      assert.equals("test-https-model", https_provider.name)
+    end)
+
+    it("should allow empty model endpoint", function()
+      local provider_no_model_endpoint = MultiProvider:new({
+        name = "test-no-model-endpoint",
+        endpoint = "https://api.test.com",
+        model_endpoint = "",
+        api_key = "test",
+        model = { "test-model" },
+      })
+      assert.equals("test-no-model-endpoint", provider_no_model_endpoint.name)
+    end)
+
+    it("should validate models is a table", function()
+      assert.has_error(function()
+        MultiProvider:new({
+          name = "test",
+          endpoint = "https://api.test.com",
+          api_key = "test",
+          model = "single-model-string",
+        })
+      end, "Models must be provided as a table for provider test")
+    end)
+
+    it("should validate models table is not empty", function()
+      assert.has_error(function()
+        MultiProvider:new({
+          name = "test",
+          endpoint = "https://api.test.com",
+          api_key = "test",
+          model = {},
+        })
+      end, "Models table cannot be empty for provider test")
+    end)
   end)
 
   describe("process_onexit", function()
@@ -42,10 +158,8 @@ describe("Provider", function()
 
     it("should handle invalid JSON gracefully", function()
       local input = "invalid json"
-
       provider:process_onexit(input)
-
-      assert.spy(logger_mock.error).was_not_called()
+      assert.spy(logger_mock.error).was_called_with("Failed to decode API response: invalid json")
     end)
   end)
 
@@ -160,7 +274,7 @@ describe("Provider", function()
         "o1",
         "gpt-4",
       }
-      local test_provider = Provider:new({
+      local test_provider = MultiProvider:new({
         name = "openai",
         endpoint = "https://api.openai.com/v1/chat/completions",
         api_key = "test_api_key",
@@ -179,7 +293,7 @@ describe("Provider", function()
         "agi-v1",
         "agi-system-2",
       }
-      local test_provider = Provider:new({
+      local test_provider = MultiProvider:new({
         name = custom_name,
         endpoint = "https://api.example.com/v1/chat/completions",
         api_key = "test_api_key",
@@ -193,10 +307,11 @@ describe("Provider", function()
 
   describe("custom functions", function()
     it("should use custom headers function", function()
-      local custom_provider = Provider:new({
+      local custom_provider = MultiProvider:new({
         name = "custom",
         endpoint = "https://api.custom.com/v1/chat/completions",
         api_key = "test_key",
+        model = { "test-model" },
         headers = function(api_key)
           return {
             ["Content-Type"] = "application/json",
@@ -218,10 +333,11 @@ describe("Provider", function()
     end)
 
     it("should use custom process_stdout function", function()
-      local custom_provider = Provider:new({
+      local custom_provider = MultiProvider:new({
         name = "custom",
         endpoint = "https://api.custom.com/v1/chat/completions",
         api_key = "test_key",
+        model = { "test-model" },
         process_stdout = function(response)
           if response:match("custom_content") then
             local decoded = vim.json.decode(response)

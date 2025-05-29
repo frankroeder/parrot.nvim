@@ -1730,7 +1730,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     json_payload = json_payload,
   }))
 
-
   local job = Job:new({
     command = "curl",
     args = curl_params,

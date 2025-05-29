@@ -33,11 +33,10 @@ end
 function State:init_state(available_providers, available_models)
   self._state.current_provider = self._state.current_provider or { chat = nil, command = nil }
   for _, provider in ipairs(available_providers) do
-    self._state[provider] = self._state[provider]
-      or {
-        chat_model = nil,
-        command_model = nil,
-      }
+    self._state[provider] = self._state[provider] or {
+      chat_model = nil,
+      command_model = nil,
+    }
     self:load_models(provider, "chat_model", available_models)
     self:load_models(provider, "command_model", available_models)
   end
