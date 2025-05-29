@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.0](https://github.com/frankroeder/parrot.nvim/compare/v1.8.0...v2.0.0) (2025-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* add advanced and flexible provider configuration
+* add advanced and flexible provider configuration
+
+### Features
+
+* add advanced and flexible provider configuration ([aabd7a5](https://github.com/frankroeder/parrot.nvim/commit/aabd7a5d629b26f765e84e06897bed861ba4a1c0))
+* add advanced and flexible provider configuration ([bc70212](https://github.com/frankroeder/parrot.nvim/commit/bc702128e29985be9f85e73de4f7478ba95f52b8))
+
 ## [1.8.0](https://github.com/frankroeder/parrot.nvim/compare/v1.7.0...v1.8.0) (2025-05-27)
 
 
