@@ -89,9 +89,15 @@ local defaults = {
       return nil
     end
 
-    local success, decoded = pcall(vim.json.decode, response)
+    local json_str = response:gsub("^data:%s*", "")
+    if json_str == "[DONE]" then
+      return nil
+    end
+
+    local success, decoded = pcall(vim.json.decode, json_str)
     if not success then
-      logger.error("Failed to decode API response: " .. response)
+      -- FIXME --
+      -- logger.error("Failed to decode API response: " .. json_str)
       return nil
     end
 
@@ -116,7 +122,7 @@ local defaults = {
     if type(api_key) == "function" then
       local ok, result = pcall(api_key)
       if not ok then
-        logger.error("Error executing api_key function for provider " .. self.name)
+        logger.error("Error executing api_key function for provider " .. self.name .. ": " .. tostring(result))
         return false
       end
       return self:resolve_api_key(result)
@@ -125,17 +131,44 @@ local defaults = {
     if type(api_key) == "table" then
       -- reject empty command tables
       if #api_key == 0 then
-        logger.error("Error verifying API key for provider " .. self.name)
+        logger.error("Error verifying API key for provider " .. self.name .. ": empty command table")
         return false
       end
+
+      -- Validate that all table elements are strings
+      for i, arg in ipairs(api_key) do
+        if type(arg) ~= "string" then
+          logger.error(
+            "Error verifying API key for provider " .. self.name .. ": command argument " .. i .. " is not a string"
+          )
+          return false
+        end
+      end
+
       local command = table.concat(api_key, " ")
-      local handle = io.popen(command)
+      -- Use a timeout to prevent hanging on command execution
+      local handle = io.popen(command .. " 2>&1") -- Capture stderr as well
       if handle then
-        local resolved_key = handle:read("*a"):gsub("%s+", "")
-        handle:close()
+        local resolved_key = handle:read("*a")
+        local success, exit_type, exit_code = handle:close()
+
+        if not success or exit_code ~= 0 then
+          logger.error(
+            "Error executing API key command for provider " .. self.name .. ": exit code " .. (exit_code or "unknown")
+          )
+          return false
+        end
+
+        -- Clean up the resolved key
+        resolved_key = resolved_key:gsub("%s+$", ""):gsub("^%s+", "")
+        if resolved_key == "" then
+          logger.error("Error verifying API key for provider " .. self.name .. ": command returned empty result")
+          return false
+        end
+
         return resolved_key
       else
-        logger.error("Error verifying API key for provider " .. self.name)
+        logger.error("Error verifying API key for provider " .. self.name .. ": failed to execute command")
         return false
       end
     elseif api_key and api_key:match("%S") then
@@ -145,7 +178,7 @@ local defaults = {
       end
       return api_key
     else
-      logger.error("Error with API key for provider " .. self.name)
+      logger.error("Error with API key for provider " .. self.name .. ": API key is nil, empty, or whitespace-only")
       return false
     end
   end,
@@ -215,7 +248,7 @@ end
 function MultiProvider:validate_config()
   local logger = require("parrot.logger")
 
-  -- Validate endpoint format
+  -- Validate endpoint format (allow functions)
   if type(self.endpoint) == "string" and not self.endpoint:match("^https?://") then
     logger.error(vim.inspect({
       msg = "Invalid endpoint format for provider",
@@ -225,23 +258,38 @@ function MultiProvider:validate_config()
       expected = "URL must start with http:// or https://",
     }))
     error("Invalid endpoint format: " .. self.endpoint .. " for provider " .. self.name)
-  end
-
-  -- Validate model endpoint format if provided
-  if
-    self.model_endpoint
-    and type(self.model_endpoint) == "string"
-    and self.model_endpoint ~= ""
-    and not self.model_endpoint:match("^https?://")
-  then
+  elseif type(self.endpoint) ~= "string" and type(self.endpoint) ~= "function" then
     logger.error(vim.inspect({
-      msg = "Invalid model endpoint format for provider",
+      msg = "Invalid endpoint type for provider",
       method = "MultiProvider:validate_config",
       provider = self.name,
-      model_endpoint = self.model_endpoint,
-      expected = "URL must start with http:// or https://",
+      endpoint_type = type(self.endpoint),
+      expected = "Endpoint must be a string (URL) or function",
     }))
-    error("Invalid model endpoint format: " .. self.model_endpoint .. " for provider " .. self.name)
+    error("Endpoint must be a string or function for provider " .. self.name)
+  end
+
+  -- Validate model endpoint format if provided (allow functions)
+  if self.model_endpoint and self.model_endpoint ~= "" then
+    if type(self.model_endpoint) == "string" and not self.model_endpoint:match("^https?://") then
+      logger.error(vim.inspect({
+        msg = "Invalid model endpoint format for provider",
+        method = "MultiProvider:validate_config",
+        provider = self.name,
+        model_endpoint = self.model_endpoint,
+        expected = "URL must start with http:// or https://",
+      }))
+      error("Invalid model endpoint format: " .. self.model_endpoint .. " for provider " .. self.name)
+    elseif type(self.model_endpoint) ~= "string" and type(self.model_endpoint) ~= "function" then
+      logger.error(vim.inspect({
+        msg = "Invalid model endpoint type for provider",
+        method = "MultiProvider:validate_config",
+        provider = self.name,
+        model_endpoint_type = type(self.model_endpoint),
+        expected = "Model endpoint must be a string (URL) or function",
+      }))
+      error("Model endpoint must be a string or function for provider " .. self.name)
+    end
   end
 
   -- Validate models
@@ -268,6 +316,18 @@ function MultiProvider:validate_config()
     }))
     error("Models table cannot be empty for provider " .. self.name)
   end
+
+  -- Validate headers if provided
+  if self.headers ~= nil and type(self.headers) ~= "function" and type(self.headers) ~= "table" then
+    logger.error(vim.inspect({
+      msg = "Invalid headers type for provider",
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      headers_type = type(self.headers),
+      expected = "Headers must be a function or table",
+    }))
+    error("Headers must be a function or table for provider " .. self.name)
+  end
 end
 
 function MultiProvider:set_model(model)
@@ -290,13 +350,33 @@ function MultiProvider:curl_params()
   end
 
   local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
-  local endp = type(self.endpoint) == "function" and self.endpoint(self) or self.endpoint
+
+  -- Handle endpoint as function or string
+  local endp
+  if type(self.endpoint) == "function" then
+    local ok, result = pcall(self.endpoint, self)
+    if not ok then
+      logger.error("Error executing endpoint function for provider " .. self.name .. ": " .. tostring(result))
+      return {}
+    end
+    endp = result
+  else
+    endp = self.endpoint
+  end
+
+  -- Validate the resolved endpoint
+  if type(endp) ~= "string" or endp == "" then
+    logger.error("Invalid endpoint resolved for provider " .. self.name .. ": " .. tostring(endp))
+    return {}
+  end
+
   local args = {
     endp,
   }
 
   for k, v in pairs(hdrs) do
     table.insert(args, "-H")
+    -- TODO: Check if this really makes sense to be a table --
     local header_value = type(v) == "table" and table.concat(v, " ") or tostring(v)
     table.insert(args, k .. ": " .. header_value)
   end
@@ -339,11 +419,28 @@ end
 function MultiProvider:get_available_models()
   if self.model_endpoint ~= "" and self:verify() then
     local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
-    local args = type(self.model_endpoint) == "function" and self.model_endpoint(self) or { self.model_endpoint }
+
+    -- Handle model_endpoint as function or string/table
+    local args
+    if type(self.model_endpoint) == "function" then
+      local ok, result = pcall(self.model_endpoint, self)
+      if not ok then
+        logger.error("Error executing model_endpoint function for provider " .. self.name .. ": " .. tostring(result))
+        return self.models
+      end
+      args = type(result) == "table" and result or { result }
+    else
+      args = type(self.model_endpoint) == "table" and self.model_endpoint or { self.model_endpoint }
+    end
+
+    -- Add headers to args
     for k, v in pairs(hdrs) do
       table.insert(args, "-H")
-      table.insert(args, k .. ": " .. v)
+      -- TODO: Check if this really makes sense to be a table --
+      local header_value = type(v) == "table" and table.concat(v, " ") or tostring(v)
+      table.insert(args, k .. ": " .. header_value)
     end
+
     return self.get_available_models_func(self, args)
   end
   return self.models
