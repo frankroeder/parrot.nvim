@@ -169,7 +169,7 @@ describe("MultiProvider", function()
           name = "test",
           endpoint = "https://api.test.com",
           api_key = "test",
-          model = "single-model-string",
+          models = "single-model-string",
         })
       end, "Models must be provided as a table for provider test")
     end)
