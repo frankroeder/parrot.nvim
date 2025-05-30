@@ -9,7 +9,7 @@ local Job = require("plenary.job")
 ---@field endpoint string
 ---@field api_key string|table|function
 ---@field model_endpoint string|table|function
----@field model string|table
+---@field models table
 ---@field name string
 ---@field headers function|table
 ---@field preprocess_payload_func function
@@ -220,7 +220,11 @@ function MultiProvider:new(config)
   self.endpoint = config.endpoint
   self.model_endpoint = config.model_endpoint or ""
   self.api_key = config.api_key
-  self.models = config.model or config.models
+  if config.model then
+    self.models = type(config.model) == "string" and { config.model } or config.model
+  else
+    self.models = config.models
+  end
 
   -- Function overrides (use defaults if not provided)
   self.headers = config.headers or defaults.headers
