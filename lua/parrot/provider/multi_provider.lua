@@ -96,8 +96,8 @@ local defaults = {
 
     local success, decoded = pcall(vim.json.decode, json_str)
     if not success then
-      -- FIXME --
-      -- logger.error("Failed to decode API response: " .. json_str)
+      -- Log decode errors in debug mode to help with troubleshooting
+      logger.debug("Failed to decode API response: " .. json_str, { error = decoded })
       return nil
     end
 
@@ -240,82 +240,75 @@ function MultiProvider:validate_config()
 
   -- Validate endpoint format (allow functions)
   if type(self.endpoint) == "string" and not self.endpoint:match("^https?://") then
-    logger.error(vim.inspect({
-      msg = "Invalid endpoint format for provider",
+    logger.error("Invalid endpoint format for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
       endpoint = self.endpoint,
       expected = "URL must start with http:// or https://",
-    }))
+    })
     error("Invalid endpoint format: " .. self.endpoint .. " for provider " .. self.name)
   elseif type(self.endpoint) ~= "string" and type(self.endpoint) ~= "function" then
-    logger.error(vim.inspect({
-      msg = "Invalid endpoint type for provider",
+    logger.error("Invalid endpoint type for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
       endpoint_type = type(self.endpoint),
       expected = "Endpoint must be a string (URL) or function",
-    }))
+    })
     error("Endpoint must be a string or function for provider " .. self.name)
   end
 
   -- Validate model endpoint format if provided (allow functions)
   if self.model_endpoint and self.model_endpoint ~= "" then
     if type(self.model_endpoint) == "string" and not self.model_endpoint:match("^https?://") then
-      logger.error(vim.inspect({
-        msg = "Invalid model endpoint format for provider",
+      logger.error("Invalid model endpoint format for provider", {
         method = "MultiProvider:validate_config",
         provider = self.name,
         model_endpoint = self.model_endpoint,
         expected = "URL must start with http:// or https://",
-      }))
+      })
       error("Invalid model endpoint format: " .. self.model_endpoint .. " for provider " .. self.name)
     elseif type(self.model_endpoint) ~= "string" and type(self.model_endpoint) ~= "function" then
-      logger.error(vim.inspect({
-        msg = "Invalid model endpoint type for provider",
+      logger.error("Invalid model endpoint type for provider", {
         method = "MultiProvider:validate_config",
         provider = self.name,
         model_endpoint_type = type(self.model_endpoint),
         expected = "Model endpoint must be a string (URL) or function",
-      }))
+      })
       error("Model endpoint must be a string or function for provider " .. self.name)
     end
   end
 
   -- Validate models
   if type(self.models) ~= "table" then
-    logger.error(vim.inspect({
-      msg = "Invalid models configuration for provider",
+    logger.error("Invalid models configuration for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
       models_type = type(self.models),
       models_value = self.models,
       expected = "Models must be provided as a table/array",
-    }))
+    })
     error("Models must be provided as a table for provider " .. self.name)
   end
 
   -- Validate models table is not empty
   if #self.models == 0 then
-    logger.error(vim.inspect({
-      msg = "Empty models configuration for provider",
+    logger.error("Empty models configuration for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
       models = self.models,
       expected = "Models table must contain at least one model",
-    }))
+    })
     error("Models table cannot be empty for provider " .. self.name)
   end
 
   -- Validate headers if provided
   if self.headers ~= nil and type(self.headers) ~= "function" and type(self.headers) ~= "table" then
-    logger.error(vim.inspect({
-      msg = "Invalid headers type for provider",
+    logger.error("Invalid headers type for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
       headers_type = type(self.headers),
       expected = "Headers must be a function or table",
-    }))
+    })
     error("Headers must be a function or table for provider " .. self.name)
   end
 end
