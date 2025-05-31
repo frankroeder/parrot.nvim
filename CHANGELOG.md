@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0](https://github.com/frankroeder/parrot.nvim/compare/v2.0.0...v2.1.0) (2025-05-31)
+
+
+### Features
+
+* **provider:** advanced model caching to prevent fetching models every time. ([07e22e2](https://github.com/frankroeder/parrot.nvim/commit/07e22e23203c81fd8100c8e630557436070a89fc))
+
+
+### Bug Fixes
+
+* **provider:** api_key command handle closing ([97dbbe1](https://github.com/frankroeder/parrot.nvim/commit/97dbbe1f90637c1cd895c07aff0cfd588f5a5e51))
+* **provider:** model/models argument ([bcfb227](https://github.com/frankroeder/parrot.nvim/commit/bcfb227ffe3f9512fa198f12cf8fe38984a665cc))
+
 ## [2.0.0](https://github.com/frankroeder/parrot.nvim/compare/v1.8.0...v2.0.0) (2025-05-29)
 
 
