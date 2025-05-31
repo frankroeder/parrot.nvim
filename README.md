@@ -2,8 +2,7 @@
 
 # parrot.nvim 🦜
 
-> [!ATTENTION]
->
+> [!NOTE]
 > For best stability, I recommend using version 1.8.0 or earlier.
 > Future releases may include new features and enhancements that could affect your experience.
 
