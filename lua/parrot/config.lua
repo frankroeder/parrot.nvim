@@ -303,7 +303,7 @@ function M.setup(opts)
     local _prov = init_provider(provider_config)
 
     -- Use cached model fetching if provider has model_endpoint
-    if _prov:online_model_fetching() then
+    if _prov:online_model_fetching() and M.options.model_cache_expiry_hours > 0 then
       -- Check cache validity for this specific provider
       local endpoint_hash = utils.generate_endpoint_hash(_prov)
       local needs_update = not temp_state:is_cache_valid(prov_name, M.options.model_cache_expiry_hours, endpoint_hash)

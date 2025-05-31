@@ -452,7 +452,7 @@ end
 function MultiProvider:get_available_models_cached(state, cache_expiry_hours, spinner)
   -- Only use caching if model_endpoint is configured
   -- otherwise return fallback models
-  if not self:online_model_fetching() then
+  if not self:online_model_fetching() and cache_expiry_hours == 0 then
     return self.models
   end
 
