@@ -639,7 +639,159 @@ describe("MultiProvider", function()
       assert.are.same({ "gpt-4o" }, models)
     end)
   end)
+  describe("get_available_models_cached", function()
+    local mock_state
 
+    before_each(function()
+      mock_state = {
+        get_cached_models = function()
+          return nil
+        end,
+        set_cached_models = function() end,
+        save = function() end,
+      }
+    end)
+
+    it("should return predefined models when no model_endpoint", function()
+      local provider_no_endpoint = MultiProvider:new({
+        name = "test-no-endpoint",
+        endpoint = "https://api.test.com",
+        api_key = "test",
+        model = { "test-model" },
+      })
+
+      local models = provider_no_endpoint:get_available_models_cached(mock_state, 48, nil)
+      assert.are.same({ "test-model" }, models)
+    end)
+
+    it("should return cached models when available and valid", function()
+      local cached_models = { "cached-model1", "cached-model2" }
+      mock_state.get_cached_models = function()
+        return cached_models
+      end
+
+      local provider_with_endpoint = MultiProvider:new({
+        name = "test-cached",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "test-model" },
+      })
+
+      local models = provider_with_endpoint:get_available_models_cached(mock_state, 48, nil)
+      assert.are.same(cached_models, models)
+    end)
+
+    it("should fetch fresh models when cache is invalid", function()
+      mock_state.get_cached_models = function()
+        return nil
+      end -- Cache miss
+      local set_cached_called = false
+      local save_called = false
+
+      mock_state.set_cached_models = function()
+        set_cached_called = true
+      end
+      mock_state.save = function()
+        save_called = true
+      end
+
+      local provider_with_endpoint = MultiProvider:new({
+        name = "test-fresh",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "original-model" },
+        get_available_models = function(self, args)
+          return { "fresh-model1", "fresh-model2" }
+        end,
+      })
+
+      local models = provider_with_endpoint:get_available_models_cached(mock_state, 48, nil)
+      assert.are.same({ "fresh-model1", "fresh-model2" }, models)
+      assert.is_true(set_cached_called)
+      assert.is_true(save_called)
+    end)
+
+    it("should not cache models if they are the same as predefined", function()
+      mock_state.get_cached_models = function()
+        return nil
+      end
+      local set_cached_called = false
+
+      mock_state.set_cached_models = function()
+        set_cached_called = true
+      end
+
+      local provider_same_models = MultiProvider:new({
+        name = "test-same",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "same-model" },
+        get_available_models = function(self, args)
+          return { "same-model" } -- Same as predefined
+        end,
+      })
+
+      local models = provider_same_models:get_available_models_cached(mock_state, 48, nil)
+      assert.are.same({ "same-model" }, models)
+      assert.is_false(set_cached_called)
+    end)
+
+    it("should handle spinner start and stop", function()
+      mock_state.get_cached_models = function()
+        return nil
+      end
+
+      local spinner_started = false
+      local spinner_stopped = false
+      local mock_spinner = {
+        start = function()
+          spinner_started = true
+        end,
+        stop = function()
+          spinner_stopped = true
+        end,
+      }
+
+      local provider_with_spinner = MultiProvider:new({
+        name = "test-spinner",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "test-model" },
+        get_available_models = function(self, args)
+          return { "fresh-model" }
+        end,
+      })
+
+      local models = provider_with_spinner:get_available_models_cached(mock_state, 48, mock_spinner)
+      assert.are.same({ "fresh-model" }, models)
+      assert.is_true(spinner_started)
+      assert.is_true(spinner_stopped)
+    end)
+
+    it("should work without spinner", function()
+      mock_state.get_cached_models = function()
+        return nil
+      end
+
+      local provider_no_spinner = MultiProvider:new({
+        name = "test-no-spinner",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "test-model" },
+        get_available_models = function(self, args)
+          return { "fresh-model" }
+        end,
+      })
+
+      local models = provider_no_spinner:get_available_models_cached(mock_state, 48, nil)
+      assert.are.same({ "fresh-model" }, models)
+    end)
+  end)
   describe("resolve_api_key", function()
     describe("string api_key", function()
       it("should return the API key as-is when it's a valid string", function()

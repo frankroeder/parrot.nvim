@@ -389,4 +389,32 @@ function M.path_join(...)
   return result
 end
 
+-- Generate a hash for provider endpoint configuration to detect changes
+---@param provider table # Provider configuration
+---@return string # Hash of endpoint configuration
+function M.generate_endpoint_hash(provider)
+  if not provider.model_endpoint or provider.model_endpoint == "" then
+    return ""
+  end
+
+  local endpoint_str = ""
+  if type(provider.model_endpoint) == "string" then
+    endpoint_str = provider.model_endpoint
+  elseif type(provider.model_endpoint) == "function" then
+    -- For functions, we can't reliably hash the function content,
+    -- so we include the provider name as part of the hash
+    endpoint_str = "function:" .. provider.name
+  elseif type(provider.model_endpoint) == "table" then
+    endpoint_str = vim.inspect(provider.model_endpoint)
+  end
+
+  -- Simple hash using a basic algorithm compatible with Lua 5.1
+  local hash = 0
+  for i = 1, #endpoint_str do
+    hash = ((hash * 33) + string.byte(endpoint_str, i)) % 0x100000000
+  end
+
+  return string.format("%08x", hash)
+end
+
 return M

@@ -238,6 +238,10 @@ function MultiProvider:new(config)
   return self
 end
 
+function MultiProvider:online_model_fetching()
+  return self.model_endpoint and self.model_endpoint ~= ""
+end
+
 -- Validates the MultiProvider configuration
 function MultiProvider:validate_config()
   local logger = require("parrot.logger")
@@ -264,7 +268,7 @@ function MultiProvider:validate_config()
   end
 
   -- Validate model endpoint format if provided (allow functions)
-  if self.model_endpoint and self.model_endpoint ~= "" then
+  if self:online_model_fetching() then
     if type(self.model_endpoint) == "string" and not self.model_endpoint:match("^https?://") then
       logger.error(vim.inspect({
         msg = "Invalid model endpoint format for provider",
@@ -411,7 +415,7 @@ end
 -- Returns the list of available models
 ---@return string[]
 function MultiProvider:get_available_models()
-  if self.model_endpoint ~= "" and self:verify() then
+  if self:online_model_fetching() and self:verify() then
     local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
 
     -- Handle model_endpoint as function or string/table
@@ -438,6 +442,53 @@ function MultiProvider:get_available_models()
     return self.get_available_models_func(self, args)
   end
   return self.models
+end
+
+-- Returns the list of available models with caching support
+---@param state table # State object for caching
+---@param cache_expiry_hours number # Cache expiry time in hours
+---@param spinner table|nil # Optional spinner for loading indication
+---@return string[]
+function MultiProvider:get_available_models_cached(state, cache_expiry_hours, spinner)
+  -- Only use caching if model_endpoint is configured
+  -- otherwise return fallback models
+  if not self:online_model_fetching() and cache_expiry_hours == 0 then
+    return self.models
+  end
+
+  -- Generate endpoint hash for cache validation
+  local endpoint_hash = utils.generate_endpoint_hash(self)
+
+  -- Try to get from cache first
+  local cached_models = state:get_cached_models(self.name, cache_expiry_hours, endpoint_hash)
+  if cached_models then
+    return cached_models
+  end
+
+  -- Cache miss or expired - fetch fresh models
+  if spinner then
+    spinner:start("Fetching models for " .. self.name .. "...")
+  end
+
+  local fresh_models = self:get_available_models()
+
+  if spinner then
+    spinner:stop()
+  end
+
+  -- Ensure we always have models - fallback to static if fresh fetch failed
+  if not fresh_models or #fresh_models == 0 then
+    fresh_models = self.models
+  end
+
+  -- Cache the fresh models if we successfully fetched from API and they differ from static
+  if #fresh_models > 0 and not vim.deep_equal(fresh_models, self.models) then
+    state:set_cached_models(self.name, fresh_models, endpoint_hash)
+    state:save()
+  end
+
+  -- Final safety check - always return at least static models
+  return fresh_models and #fresh_models > 0 and fresh_models or self.models
 end
 
 return MultiProvider

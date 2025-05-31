@@ -1176,10 +1176,19 @@ function ChatHandler:model(params)
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   local has_telescope, telescope = pcall(require, "telescope")
 
+  -- Get models with caching support
+  local models
+  if prov:online_model_fetching() and self.options.model_cache_expiry_hours > 0 then
+    local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
+    models = prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner)
+  else
+    models = prov:get_available_models()
+  end
+
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
   elseif has_fzf then
-    fzf_lua.fzf_exec(prov:get_available_models(), {
+    fzf_lua.fzf_exec(models, {
       prompt = "Model selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       actions = {
@@ -1203,7 +1212,7 @@ function ChatHandler:model(params)
       .new({}, {
         prompt_title = "Model selection",
         finder = finders.new_table({
-          results = prov:get_available_models(),
+          results = models,
         }),
         sorter = sorters.values.generic_sorter({}),
         attach_mappings = function(_, map)
@@ -1225,7 +1234,7 @@ function ChatHandler:model(params)
       })
       :find()
   else
-    vim.ui.select(prov:get_available_models(), {
+    vim.ui.select(models, {
       prompt = "Select your model:",
     }, function(selected_model)
       self:switch_model(is_chat, selected_model, prov)

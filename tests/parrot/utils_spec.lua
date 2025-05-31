@@ -282,4 +282,81 @@ describe("utils", function()
       assert.is_nil(utils.parse_raw_response(nil))
     end)
   end)
+
+  describe("generate_endpoint_hash", function()
+    it("should generate consistent hash for string endpoints", function()
+      local provider = {
+        name = "openai",
+        model_endpoint = "https://api.openai.com/v1/models",
+      }
+      local hash1 = utils.generate_endpoint_hash(provider)
+      local hash2 = utils.generate_endpoint_hash(provider)
+      assert.are.equal(hash1, hash2)
+      assert.is_true(#hash1 == 8) -- 8 character hex string
+    end)
+
+    it("should generate different hashes for different endpoints", function()
+      local provider1 = {
+        name = "openai",
+        model_endpoint = "https://api.openai.com/v1/models",
+      }
+      local provider2 = {
+        name = "openai",
+        model_endpoint = "https://api.different.com/v1/models",
+      }
+      local hash1 = utils.generate_endpoint_hash(provider1)
+      local hash2 = utils.generate_endpoint_hash(provider2)
+      assert.is_not.equal(hash1, hash2)
+    end)
+
+    it("should generate hash for function endpoints", function()
+      local provider = {
+        name = "gemini",
+        model_endpoint = function(self)
+          return "https://api.gemini.com/models?key=" .. self.api_key
+        end,
+      }
+      local hash = utils.generate_endpoint_hash(provider)
+      assert.is_true(#hash == 8)
+      assert.are.equal(hash, utils.generate_endpoint_hash(provider))
+    end)
+
+    it("should generate hash for table endpoints", function()
+      local provider = {
+        name = "custom",
+        model_endpoint = { "curl", "-X", "GET", "https://api.custom.com/models" },
+      }
+      local hash = utils.generate_endpoint_hash(provider)
+      assert.is_true(#hash == 8)
+      assert.are.equal(hash, utils.generate_endpoint_hash(provider))
+    end)
+
+    it("should return empty string for missing or empty endpoints", function()
+      local provider1 = { name = "test" }
+      local provider2 = { name = "test", model_endpoint = "" }
+      local provider3 = { name = "test", model_endpoint = nil }
+
+      assert.are.equal("", utils.generate_endpoint_hash(provider1))
+      assert.are.equal("", utils.generate_endpoint_hash(provider2))
+      assert.are.equal("", utils.generate_endpoint_hash(provider3))
+    end)
+
+    it("should include provider name in function hash for uniqueness", function()
+      local provider1 = {
+        name = "provider1",
+        model_endpoint = function()
+          return "test"
+        end,
+      }
+      local provider2 = {
+        name = "provider2",
+        model_endpoint = function()
+          return "test"
+        end,
+      }
+      local hash1 = utils.generate_endpoint_hash(provider1)
+      local hash2 = utils.generate_endpoint_hash(provider2)
+      assert.is_not.equal(hash1, hash2)
+    end)
+  end)
 end)
