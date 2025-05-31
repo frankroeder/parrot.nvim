@@ -2,13 +2,14 @@
 
 # parrot.nvim 🦜
 
-> [!NOTE]
-> For best stability, I recommend using version 1.8.0 or earlier.
-> Future releases may include new features and enhancements that could affect your experience.
 
 This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate [stochastic parrot](https://en.wikipedia.org/wiki/Stochastic_parrot) to support your text editing inside Neovim.
 
 [Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
+
+> [!NOTE]
+> For best stability, I recommend using version 1.8.0 or earlier.
+> Future releases may include new features and enhancements that could affect your experience.
 
 <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
 </div>
