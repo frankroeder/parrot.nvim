@@ -7,7 +7,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 
 [Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
 
-> [!NOTE]
+> [!NOTE]  
 > For best stability, I recommend using version 1.8.0 or earlier.
 > Future releases may include new features and enhancements that could affect your experience.
 
