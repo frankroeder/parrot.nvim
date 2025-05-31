@@ -169,7 +169,7 @@ describe("MultiProvider", function()
           name = "test",
           endpoint = "https://api.test.com",
           api_key = "test",
-          model = "single-model-string",
+          models = "single-model-string",
         })
       end, "Models must be provided as a table for provider test")
     end)
@@ -639,7 +639,6 @@ describe("MultiProvider", function()
       assert.are.same({ "gpt-4o" }, models)
     end)
   end)
-
   describe("get_available_models_cached", function()
     local mock_state
 
@@ -791,6 +790,234 @@ describe("MultiProvider", function()
 
       local models = provider_no_spinner:get_available_models_cached(mock_state, 48, nil)
       assert.are.same({ "fresh-model" }, models)
+    end)
+  end)
+  describe("resolve_api_key", function()
+    describe("string api_key", function()
+      it("should return the API key as-is when it's a valid string", function()
+        local result = provider:resolve_api_key("valid_api_key")
+        assert.equals("valid_api_key", result)
+      end)
+
+      it("should trim whitespace from string API keys", function()
+        local result = provider:resolve_api_key("  api_key_with_spaces  ")
+        assert.equals("api_key_with_spaces", result)
+      end)
+
+      it("should handle strings with mixed whitespace", function()
+        local result = provider:resolve_api_key(" \t api_key \n ")
+        assert.equals("api_key", result)
+      end)
+
+      it("should return false for empty strings", function()
+        local result = provider:resolve_api_key("")
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for whitespace-only strings", function()
+        local result = provider:resolve_api_key("   \t\n  ")
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for nil", function()
+        local result = provider:resolve_api_key(nil)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+    end)
+
+    describe("function api_key", function()
+      it("should call function and return result for valid API key function", function()
+        local api_key_func = function()
+          return "function_generated_key"
+        end
+        local result = provider:resolve_api_key(api_key_func)
+        assert.equals("function_generated_key", result)
+      end)
+
+      it("should handle functions that return strings with whitespace", function()
+        local api_key_func = function()
+          return "  function_key_with_spaces  "
+        end
+        local result = provider:resolve_api_key(api_key_func)
+        assert.equals("function_key_with_spaces", result)
+      end)
+
+      it("should handle functions that return empty strings", function()
+        local api_key_func = function()
+          return ""
+        end
+        local result = provider:resolve_api_key(api_key_func)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle functions that return nil", function()
+        local api_key_func = function()
+          return nil
+        end
+        local result = provider:resolve_api_key(api_key_func)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle functions that throw errors", function()
+        local failing_func = function()
+          error("Function execution failed")
+        end
+        local result = provider:resolve_api_key(failing_func)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should recursively resolve functions that return other functions", function()
+        local nested_func = function()
+          return function()
+            return "nested_key"
+          end
+        end
+        local result = provider:resolve_api_key(nested_func)
+        assert.equals("nested_key", result)
+      end)
+
+      it("should handle functions that return commands (tables)", function()
+        local func_returning_table = function()
+          return { "echo", "command_from_function" }
+        end
+        -- Mock the command execution for this test
+        local test_provider = MultiProvider:new({
+          name = "test",
+          endpoint = "https://api.test.com",
+          api_key = func_returning_table,
+          model = { "test-model" },
+          resolve_api_key = function(self, api_key)
+            if type(api_key) == "function" then
+              local ok, result = pcall(api_key)
+              if not ok then
+                return false
+              end
+              return self:resolve_api_key(result)
+            elseif type(api_key) == "table" then
+              return "mocked_command_result"
+            else
+              return api_key
+            end
+          end,
+        })
+        local result = test_provider:resolve_api_key(func_returning_table)
+        assert.equals("mocked_command_result", result)
+      end)
+    end)
+
+    describe("table api_key (commands)", function()
+      it("should execute simple echo command", function()
+        local echo_command = { "echo", "test_api_key" }
+        local result = provider:resolve_api_key(echo_command)
+        assert.equals("test_api_key", result)
+      end)
+
+      it("should trim whitespace from command output", function()
+        local echo_command = { "echo", "  key_with_spaces  " }
+        local result = provider:resolve_api_key(echo_command)
+        assert.equals("key_with_spaces", result)
+      end)
+
+      it("should handle commands with multiple arguments", function()
+        local printf_command = { "printf", "%s", "multi_arg_key" }
+        local result = provider:resolve_api_key(printf_command)
+        assert.equals("multi_arg_key", result)
+      end)
+
+      it("should return false for empty command tables", function()
+        local result = provider:resolve_api_key({})
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for commands with non-string arguments", function()
+        local invalid_command = { "echo", 123 }
+        local result = provider:resolve_api_key(invalid_command)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for commands with mixed argument types", function()
+        local mixed_command = { "echo", "valid", 456, "also_valid" }
+        local result = provider:resolve_api_key(mixed_command)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle commands that return empty output", function()
+        local empty_command = { "true" } -- true command returns success but no output
+        local result = provider:resolve_api_key(empty_command)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle failing commands", function()
+        local failing_command = { "false" } -- false command always fails
+        local result = provider:resolve_api_key(failing_command)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle commands that don't exist", function()
+        local nonexistent_command = { "nonexistent_command_12345" }
+        local result = provider:resolve_api_key(nonexistent_command)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle complex shell commands", function()
+        -- Test with a command that uses shell features
+        local shell_command = { "printf", "shell_key" }
+        local result = provider:resolve_api_key(shell_command)
+        assert.equals("shell_key", result)
+      end)
+
+      it("should handle commands with special characters in output", function()
+        local special_command = { "echo", "key-with-special_chars.123" }
+        local result = provider:resolve_api_key(special_command)
+        assert.equals("key-with-special_chars.123", result)
+      end)
+    end)
+
+    describe("edge cases and invalid types", function()
+      it("should return false for number types", function()
+        local result = provider:resolve_api_key(123)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for boolean types", function()
+        local result = provider:resolve_api_key(true)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should return false for boolean false", function()
+        local result = provider:resolve_api_key(false)
+        assert.equals(false, result)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("should handle deeply nested function calls", function()
+        local deep_func = function()
+          return function()
+            return function()
+              return "deep_key"
+            end
+          end
+        end
+        local result = provider:resolve_api_key(deep_func)
+        assert.equals("deep_key", result)
+      end)
+
+      -- Note: We don't test infinite recursion as it would cause real stack overflow
+      -- In practice, Lua would throw a stack overflow error for truly infinite recursion
     end)
   end)
 end)

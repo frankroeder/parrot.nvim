@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.0.0](https://github.com/frankroeder/parrot.nvim/compare/v1.8.0...v2.0.0) (2025-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* add advanced and flexible provider configuration
+* add advanced and flexible provider configuration
+
+### Features
+
+* add advanced and flexible provider configuration ([aabd7a5](https://github.com/frankroeder/parrot.nvim/commit/aabd7a5d629b26f765e84e06897bed861ba4a1c0))
+* add advanced and flexible provider configuration ([bc70212](https://github.com/frankroeder/parrot.nvim/commit/bc702128e29985be9f85e73de4f7478ba95f52b8))
+
+## [1.8.0](https://github.com/frankroeder/parrot.nvim/compare/v1.7.0...v1.8.0) (2025-05-27)
+
+
+### Features
+
+* Add PrtCmd to directly generate executable vim commands ([da3d5aa](https://github.com/frankroeder/parrot.nvim/commit/da3d5aa98f2077246bb36a3572a6d89825cd6cb8))
+
+
+### Bug Fixes
+
+* Directly pass prompt to PrtCmd and add readme hint, rm repo context ([e1a5f86](https://github.com/frankroeder/parrot.nvim/commit/e1a5f86a985f2e38ef0e1953565fe0308fcc3f7b))
+* model selection with telescope in normal mode ([acfec2b](https://github.com/frankroeder/parrot.nvim/commit/acfec2bab4b6e5ab2c12f736fe74041b769be6c3))
+* model selection with telescope in normal mode ([7dbf314](https://github.com/frankroeder/parrot.nvim/commit/7dbf314f40d9556974d8f5a7ab0cf3f015806696))
+
 ## [1.7.0](https://github.com/frankroeder/parrot.nvim/compare/v1.6.0...v1.7.0) (2025-04-10)
 
 

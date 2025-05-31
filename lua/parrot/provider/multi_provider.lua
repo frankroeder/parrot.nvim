@@ -9,7 +9,7 @@ local Job = require("plenary.job")
 ---@field endpoint string
 ---@field api_key string|table|function
 ---@field model_endpoint string|table|function
----@field model string|table
+---@field models table
 ---@field name string
 ---@field headers function|table
 ---@field preprocess_payload_func function
@@ -147,17 +147,10 @@ local defaults = {
 
       local command = table.concat(api_key, " ")
       -- Use a timeout to prevent hanging on command execution
-      local handle = io.popen(command .. " 2>&1") -- Capture stderr as well
+      local handle = io.popen(command) -- Capture stderr as well
       if handle then
         local resolved_key = handle:read("*a")
-        local success, exit_type, exit_code = handle:close()
-
-        if not success or exit_code ~= 0 then
-          logger.error(
-            "Error executing API key command for provider " .. self.name .. ": exit code " .. (exit_code or "unknown")
-          )
-          return false
-        end
+        handle:close()
 
         -- Clean up the resolved key
         resolved_key = resolved_key:gsub("%s+$", ""):gsub("^%s+", "")
@@ -171,12 +164,9 @@ local defaults = {
         logger.error("Error verifying API key for provider " .. self.name .. ": failed to execute command")
         return false
       end
-    elseif api_key and api_key:match("%S") then
+    elseif type(api_key) == "string" and api_key:match("%S") then
       -- Trim surrounding whitespace from API key
-      if type(api_key) == "string" then
-        return api_key:gsub("^%s*(.-)%s*$", "%1")
-      end
-      return api_key
+      return api_key:gsub("^%s*(.-)%s*$", "%1")
     else
       logger.error("Error with API key for provider " .. self.name .. ": API key is nil, empty, or whitespace-only")
       return false
@@ -230,7 +220,11 @@ function MultiProvider:new(config)
   self.endpoint = config.endpoint
   self.model_endpoint = config.model_endpoint or ""
   self.api_key = config.api_key
-  self.models = config.model or config.models
+  if config.model then
+    self.models = type(config.model) == "string" and { config.model } or config.model
+  else
+    self.models = config.models
+  end
 
   -- Function overrides (use defaults if not provided)
   self.headers = config.headers or defaults.headers
