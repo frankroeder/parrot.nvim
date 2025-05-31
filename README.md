@@ -373,6 +373,10 @@ to consider a visual selection within an API request.
     -- if false it also frees up the buffer cursor for further editing elsewhere
     command_auto_select_response = true,
 
+    -- Time in hours until the model cache is refreshed
+    -- Set to 0 to deactive model caching
+    model_cache_expiry_hours = 48,
+
     -- fzf_lua options for PrtModel and PrtChatFinder when plugin is installed
     fzf_lua_opts = {
         ["--ansi"] = true,

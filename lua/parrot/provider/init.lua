@@ -9,7 +9,7 @@ M.init_provider = function(config)
   assert(config.name, "config.name is required")
   assert(config.endpoint, "config.endpoint is required")
   assert(config.api_key, "config.api_key is required")
-  assert(config.models, "config.model or config.models required")
+  assert(config.model or config.models, "config.model or config.models required")
   return MultiProvider:new(config)
 end
 
