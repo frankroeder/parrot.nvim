@@ -274,34 +274,6 @@ to consider a visual selection within an API request.
           "gpt-4.1-nano",
         },
       },
-      -- Example with custom functions for non-OpenAI APIs
-      my_custom_provider = {
-        name = "my_custom_provider",
-        api_key = os.getenv("MY_API_KEY"),
-        endpoint = "https://api.example.com/v1/chat/completions",
-        model = { "model-1", "model-2" },
-        -- Custom headers function
-        headers = function(api_key)
-          return {
-            ["Content-Type"] = "application/json",
-            ["Authorization"] = "Bearer " .. api_key,
-            ["X-Custom-Header"] = "custom-value",
-          }
-        end,
-        -- Custom payload preprocessing
-        preprocess_payload = function(payload)
-          -- Modify payload for your API format
-          return payload
-        end,
-        -- Custom response processing
-        process_stdout = function(response)
-          -- Parse streaming response from your API
-          local success, decoded = pcall(vim.json.decode, response)
-          if success and decoded.content then
-            return decoded.content
-          end
-        end,
-      },
       ...
     }
 
@@ -891,30 +863,42 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
 ```
 
 ## Adding a custom provider
-In case your provider is not available, there is an option to resuse a present
-provider with a different endpoint and a custom selection of models.
-For this, the `custom` provider needs to be added to the list of providers the following way:
+If the default provider is unavailable, you may define as many additonal custom
+providers to suit your needs. This allows you to customize various aspects such as
+endpoints, available models, default parameters, headers, and functions for
+processing the LLM responses. 
+Please note that configuring providers in this manner is intended for advanced
+users. I encourage you to open an issue or a discussion if you require assistance
+or have suggestions for improving provider support.
 ```lua
   providers = {
-    custom = {
-      style = "openai",
-      api_key = os.getenv "CUSTOM_API_KEY",
-      endpoint = "https://api.openai.com/v1/chat/completions",
-      models = {
-        "gpt-4o-mini",
-        "gpt-4o",
-      },
-      -- parameters to summarize chat
-      topic = {
-        model = "gpt-4o-mini",
-        params = { max_completion_tokens = 64 },
-      },
-      -- default parameters
-      params = {
-        chat = { temperature = 1.1, top_p = 1 },
-        command = { temperature = 1.1, top_p = 1 },
-      },
-    }
+    my_custom_provider = {
+      name = "my_custom_provider",
+      api_key = os.getenv("MY_API_KEY"),
+      endpoint = "https://api.example.com/v1/chat/completions",
+      model = { "model-1", "model-2" },
+      -- Custom headers function
+      headers = function(api_key)
+        return {
+          ["Content-Type"] = "application/json",
+          ["Authorization"] = "Bearer " .. api_key,
+          ["X-Custom-Header"] = "custom-value",
+        }
+      end,
+      -- Custom payload preprocessing
+      preprocess_payload = function(payload)
+        -- Modify payload for your API format
+        return payload
+      end,
+      -- Custom response processing
+      process_stdout = function(response)
+        -- Parse streaming response from your API
+        local success, decoded = pcall(vim.json.decode, response)
+        if success and decoded.content then
+          return decoded.content
+        end
+      end,
+    },
   }
 ```
 
