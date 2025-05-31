@@ -312,7 +312,7 @@ function M.setup(opts)
       local spinner = nil
       if needs_update and M.options.enable_spinner then
         spinner = Spinner:new(M.options.spinner_type)
-        vim.notify("Updating model cache for " .. prov_name .. "...", vim.log.levels.INFO)
+        M.logger.info("Updating model cache for " .. prov_name)
       end
 
       available_models[prov_name] =
@@ -415,6 +415,7 @@ M.add_default_commands = function(commands, hooks, options)
             return completions[cmd]
           end
           if cmd == "Model" then
+            -- TODO: Should detect the respective mode --
             local current_provider = M.chat_handler.state:get_provider(true) -- Use chat provider by default
             if current_provider and M.available_models[current_provider] then
               return M.available_models[current_provider]
