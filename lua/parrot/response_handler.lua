@@ -88,11 +88,10 @@ end
 function ResponseHandler:update_response(chunk)
   if chunk ~= nil then
     self.response = self.response .. chunk
-    logger.debug(vim.inspect({
-      method = "ResponseHandler:update_response",
+    logger.debug("ResponseHandler:update_response", {
       response = self.response,
       chunk = chunk,
-    }))
+    })
     utils.undojoin(self.buffer)
   end
 end
@@ -103,11 +102,10 @@ function ResponseHandler:update_buffer()
   local prefixed_lines = vim.tbl_map(function(l)
     return self.prefix .. l
   end, lines)
-  logger.debug(vim.inspect({
-    method = "ResponseHandler:update_buffer",
+  logger.debug("ResponseHandler:update_buffer", {
     prefixed_lines = prefixed_lines,
     list_slice = vim.list_slice(prefixed_lines, self.finished_lines + 1),
-  }))
+  })
   vim.api.nvim_buf_set_lines(
     self.buffer,
     self.first_line + self.finished_lines,

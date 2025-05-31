@@ -160,40 +160,81 @@ end
 
 -- Join the current change with the previous one in the undo history.
 ---@param buf number # buffer number
+---@return boolean # true if successful, false otherwise
 M.undojoin = function(buf)
-  if not buf or not vim.api.nvim_buf_is_loaded(buf) then
-    return
+  if not buf or type(buf) ~= "number" then
+    logger.warning("undojoin: invalid buffer number", { buf = buf })
+    return false
   end
+
+  if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_buf_is_loaded(buf) then
+    logger.debug("undojoin: buffer not valid or loaded", { buf = buf })
+    return false
+  end
+
   local status, result = pcall(vim.cmd.undojoin)
   if not status then
-    if result:match("E790") then
-      return
+    -- E790: undojoin is not allowed after undo - this is expected behavior, not an error
+    if result and result:match("E790") then
+      logger.debug("undojoin: E790 - undojoin not allowed after undo")
+      return false
     end
-    M.error("Error running undojoin: " .. vim.inspect(result))
+    logger.error("Error running undojoin", { buf = buf, error = result })
+    return false
   end
+  return true
 end
 
 -- Prepare the payload for a model request.
 ---@param messages table # The messages to include in the request
 ---@param model_name string # The name of the model
 ---@param params table # Additional parameters for the request
----@return table
+---@return table|nil # the prepared payload, or nil if invalid input
 M.prepare_payload = function(messages, model_name, params)
+  -- Input validation
+  if type(messages) ~= "table" then
+    logger.error("prepare_payload: messages must be a table", { messages = messages })
+    return nil
+  end
+
+  if type(model_name) ~= "string" or model_name == "" then
+    logger.error("prepare_payload: model_name must be a non-empty string", { model_name = model_name })
+    return nil
+  end
+
+  if type(params) ~= "table" then
+    logger.error("prepare_payload: params must be a table", { params = params })
+    return nil
+  end
+
   local model_req = {
     messages = messages,
     stream = true,
     model = model_name,
   }
 
-  -- insert the model parameters
+  -- TODO: Provider specific --
+  -- insert the model parameters with validation
   for k, v in pairs(params) do
     if k == "temperature" then
-      model_req[k] = math.max(0, math.min(2, v or 1))
+      -- Validate temperature range
+      if type(v) == "number" then
+        model_req[k] = math.max(0, math.min(2, v))
+      else
+        logger.warning("prepare_payload: invalid temperature value, using default", { value = v })
+        model_req[k] = 1
+      end
     elseif k == "top_p" then
-      model_req[k] = math.max(0, math.min(1, v or 1))
+      -- Validate top_p range
+      if type(v) == "number" then
+        model_req[k] = math.max(0, math.min(1, v))
+      else
+        logger.warning("prepare_payload: invalid top_p value, using default", { value = v })
+        model_req[k] = 1
+      end
     else
       if type(v) == "table" then
-        model_req[k] = v
+        model_req[k] = {}
         for pk, pv in pairs(v) do
           model_req[k][pk] = pv
         end
@@ -212,11 +253,29 @@ end
 ---@param chat_dir string # directory path for chat files
 ---@return boolean
 M.is_chat = function(buf, file_name, chat_dir)
+  -- Input validation
+  if not buf or type(buf) ~= "number" or not vim.api.nvim_buf_is_valid(buf) then
+    return false
+  end
+
+  if type(file_name) ~= "string" or file_name == "" then
+    return false
+  end
+
+  if type(chat_dir) ~= "string" or chat_dir == "" then
+    return false
+  end
+
   if not M.starts_with(file_name, chat_dir) then
     return false
   end
 
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local success, lines = pcall(vim.api.nvim_buf_get_lines, buf, 0, -1, false)
+  if not success then
+    logger.warning("is_chat: failed to get buffer lines", { buf = buf, file_name = file_name })
+    return false
+  end
+
   if #lines < 4 then
     return false
   end
@@ -235,9 +294,14 @@ M.get_all_buffer_content = function()
   local content = {}
 
   for _, buf in ipairs(buffers) do
-    if vim.api.nvim_buf_is_loaded(buf) then
-      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      table.insert(content, table.concat(lines, "\n"))
+    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
+      local success, lines = pcall(vim.api.nvim_buf_get_lines, buf, 0, -1, false)
+      if success and lines then
+        table.insert(content, "Buffer: " .. vim.api.nvim_buf_get_name(buf)) -- Add buffer name as headline
+        table.insert(content, table.concat(lines, "\n"))
+      else
+        logger.debug("get_all_buffer_content: failed to get lines for buffer", { buf = buf })
+      end
     end
   end
 
@@ -249,39 +313,87 @@ end
 ---@param origin_buf number # selection origin buffer
 ---@param target_buf number # selection target buffer
 ---@param template_selection string # template for formatting the selection
+---@return boolean # true if successful, false otherwise
 M.append_selection = function(params, origin_buf, target_buf, template_selection)
-  -- prepare selection
-  local lines = vim.api.nvim_buf_get_lines(origin_buf, params.line1 - 1, params.line2, false)
+  -- Input validation
+  if type(params) ~= "table" or not params.line1 or not params.line2 then
+    logger.error("append_selection: invalid params", { params = params })
+    return false
+  end
+
+  if not origin_buf or not vim.api.nvim_buf_is_valid(origin_buf) then
+    logger.error("append_selection: invalid origin buffer", { origin_buf = origin_buf })
+    return false
+  end
+
+  if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+    logger.error("append_selection: invalid target buffer", { target_buf = target_buf })
+    return false
+  end
+
+  -- prepare selection with error handling
+  local success, lines = pcall(vim.api.nvim_buf_get_lines, origin_buf, params.line1 - 1, params.line2, false)
+  if not success then
+    logger.error("append_selection: failed to get lines from origin buffer", {
+      origin_buf = origin_buf,
+      line1 = params.line1,
+      line2 = params.line2,
+    })
+    return false
+  end
+
   local selection = table.concat(lines, "\n")
   if selection ~= "" then
     local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf), {})
     local fname = vim.api.nvim_buf_get_name(origin_buf)
-    local filecontent = table.concat(vim.api.nvim_buf_get_lines(origin_buf, 0, -1, false), "\n")
+    local filecontent_success, filecontent_lines = pcall(vim.api.nvim_buf_get_lines, origin_buf, 0, -1, false)
+    local filecontent = filecontent_success and table.concat(filecontent_lines, "\n") or ""
     local multifilecontent = M.get_all_buffer_content()
-    local _placeholders =
-      Placeholders:new(template_selection, "", selection, filetype, fname, filecontent, multifilecontent)
-    local rendered = _placeholders:return_render()
-    if rendered then
-      selection = rendered
+
+    if template_selection and template_selection ~= "" then
+      local _placeholders =
+        Placeholders:new(template_selection, "", selection, filetype, fname, filecontent, multifilecontent)
+      local rendered = _placeholders:return_render()
+      if rendered then
+        selection = rendered
+      end
     end
   end
 
   -- delete whitespace lines at the end of the file
   local last_content_line = M.last_content_line(target_buf)
-  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, {})
+  local set_success = pcall(vim.api.nvim_buf_set_lines, target_buf, last_content_line, -1, false, {})
+  if not set_success then
+    logger.error("append_selection: failed to clear end lines", { target_buf = target_buf })
+    return false
+  end
 
   -- insert selection lines
   lines = vim.split("\n" .. selection, "\n")
-  vim.api.nvim_buf_set_lines(target_buf, last_content_line, -1, false, lines)
+  set_success = pcall(vim.api.nvim_buf_set_lines, target_buf, last_content_line, -1, false, lines)
+  if not set_success then
+    logger.error("append_selection: failed to insert selection", { target_buf = target_buf })
+    return false
+  end
+
+  return true
 end
 
 -- Check if a table has at least one of the specified valid keys.
----@param table table<string, any> # the table to check
+---@param tbl table<string, any> # the table to check
 ---@param valid_keys string[] # valid key names to look for
 ---@return boolean
-M.has_valid_key = function(table, valid_keys)
+M.has_valid_key = function(tbl, valid_keys)
+  if type(tbl) ~= "table" then
+    return false
+  end
+
+  if type(valid_keys) ~= "table" then
+    return false
+  end
+
   for _, key in ipairs(valid_keys) do
-    if table[key] ~= nil then
+    if tbl[key] ~= nil then
       return true
     end
   end
@@ -289,12 +401,16 @@ M.has_valid_key = function(table, valid_keys)
 end
 
 -- Check if a table contains a specific value.
----@param table table # The table to search
+---@param tbl table # The table to search
 ---@param val any # The value to search for
 ---@return boolean
-M.contains = function(table, val)
-  for i = 1, #table do
-    if table[i] == val then
+M.contains = function(tbl, val)
+  if type(tbl) ~= "table" then
+    return false
+  end
+
+  for i = 1, #tbl do
+    if tbl[i] == val then
       return true
     end
   end
@@ -306,6 +422,14 @@ end
 ---@param payload table
 ---@return table
 M.filter_payload_parameters = function(valid_parameters, payload)
+  if type(valid_parameters) ~= "table" or type(payload) ~= "table" then
+    logger.error("filter_payload_parameters: invalid input types", {
+      valid_parameters_type = type(valid_parameters),
+      payload_type = type(payload),
+    })
+    return {}
+  end
+
   local new_payload = {}
   for key, value in pairs(valid_parameters) do
     if type(value) == "table" then
@@ -347,29 +471,64 @@ end
 ---@param response string|table|nil # The raw response to parse
 ---@return string|nil
 M.parse_raw_response = function(response)
-  if response ~= nil then
-    if type(response) == "table" then
-      response = table.concat(response, " ")
-    end
+  if response == nil then
+    return nil
+  end
+
+  if type(response) == "string" then
     return response
   end
+
+  if type(response) == "table" then
+    -- Handle array-like tables
+    if #response > 0 then
+      return table.concat(response, " ")
+    else
+      -- Handle object-like tables by converting to string
+      return vim.inspect(response)
+    end
+  end
+
+  -- For other types, convert to string
+  return tostring(response)
 end
 
+-- Improved path_split with validation
+---@param path string # path to split
+---@return table # array of path components
 function M.path_split(path)
+  if type(path) ~= "string" then
+    logger.error("path_split: path must be a string", { path = path })
+    return {}
+  end
+
+  if path == "" then
+    return {}
+  end
+
   return vim.split(path, "/")
 end
 
+---@param ... string # path components to join
+---@return string # joined path
 function M.path_join(...)
   local args = { ... }
+
+  if #args == 0 then
+    logger.warning("path_join: no arguments provided")
+    return ""
+  end
+
   local parts = {}
 
   for i, part in ipairs(args) do
     if type(part) ~= "string" then
-      logger.error(vim.inspect({
-        method = "utils.path_join",
+      logger.error("utils.path_join: argument must be string", {
         part = part,
         argument = i,
-      }))
+        part_type = type(part),
+      })
+      return ""
     end
 
     -- Remove leading/trailing separators (both / and \)
@@ -380,9 +539,15 @@ function M.path_join(...)
     end
   end
 
+  if #parts == 0 then
+    logger.warning("path_join: all arguments were empty or separators")
+    return ""
+  end
+
   local result = table.concat(parts, "/")
 
-  if args[1]:match("^[/\\]") then
+  -- Preserve leading slash if the first argument had one
+  if args[1] and args[1]:match("^[/\\]") then
     result = "/" .. result
   end
 
