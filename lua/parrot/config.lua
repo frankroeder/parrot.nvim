@@ -2,6 +2,7 @@ local ChatHandler = require("parrot.chat_handler")
 local init_provider = require("parrot.provider").init_provider
 local utils = require("parrot.utils")
 local Spinner = require("parrot.spinner")
+local State = require("parrot.state")
 
 local M = {
   ui = require("parrot.ui"),
@@ -286,7 +287,6 @@ function M.setup(opts)
   M.available_providers = vim.tbl_keys(M.providers)
 
   -- Initialize state early to enable caching
-  local State = require("parrot.state")
   local temp_state = State:new(M.options.state_dir)
 
   -- Clean up cache for removed providers
