@@ -71,7 +71,7 @@ local function limit_logfile_lines()
   return table.concat(lines, "\n")
 end
 
--- Write a message to the log file with enhanced context
+-- Write a message to the log file with context
 local function write_to_logfile(msg, kind, stack_info)
   local limited_log = limit_logfile_lines()
   local timestamp = os.date("%Y-%m-%d %H:%M:%S")
@@ -114,7 +114,7 @@ local function log(msg, kind, level, include_stack)
   end
 end
 
--- Enhanced logging functions with better context
+-- Logging functions with better context
 function M.error(msg, context)
   if context then
     msg = string.format("%s\nContext: %s", msg, vim.inspect(context))
