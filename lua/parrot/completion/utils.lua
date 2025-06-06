@@ -48,11 +48,10 @@ function M.is_completion_available(bufnr)
   end)
 
   if not ok then
-    logger.error(vim.inspect({
-      msg = "Error in completion source is_availability",
+    logger.error("Error in completion source is_availability", {
       method = "completion.utils.is_completion_available",
       result = result,
-    }))
+    })
     return false
   end
 

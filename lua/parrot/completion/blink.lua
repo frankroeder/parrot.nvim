@@ -46,11 +46,10 @@ function source:get_completions(context, callback)
       end)
       :map(callback)
       :catch(function(err)
-        logger.error(vim.inspect({
-          msg = "File completion error",
+        logger.error("File completion error", {
           method = "completion.blink:get_completions",
           error = tostring(err),
-        }))
+        })
         callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
       end)
   elseif cmd:match("^@buffer:") then
@@ -66,11 +65,10 @@ function source:get_completions(context, callback)
       end)
       :map(callback)
       :catch(function(err)
-        logger.error(vim.inspect({
-          msg = "Buffer completion error",
+        logger.error("Buffer completion error", {
           method = "completion.blink:get_completions",
           err = tostring(err),
-        }))
+        })
         callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
       end)
   elseif cmd:match("^@directory:") then
@@ -86,11 +84,10 @@ function source:get_completions(context, callback)
       end)
       :map(callback)
       :catch(function(err)
-        logger.error(vim.inspect({
-          msg = "Directory completion error",
+        logger.error("Directory completion error", {
           method = "completion.blink:get_completions",
           err = tostring(err),
-        }))
+        })
         callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
       end)
   else
@@ -98,7 +95,7 @@ function source:get_completions(context, callback)
   end
 end
 
--- Keep the resolve function as is, since it’s specific to blink.cmp
+-- Keep the resolve function as is, since it's specific to blink.cmp
 function source:resolve(item, callback)
   callback = vim.schedule_wrap(callback)
   if not item or not item.data or item.data.type ~= "file" or not item.data.full_path then
@@ -127,11 +124,10 @@ function source:resolve(item, callback)
       callback(resolved_item)
     end)
     :catch(function(err)
-      logger.error(vim.inspect({
-        msg = "Resolve error",
+      logger.error("Resolve error", {
         method = "completion.blink:get_completions",
         err = tostring(err),
-      }))
+      })
       callback(item)
     end)
 end

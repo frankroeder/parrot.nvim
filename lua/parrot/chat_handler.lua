@@ -698,7 +698,7 @@ function ChatHandler:chat_delete()
 
   -- check if file is in the chat dir
   if not utils.starts_with(file_name, self.options.chat_dir) then
-    logger.warning("File " .. vim.inspect(file_name) .. " is not in chat dir")
+    logger.warning("File is not in expected chat dir", { file_name = file_name })
     return
   end
 
@@ -739,7 +739,7 @@ function ChatHandler:_chat_respond(params)
   -- check if file looks like a chat file
   local file_name = vim.api.nvim_buf_get_name(buf)
   if not utils.is_chat(buf, file_name, self.options.chat_dir) then
-    logger.warning("File " .. vim.inspect(file_name) .. " does not look like a chat file")
+    logger.warning("File does not look like a chat file", { file_name = file_name })
     return
   end
 
@@ -903,12 +903,12 @@ function ChatHandler:_chat_respond(params)
             topic_spinner:start("summarizing...")
           end
           local topic_payload = utils.prepare_payload(messages, cfg.topic.model, cfg.topic.params or {})
-          logger.debug(vim.inspect({
+          logger.debug("ChatHandler:query topic generation", {
             location = "ChatHandler:query",
             messages = messages,
             topic_prov = topic_prov,
             payload = topic_payload,
-          }))
+          })
           self:query(
             nil,
             topic_prov,
@@ -1246,10 +1246,10 @@ end
 ---@param params table Parameters for retrying.
 function ChatHandler:retry(params)
   if self.history.last_line1 == nil and self.history.last_line2 == nil then
-    return logger.error("No history available to retry: " .. vim.inspect(self.history))
+    return logger.error("No history available to retry", { history = self.history })
   end
   vim.api.nvim_command("normal! u")
-  logger.debug("ChatHandler:retry - `self.history`: " .. vim.inspect(self.history))
+  logger.debug("ChatHandler:retry", { history = self.history })
   params.line1 = self.history.last_line1
   params.line2 = self.history.last_line2
   params.range = 2
@@ -1262,7 +1262,7 @@ function ChatHandler:retry(params)
   elseif self.history.last_target == ui.Target.prepend then
     template = self.options.template_prepend
   else
-    logger.error("Invalid last target" .. vim.inspect(self.history.last_target))
+    logger.error("Invalid last target", { last_target = self.history.last_target })
   end
   self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
 end
@@ -1271,10 +1271,10 @@ end
 ---@param params table Parameters for retrying.
 function ChatHandler:edit(params)
   if self.history.last_line1 == nil and self.history.last_line2 == nil then
-    return logger.error("No history available to retry: " .. vim.inspect(self.history))
+    return logger.error("No history available to retry", { history = self.history })
   end
   vim.api.nvim_command("normal! u")
-  logger.debug("ChatHandler:retry - `self.history`: " .. vim.inspect(self.history))
+  logger.debug("ChatHandler:retry", { history = self.history })
   params.line1 = self.history.last_line1
   params.line2 = self.history.last_line2
   params.range = 2
@@ -1287,7 +1287,7 @@ function ChatHandler:edit(params)
   elseif self.history.last_target == ui.Target.prepend then
     template = self.options.template_prepend
   else
-    logger.error("Invalid last target" .. vim.inspect(self.history.last_target))
+    logger.error("Invalid last target", { last_target = self.history.last_target })
   end
 
   local input_function = self.options.user_input_ui == "buffer" and ui.input
@@ -1318,7 +1318,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     target = target()
   end
 
-  logger.debug("ChatHandler:prompt - `reset_history`: " .. vim.inspect(reset_history))
+  logger.debug("ChatHandler:prompt", { reset_history = reset_history })
   if reset_history == nil or reset_history then
     self.history = {
       last_selection = nil,
@@ -1504,11 +1504,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       if repo_instructions ~= "" and sys_prompt ~= "" then
         -- append the repository instructions from .parrot.md to the system prompt
         sys_prompt = sys_prompt .. "\n" .. repo_instructions
-        logger.debug(vim.inspect({
-          method = "ChatHandler:prompt",
+        logger.debug("ChatHandler:prompt - repo instructions appended", {
           repo_instructions = repo_instructions,
           sys_prompt = sys_prompt,
-        }))
+        })
       end
       table.insert(messages, { role = "system", content = sys_prompt })
     end
@@ -1680,21 +1679,19 @@ end
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
-    logger.error(vim.inspect({
-      msg = "Unexpected handler function",
+    logger.error("Unexpected handler function", {
       method = "ChatHandler:query",
       type = type(handler),
       handler = handler,
-    }))
+    })
     return
   end
 
   if not provider:verify() then
-    logger.error(vim.inspect({
-      msg = "Provider verification failed.",
+    logger.error("Provider verification failed", {
       method = "ChatHandler:query",
       provider = provider,
-    }))
+    })
     return
   end
 
@@ -1733,29 +1730,23 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   end
 
   local json_payload = vim.json.encode(payload)
-  logger.debug(vim.inspect({
-    msg = "Query json payload",
-    method = "ChatHandler:query",
+  logger.debug("ChatHandler:query json payload", {
     json_payload = json_payload,
-  }))
+  })
 
   local job = Job:new({
     command = "curl",
     args = curl_params,
     writer = json_payload,
     on_exit = function(response, exit_code)
-      logger.debug(vim.inspect({
-        msg = "on_exit",
-        method = "ChatHandler:query",
+      logger.debug("ChatHandler:query on_exit", {
         response = response:result(),
-      }))
+      })
       if exit_code ~= 0 then
-        logger.error(vim.inspect({
-          msg = "on_exit: calling curl failed with exit code",
-          method = "ChatHandler:query",
+        logger.error("ChatHandler:query curl failed", {
           exit_code = exit_code,
           response = response:result(),
-        }))
+        })
         if on_exit then
           on_exit(qid)
         end
@@ -1789,11 +1780,9 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       self.pool:remove(response.pid)
     end,
     on_stdout = function(_, data)
-      logger.debug(vim.inspect({
-        msg = "on_stdout",
-        method = "ChatHandler:query",
+      logger.debug("ChatHandler:query on_stdout", {
         data = data,
-      }))
+      })
       local qt = self.queries:get(qid)
       if not qt then
         return
@@ -1812,11 +1801,9 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
   })
   job:start()
   self.pool:add(job, buf)
-  logger.debug(vim.inspect({
-    msg = "Pool after adding query job",
-    method = "ChatHandler:query",
+  logger.debug("ChatHandler:query pool updated", {
     pool = self.pool,
-  }))
+  })
 end
 
 return ChatHandler
