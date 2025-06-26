@@ -1461,6 +1461,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
       -- option to not select response automatically
       if not self.options.command_auto_select_response then
+        vim.cmd("highlight clear PrtHandlerStandout")
         return
       end
 
