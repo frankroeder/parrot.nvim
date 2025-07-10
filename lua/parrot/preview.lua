@@ -1,6 +1,5 @@
 local ui = require("parrot.ui")
 local utils = require("parrot.utils")
-local logger = require("parrot.logger")
 
 local Preview = {}
 Preview.__index = Preview
@@ -9,7 +8,6 @@ Preview.__index = Preview
 local DIFF_ADD_HL = "DiffAdd"
 local DIFF_DELETE_HL = "DiffDelete"
 local DIFF_CHANGE_HL = "DiffChange"
-local DIFF_TEXT_HL = "DiffText"
 
 --- Creates a new Preview instance
 ---@param options table Plugin options
@@ -46,7 +44,7 @@ function Preview:create_diff(old_lines, new_lines)
         type = "context",
         content = string.format(" %s", old_line or ""),
         old_num = old_idx,
-        new_num = new_idx
+        new_num = new_idx,
       })
       old_idx = old_idx + 1
       new_idx = new_idx + 1
@@ -56,7 +54,7 @@ function Preview:create_diff(old_lines, new_lines)
         type = "add",
         content = string.format("+%s", new_line or ""),
         old_num = nil,
-        new_num = new_idx
+        new_num = new_idx,
       })
       new_idx = new_idx + 1
     elseif new_idx > #new_lines then
@@ -65,7 +63,7 @@ function Preview:create_diff(old_lines, new_lines)
         type = "delete",
         content = string.format("-%s", old_line or ""),
         old_num = old_idx,
-        new_num = nil
+        new_num = nil,
       })
       old_idx = old_idx + 1
     else
@@ -74,13 +72,13 @@ function Preview:create_diff(old_lines, new_lines)
         type = "delete",
         content = string.format("-%s", old_line),
         old_num = old_idx,
-        new_num = nil
+        new_num = nil,
       })
       table.insert(diff_lines, {
         type = "add",
         content = string.format("+%s", new_line),
         old_num = nil,
-        new_num = new_idx
+        new_num = new_idx,
       })
       old_idx = old_idx + 1
       new_idx = new_idx + 1
@@ -107,7 +105,10 @@ function Preview:apply_diff_highlighting(buf, diff_lines)
     end
 
     if hl_group then
-      vim.api.nvim_buf_add_highlight(buf, ns_id, hl_group, line_idx - 1, 0, -1)
+      vim.api.nvim_buf_set_extmark(buf, ns_id, line_idx - 1, 0, {
+        end_col = -1,
+        hl_group = hl_group,
+      })
     end
   end
 end
@@ -137,7 +138,7 @@ function Preview:show_diff_preview(old_content, new_content, target_type, apply_
     "",
     "Actions: [a]pply, [r]eject, [q]uit",
     "───────────────────────────────────",
-    ""
+    "",
   }
 
   vim.list_extend(diff_content, header)
@@ -186,9 +187,13 @@ function Preview:show_diff_preview(old_content, new_content, target_type, apply_
   -- Auto-apply timer if enabled
   if self.options.preview_auto_apply and self.options.preview_timeout > 0 then
     self.auto_apply_timer = vim.loop.new_timer()
-    self.auto_apply_timer:start(self.options.preview_timeout, 0, vim.schedule_wrap(function()
-      self:apply_changes()
-    end))
+    self.auto_apply_timer:start(
+      self.options.preview_timeout,
+      0,
+      vim.schedule_wrap(function()
+        self:apply_changes()
+      end)
+    )
   end
 
   -- Show countdown if auto-apply is enabled
@@ -206,20 +211,25 @@ function Preview:show_countdown()
   local remaining = self.options.preview_timeout
   local countdown_timer = vim.loop.new_timer()
 
-  countdown_timer:start(0, 1000, vim.schedule_wrap(function()
-    remaining = remaining - 1000
-    if remaining <= 0 or not vim.api.nvim_buf_is_valid(self.preview_buf) then
-      countdown_timer:stop()
-      countdown_timer:close()
-      return
-    end
+  countdown_timer:start(
+    0,
+    1000,
+    vim.schedule_wrap(function()
+      remaining = remaining - 1000
+      if remaining <= 0 or not vim.api.nvim_buf_is_valid(self.preview_buf) then
+        countdown_timer:stop()
+        countdown_timer:close()
+        return
+      end
 
-    -- Update header with countdown
-    local countdown_line = string.format("Auto-apply in %ds... [a]pply now, [r]eject, [q]uit", math.ceil(remaining / 1000))
-    vim.api.nvim_set_option_value("modifiable", true, { buf = self.preview_buf })
-    vim.api.nvim_buf_set_lines(self.preview_buf, 3, 4, false, { countdown_line })
-    vim.api.nvim_set_option_value("modifiable", false, { buf = self.preview_buf })
-  end))
+      -- Update header with countdown
+      local countdown_line =
+        string.format("Auto-apply in %ds... [a]pply now, [r]eject, [q]uit", math.ceil(remaining / 1000))
+      vim.api.nvim_set_option_value("modifiable", true, { buf = self.preview_buf })
+      vim.api.nvim_buf_set_lines(self.preview_buf, 3, 4, false, { countdown_line })
+      vim.api.nvim_set_option_value("modifiable", false, { buf = self.preview_buf })
+    end)
+  )
 end
 
 --- Sets up keyboard shortcuts for the preview window
@@ -227,17 +237,31 @@ function Preview:setup_preview_keymaps()
   local opts = { noremap = true, silent = true, buffer = self.preview_buf }
 
   -- Apply changes
-  vim.keymap.set("n", "a", function() self:apply_changes() end, opts)
-  vim.keymap.set("n", "<CR>", function() self:apply_changes() end, opts)
+  vim.keymap.set("n", "a", function()
+    self:apply_changes()
+  end, opts)
+  vim.keymap.set("n", "<CR>", function()
+    self:apply_changes()
+  end, opts)
 
   -- Reject changes
-  vim.keymap.set("n", "r", function() self:reject_changes() end, opts)
-  vim.keymap.set("n", "<BS>", function() self:reject_changes() end, opts)
+  vim.keymap.set("n", "r", function()
+    self:reject_changes()
+  end, opts)
+  vim.keymap.set("n", "<BS>", function()
+    self:reject_changes()
+  end, opts)
 
   -- Quit/close preview
-  vim.keymap.set("n", "q", function() self:close_preview() end, opts)
-  vim.keymap.set("n", "<Esc>", function() self:close_preview() end, opts)
-  vim.keymap.set("n", "<C-c>", function() self:close_preview() end, opts)
+  vim.keymap.set("n", "q", function()
+    self:close_preview()
+  end, opts)
+  vim.keymap.set("n", "<Esc>", function()
+    self:close_preview()
+  end, opts)
+  vim.keymap.set("n", "<C-c>", function()
+    self:close_preview()
+  end, opts)
 end
 
 --- Applies the changes and closes the preview

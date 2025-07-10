@@ -39,10 +39,10 @@ function PreviewResponseHandler:new(queries, buffer, window, target_type, start_
   self.queries = queries
   self.options = options
   self.preview = Preview:new(options)
-  
+
   -- Capture original content for diff
   self:capture_original_content()
-  
+
   return self
 end
 
@@ -79,14 +79,12 @@ end
 --- Shows the preview and handles user decision
 function PreviewResponseHandler:show_preview()
   local new_content = self:prepare_new_content()
-  
-  self.preview:show_diff_preview(
-    self.original_content,
-    new_content,
-    self.target_type,
-    function() self:apply_changes() end,
-    function() self:reject_changes() end
-  )
+
+  self.preview:show_diff_preview(self.original_content, new_content, self.target_type, function()
+    self:apply_changes()
+  end, function()
+    self:reject_changes()
+  end)
 end
 
 --- Prepares the new content based on target type
@@ -96,7 +94,7 @@ function PreviewResponseHandler:prepare_new_content()
   local prefixed_lines = vim.tbl_map(function(line)
     return self.prefix .. line
   end, response_lines)
-  
+
   if self.target_type == "rewrite" then
     return table.concat(prefixed_lines, "\n")
   elseif self.target_type == "append" then
@@ -106,7 +104,7 @@ function PreviewResponseHandler:prepare_new_content()
     -- For prepend, show what will be added
     return table.concat(prefixed_lines, "\n")
   end
-  
+
   return self.response
 end
 
@@ -116,14 +114,14 @@ function PreviewResponseHandler:apply_changes()
     target_type = self.target_type,
     start_line = self.start_line,
     end_line = self.end_line,
-    response_length = #self.response
+    response_length = #self.response,
   })
-  
+
   local response_lines = vim.split(self.response, "\n")
   local prefixed_lines = vim.tbl_map(function(line)
     return self.prefix .. line
   end, response_lines)
-  
+
   -- Apply changes based on target type
   if self.target_type == "rewrite" then
     -- Replace the selected lines
@@ -135,7 +133,7 @@ function PreviewResponseHandler:apply_changes()
     -- Insert lines before the selection
     vim.api.nvim_buf_set_lines(self.buffer, self.start_line - 1, self.start_line - 1, false, prefixed_lines)
   end
-  
+
   -- Position cursor appropriately
   if self.target_type == "rewrite" then
     utils.cursor_to_line(self.start_line + #prefixed_lines - 1, self.buffer, self.window)
@@ -144,7 +142,7 @@ function PreviewResponseHandler:apply_changes()
   elseif self.target_type == "prepend" then
     utils.cursor_to_line(self.start_line + #prefixed_lines - 1, self.buffer, self.window)
   end
-  
+
   -- Fire completion event
   vim.cmd("doautocmd User PrtPreviewApplied")
 end
@@ -166,20 +164,21 @@ end
 --- Creates a completion handler that shows the preview
 ---@return function
 function PreviewResponseHandler:create_completion_handler()
-  return vim.schedule_wrap(function(qid)
+  return vim.schedule_wrap(function(_)
     -- Clean up the response (remove code fences, etc.)
-    self.response = self.response
+    self.response = self
+      .response
       :gsub("^```[%w]*\n", "") -- Remove opening code fence
       :gsub("\n```$", "") -- Remove closing code fence
       :gsub("^%s+", "") -- Remove leading whitespace
       :gsub("%s+$", "") -- Remove trailing whitespace
-    
+
     if self.response == "" then
       logger.warning("No content generated for preview")
       self:reject_changes()
       return
     end
-    
+
     self:show_preview()
   end)
 end

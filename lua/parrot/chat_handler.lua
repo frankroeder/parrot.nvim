@@ -1534,9 +1534,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     if target == ui.Target.rewrite then
       if self.options.enable_preview_mode then
         -- Use preview handler for rewrite operations
-        local preview_handler = PreviewResponseHandler:new(
-          self.queries, buf, win, "rewrite", start_line, end_line, prefix, self.options
-        )
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "rewrite", start_line, end_line, prefix, self.options)
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
@@ -1548,9 +1547,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     elseif target == ui.Target.append then
       if self.options.enable_preview_mode then
         -- Use preview handler for append operations
-        local preview_handler = PreviewResponseHandler:new(
-          self.queries, buf, win, "append", start_line, end_line, prefix, self.options
-        )
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "append", start_line, end_line, prefix, self.options)
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
@@ -1563,9 +1561,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     elseif target == ui.Target.prepend then
       if self.options.enable_preview_mode then
         -- Use preview handler for prepend operations
-        local preview_handler = PreviewResponseHandler:new(
-          self.queries, buf, win, "prepend", start_line, end_line, prefix, self.options
-        )
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "prepend", start_line, end_line, prefix, self.options)
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()

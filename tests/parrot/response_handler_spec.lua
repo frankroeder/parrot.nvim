@@ -14,7 +14,6 @@ describe("ResponseHandler", function()
         nvim_buf_is_valid = stub.new().returns(true),
         nvim_buf_get_extmark_by_id = stub.new().returns({ 1 }),
         nvim_buf_set_lines = stub.new(),
-        nvim_buf_add_highlight = stub.new(),
         nvim_win_get_cursor = stub.new().returns({ 1, 0 }),
       },
       split = stub.new().returns({ "test" }),
@@ -70,7 +69,7 @@ describe("ResponseHandler", function()
     handler:handle_chunk(1, "test chunk")
     assert.are.same("test chunk", handler.response)
     -- assert.stub(mock_vim.api.nvim_buf_set_lines).was_called()
-    -- assert.stub(mock_vim.api.nvim_buf_add_highlight).was_called()
+    -- assert.stub(mock_vim.api.nvim_buf_set_extmark).was_called()
   end)
 
   it("should not process if buffer is invalid", function()

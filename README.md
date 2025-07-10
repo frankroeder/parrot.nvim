@@ -365,6 +365,14 @@ to consider a visual selection within an API request.
     spinner_type = "star",
     -- Show hints for context added through completion with @file, @buffer or @directory
     show_context_hints = true
+
+    -- Show diff preview before applying changes from rewrite/append/prepend
+    enable_preview_mode = true,
+    preview_auto_apply = false, -- If true, applies changes automatically after preview timeout
+    preview_timeout = 10000, -- Time in ms before auto-apply (if enabled)
+    preview_border = "rounded",
+    preview_max_width = 120,
+    preview_max_height = 30,
 }
 ```
 
