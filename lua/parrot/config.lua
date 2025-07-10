@@ -70,6 +70,14 @@ local defaults = {
   enable_spinner = true,
   spinner_type = "dots",
   show_context_hints = false,
+
+  -- Preview mode configuration
+  enable_preview_mode = false,
+  preview_auto_apply = false, -- If true, applies changes automatically after preview timeout
+  preview_timeout = 10000, -- Time in ms before auto-apply (if enabled)
+  preview_border = "rounded",
+  preview_max_width = 120,
+  preview_max_height = 30,
   chat_template = [[
   # topic: ?
   {{optional}}
