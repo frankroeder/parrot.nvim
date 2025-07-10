@@ -12,6 +12,7 @@ local logger = require("parrot.logger")
 ---@field prefix string
 ---@field cursor boolean
 ---@field hl_handler_group string
+---@field spinner any
 local ResponseHandler = {}
 ResponseHandler.__index = ResponseHandler
 
@@ -23,8 +24,9 @@ ResponseHandler.__index = ResponseHandler
 ---@param first_undojoin boolean|nil
 ---@param prefix string|nil
 ---@param cursor boolean
+---@param spinner any|nil
 ---@return ResponseHandler
-function ResponseHandler:new(queries, buffer, window, line, first_undojoin, prefix, cursor)
+function ResponseHandler:new(queries, buffer, window, line, first_undojoin, prefix, cursor, spinner)
   local self = setmetatable({}, ResponseHandler)
   self.buffer = buffer or vim.api.nvim_get_current_buf()
   self.window = window or vim.api.nvim_get_current_win()
@@ -35,6 +37,7 @@ function ResponseHandler:new(queries, buffer, window, line, first_undojoin, pref
   self.response = ""
   self.queries = queries
   self.skip_first_undojoin = not first_undojoin
+  self.spinner = spinner -- Optional spinner for progress tracking
 
   self.hl_handler_group = "PrtHandlerStandout"
   vim.api.nvim_set_hl(0, self.hl_handler_group, { link = "CursorLine" })
@@ -88,6 +91,12 @@ end
 function ResponseHandler:update_response(chunk)
   if chunk ~= nil then
     self.response = self.response .. chunk
+
+    -- Update spinner progress if available
+    if self.spinner then
+      self.spinner:update_progress(#chunk)
+    end
+
     logger.debug("ResponseHandler:update_response", {
       response = self.response,
       chunk = chunk,
