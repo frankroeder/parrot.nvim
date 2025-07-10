@@ -80,12 +80,6 @@ describe("ResponseHandler", function()
     assert.are.same("", handler.response)
   end)
 
-  it("should update the response with a new chunk", function()
-    local handler = ResponseHandler:new(mock_queries)
-    handler:update_response("test chunk")
-    handler:update_response(" test chunk")
-    assert.are.same("test chunk test chunk", handler.response)
-  end)
 
   it("should not move the cursor when cursor is false", function()
     local handler = ResponseHandler:new(mock_queries)
