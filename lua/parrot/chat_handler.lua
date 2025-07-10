@@ -844,13 +844,20 @@ function ChatHandler:_chat_respond(params)
   -- determine chat params or fallback to {}
   local chat_cfg = self.providers[query_prov.name] or {}
   local chat_params = (chat_cfg.params and chat_cfg.params.chat) or {}
+  local response_handler = ResponseHandler:new(
+    self.queries,
+    buf,
+    win,
+    utils.last_content_line(buf),
+    true,
+    "",
+    not self.options.chat_free_cursor
+  )
   self:query(
     buf,
     query_prov,
     utils.prepare_payload(messages, model_obj.name, chat_params),
-    ResponseHandler
-      :new(self.queries, buf, win, utils.last_content_line(buf), true, "", not self.options.chat_free_cursor)
-      :create_handler(),
+    response_handler:create_handler(),
     vim.schedule_wrap(function(qid)
       if self.options.enable_spinner and spinner then
         spinner:stop()
@@ -918,6 +925,8 @@ function ChatHandler:_chat_respond(params)
               if self.options.enable_spinner and topic_spinner then
                 topic_spinner:stop()
               end
+              -- Cleanup topic response handler
+              topic_resp_handler:cleanup()
               -- get topic from invisible buffer
               local topic = vim.api.nvim_buf_get_lines(topic_buf, 0, -1, false)[1]
               -- close invisible buffer
@@ -944,6 +953,11 @@ function ChatHandler:_chat_respond(params)
         local line = vim.api.nvim_buf_line_count(buf)
         utils.cursor_to_line(line, buf, win)
       end
+
+      -- Ensure final update is flushed and cleanup response handler
+      response_handler:flush_updates(qid)
+      response_handler:cleanup()
+
       vim.cmd("doautocmd User PrtDone")
     end)
   )
@@ -1397,7 +1411,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       logger.debug("LAST COMMAND in use " .. self.history.last_command)
       command = self.history.last_command
     end
-    -- dummy handler
+    -- response handler for managing streaming updates
+    local response_handler = nil
+    -- dummy handler (will be replaced by response_handler:create_handler())
     local handler = function() end
     -- default on_exit strips trailing backticks if response was markdown snippet
     local on_exit = function(qid)
@@ -1534,21 +1550,24 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       -- delete selection
       vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+      response_handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor)
+      handler = response_handler:create_handler()
     elseif target == ui.Target.append then
       -- move cursor to the end of the selection
       vim.api.nvim_win_set_cursor(0, { end_line, 0 })
       -- put newline after selection
       vim.api.nvim_put({ "" }, "l", true, true)
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor):create_handler()
+      response_handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor)
+      handler = response_handler:create_handler()
     elseif target == ui.Target.prepend then
       -- move cursor to the start of the selection
       vim.api.nvim_win_set_cursor(0, { start_line, 0 })
       -- put newline before selection
       vim.api.nvim_put({ "" }, "l", false, true)
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+      response_handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor)
+      handler = response_handler:create_handler()
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
       -- create a new buffer
@@ -1576,7 +1595,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       -- better text wrapping
       vim.api.nvim_command("setlocal wrap linebreak")
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", false):create_handler()
+      response_handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", false)
+      handler = response_handler:create_handler()
       self:toggle_add(self._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
     elseif type(target) == "table" then
       if target.type == ui.Target.new().type then
@@ -1607,7 +1627,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
       vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 
-      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor):create_handler()
+      response_handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor)
+      handler = response_handler:create_handler()
     end
 
     -- call the model and write the response
@@ -1637,6 +1658,13 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
           spinner:stop()
         end
         on_exit(qid)
+
+        -- Ensure final update is flushed and cleanup response handler
+        if response_handler then
+          response_handler:flush_updates(qid)
+          response_handler:cleanup()
+        end
+
         vim.cmd("doautocmd User PrtDone")
       end)
     )
