@@ -121,7 +121,10 @@ function ResponseHandler:update_highlighting(qt)
   local lines = vim.split(self.response, "\n")
   local new_finished_lines = math.max(0, #lines - 1)
   for i = self.finished_lines, new_finished_lines do
-    vim.api.nvim_buf_add_highlight(self.buffer, qt.ns_id, self.hl_handler_group, self.first_line + i, 0, -1)
+    vim.api.nvim_buf_set_extmark(self.buffer, qt.ns_id, self.first_line + i, 0, {
+      end_col = -1,
+      hl_group = self.hl_handler_group,
+    })
   end
   self.finished_lines = new_finished_lines
 end
