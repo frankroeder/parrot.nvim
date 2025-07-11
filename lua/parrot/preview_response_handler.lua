@@ -29,7 +29,17 @@ PreviewResponseHandler.__index = PreviewResponseHandler
 ---@param options table Plugin options
 ---@param spinner any|nil Optional spinner for progress tracking
 ---@return PreviewResponseHandler
-function PreviewResponseHandler:new(queries, buffer, window, target_type, start_line, end_line, prefix, options, spinner)
+function PreviewResponseHandler:new(
+  queries,
+  buffer,
+  window,
+  target_type,
+  start_line,
+  end_line,
+  prefix,
+  options,
+  spinner
+)
   local self = setmetatable({}, PreviewResponseHandler)
   self.buffer = buffer
   self.window = window

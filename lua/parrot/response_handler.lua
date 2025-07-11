@@ -129,11 +129,43 @@ end
 function ResponseHandler:update_highlighting(qt)
   local lines = vim.split(self.response, "\n")
   local new_finished_lines = math.max(0, #lines - 1)
+
+  -- Check if buffer is still valid before highlighting
+  if not vim.api.nvim_buf_is_valid(self.buffer) then
+    return
+  end
+
+  -- Get current buffer line count to avoid out of range errors
+  local buf_line_count = vim.api.nvim_buf_line_count(self.buffer)
+
   for i = self.finished_lines, new_finished_lines do
-    vim.api.nvim_buf_set_extmark(self.buffer, qt.ns_id, self.first_line + i, 0, {
-      end_col = -1,
-      hl_group = self.hl_handler_group,
-    })
+    local line_num = self.first_line + i
+    -- Only set extmark if the line exists in the buffer
+    if line_num < buf_line_count then
+      -- Get the actual line content to ensure it exists
+      local line_content = vim.api.nvim_buf_get_lines(self.buffer, line_num, line_num + 1, false)[1]
+      if line_content then
+        -- Use pcall to safely set extmark and handle any errors
+        local success, err = pcall(vim.api.nvim_buf_set_extmark, self.buffer, qt.ns_id, line_num, 0, {
+          end_col = -1,
+          hl_group = self.hl_handler_group,
+        })
+        if not success then
+          -- Log the error but continue processing
+          logger.debug("Failed to set extmark", {
+            error = err,
+            line_num = line_num,
+            buffer = self.buffer,
+            buf_line_count = buf_line_count,
+            line_content = line_content,
+          })
+          -- Try with a simpler extmark that doesn't use end_col
+          pcall(vim.api.nvim_buf_set_extmark, self.buffer, qt.ns_id, line_num, 0, {
+            hl_group = self.hl_handler_group,
+          })
+        end
+      end
+    end
   end
   self.finished_lines = new_finished_lines
 end
