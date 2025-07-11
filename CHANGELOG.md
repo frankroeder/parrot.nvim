@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/frankroeder/parrot.nvim/compare/v2.1.0...v2.2.0) (2025-07-11)
+
+
+### Features
+
+* Add preview mode for interactive commands like rewrite/append/prepend ([#163](https://github.com/frankroeder/parrot.nvim/issues/163)) ([dcd58f9](https://github.com/frankroeder/parrot.nvim/commit/dcd58f9b1cff7890712760ad0b72a358a42d1a22))
+* Improve spinner ([#165](https://github.com/frankroeder/parrot.nvim/issues/165)) ([66afa9c](https://github.com/frankroeder/parrot.nvim/commit/66afa9c460ddaa6f0bfe972f3795535d98911f35))
+
 ## [2.1.0](https://github.com/frankroeder/parrot.nvim/compare/v2.0.0...v2.1.0) (2025-05-31)
 
 
