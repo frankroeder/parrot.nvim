@@ -11,6 +11,7 @@ local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
 local ResponseHandler = require("parrot.response_handler")
+local PreviewResponseHandler = require("parrot.preview_response_handler")
 local insert_contexts = require("parrot.context").insert_contexts
 local Placeholders = require("parrot.placeholders")
 
@@ -1540,28 +1541,55 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       cursor = false
     end
 
+    -- Initialize spinner early for both preview and traditional handlers
+    local spinner = nil
+    if self.options.enable_spinner then
+      spinner = Spinner:new(self.options.spinner_type)
+      spinner:start("calling API...", true) -- Enable progress for interactive commands
+    end
+
     -- mode specific logic
     if target == ui.Target.rewrite then
-      -- delete selection
-      vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
-      -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor, spinner)
-        :create_handler()
+      if self.options.enable_preview_mode then
+        -- Use preview handler for rewrite operations
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "rewrite", start_line, end_line, prefix, self.options, spinner)
+        handler = preview_handler:create_handler()
+        -- Custom on_exit to show preview
+        on_exit = preview_handler:create_completion_handler()
+      else
+        -- Traditional immediate application
+        vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+        handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+      end
     elseif target == ui.Target.append then
-      -- move cursor to the end of the selection
-      vim.api.nvim_win_set_cursor(0, { end_line, 0 })
-      -- put newline after selection
-      vim.api.nvim_put({ "" }, "l", true, true)
-      -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor, spinner):create_handler()
+      if self.options.enable_preview_mode then
+        -- Use preview handler for append operations
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "append", start_line, end_line, prefix, self.options, spinner)
+        handler = preview_handler:create_handler()
+        -- Custom on_exit to show preview
+        on_exit = preview_handler:create_completion_handler()
+      else
+        -- Traditional immediate application
+        vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+        vim.api.nvim_put({ "" }, "l", true, true)
+        handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor):create_handler()
+      end
     elseif target == ui.Target.prepend then
-      -- move cursor to the start of the selection
-      vim.api.nvim_win_set_cursor(0, { start_line, 0 })
-      -- put newline before selection
-      vim.api.nvim_put({ "" }, "l", false, true)
-      -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor, spinner)
-        :create_handler()
+      if self.options.enable_preview_mode then
+        -- Use preview handler for prepend operations
+        local preview_handler =
+          PreviewResponseHandler:new(self.queries, buf, win, "prepend", start_line, end_line, prefix, self.options, spinner)
+        handler = preview_handler:create_handler()
+        -- Custom on_exit to show preview
+        on_exit = preview_handler:create_completion_handler()
+      else
+        -- Traditional immediate application
+        vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+        vim.api.nvim_put({ "" }, "l", false, true)
+        handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+      end
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
       -- create a new buffer
@@ -1625,12 +1653,6 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
     -- call the model and write the response
     prov:set_model(model_obj.name)
-
-    local spinner = nil
-    if self.options.enable_spinner then
-      spinner = Spinner:new(self.options.spinner_type)
-      spinner:start("calling API...", true) -- Enable progress for interactive commands
-    end
 
     -- add completion context
     for _, message in ipairs(messages) do
