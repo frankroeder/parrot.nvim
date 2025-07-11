@@ -14,6 +14,7 @@ local Preview = require("parrot.preview")
 ---@field queries table
 ---@field preview Preview
 ---@field options table
+---@field spinner any
 local PreviewResponseHandler = {}
 PreviewResponseHandler.__index = PreviewResponseHandler
 
@@ -26,8 +27,19 @@ PreviewResponseHandler.__index = PreviewResponseHandler
 ---@param end_line number
 ---@param prefix string
 ---@param options table Plugin options
+---@param spinner any|nil Optional spinner for progress tracking
 ---@return PreviewResponseHandler
-function PreviewResponseHandler:new(queries, buffer, window, target_type, start_line, end_line, prefix, options)
+function PreviewResponseHandler:new(
+  queries,
+  buffer,
+  window,
+  target_type,
+  start_line,
+  end_line,
+  prefix,
+  options,
+  spinner
+)
   local self = setmetatable({}, PreviewResponseHandler)
   self.buffer = buffer
   self.window = window
@@ -38,6 +50,7 @@ function PreviewResponseHandler:new(queries, buffer, window, target_type, start_
   self.response = ""
   self.queries = queries
   self.options = options
+  self.spinner = spinner -- Optional spinner for progress tracking
   self.preview = Preview:new(options)
 
   -- Capture original content for diff
@@ -73,6 +86,11 @@ function PreviewResponseHandler:handle_chunk(qid, chunk)
   if chunk and chunk ~= "" then
     self.response = self.response .. chunk
     qt.response = self.response
+
+    -- Update spinner progress if available
+    if self.spinner then
+      self.spinner:update_progress(#chunk)
+    end
   end
 end
 

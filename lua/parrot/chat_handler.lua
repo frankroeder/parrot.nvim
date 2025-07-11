@@ -324,7 +324,7 @@ function ChatHandler:Cmd(params)
     local spinner = nil
     if self.options.enable_spinner then
       spinner = Spinner:new(self.options.spinner_type)
-      spinner:start("calling API...")
+      spinner:start("calling API...", false) -- No progress tracking for short command generation
     end
 
     local prov = model_obj.provider
@@ -343,8 +343,10 @@ function ChatHandler:Cmd(params)
         end
       end,
       vim.schedule_wrap(function(qid)
+        local qt = self.queries:get(qid)
         if self.options.enable_spinner and spinner then
-          spinner:stop()
+          local error_occurred = qt and qt.error_occurred or false
+          spinner:stop(error_occurred)
         end
         -- Clean the full response at the end
         local clean_response = full_response
@@ -834,7 +836,7 @@ function ChatHandler:_chat_respond(params)
   local spinner = nil
   if self.options.enable_spinner then
     spinner = Spinner:new(self.options.spinner_type)
-    spinner:start("calling API...")
+    spinner:start("calling API...", true) -- Enable progress tracking for chat
   end
 
   -- add completion context
@@ -845,18 +847,27 @@ function ChatHandler:_chat_respond(params)
   -- determine chat params or fallback to {}
   local chat_cfg = self.providers[query_prov.name] or {}
   local chat_params = (chat_cfg.params and chat_cfg.params.chat) or {}
+  local response_handler = ResponseHandler:new(
+    self.queries,
+    buf,
+    win,
+    utils.last_content_line(buf),
+    true,
+    "",
+    not self.options.chat_free_cursor,
+    spinner
+  )
   self:query(
     buf,
     query_prov,
     utils.prepare_payload(messages, model_obj.name, chat_params),
-    ResponseHandler
-      :new(self.queries, buf, win, utils.last_content_line(buf), true, "", not self.options.chat_free_cursor)
-      :create_handler(),
+    response_handler:create_handler(),
     vim.schedule_wrap(function(qid)
-      if self.options.enable_spinner and spinner then
-        spinner:stop()
-      end
       local qt = self.queries:get(qid)
+      if self.options.enable_spinner and spinner then
+        local error_occurred = qt and qt.error_occurred or false
+        spinner:stop(error_occurred)
+      end
       if not qt then
         return
       end
@@ -901,7 +912,7 @@ function ChatHandler:_chat_respond(params)
 
           local topic_spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
           if topic_spinner then
-            topic_spinner:start("summarizing...")
+            topic_spinner:start("summarizing...", false) -- No progress tracking for short topic generation
           end
           local topic_payload = utils.prepare_payload(messages, cfg.topic.model, cfg.topic.params or {})
           logger.debug("ChatHandler:query topic generation", {
@@ -1530,12 +1541,28 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       cursor = false
     end
 
+    -- Initialize spinner early for both preview and traditional handlers
+    local spinner = nil
+    if self.options.enable_spinner then
+      spinner = Spinner:new(self.options.spinner_type)
+      spinner:start("calling API...", true) -- Enable progress for interactive commands
+    end
+
     -- mode specific logic
     if target == ui.Target.rewrite then
       if self.options.enable_preview_mode then
         -- Use preview handler for rewrite operations
-        local preview_handler =
-          PreviewResponseHandler:new(self.queries, buf, win, "rewrite", start_line, end_line, prefix, self.options)
+        local preview_handler = PreviewResponseHandler:new(
+          self.queries,
+          buf,
+          win,
+          "rewrite",
+          start_line,
+          end_line,
+          prefix,
+          self.options,
+          spinner
+        )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
@@ -1547,8 +1574,17 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     elseif target == ui.Target.append then
       if self.options.enable_preview_mode then
         -- Use preview handler for append operations
-        local preview_handler =
-          PreviewResponseHandler:new(self.queries, buf, win, "append", start_line, end_line, prefix, self.options)
+        local preview_handler = PreviewResponseHandler:new(
+          self.queries,
+          buf,
+          win,
+          "append",
+          start_line,
+          end_line,
+          prefix,
+          self.options,
+          spinner
+        )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
@@ -1561,8 +1597,17 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     elseif target == ui.Target.prepend then
       if self.options.enable_preview_mode then
         -- Use preview handler for prepend operations
-        local preview_handler =
-          PreviewResponseHandler:new(self.queries, buf, win, "prepend", start_line, end_line, prefix, self.options)
+        local preview_handler = PreviewResponseHandler:new(
+          self.queries,
+          buf,
+          win,
+          "prepend",
+          start_line,
+          end_line,
+          prefix,
+          self.options,
+          spinner
+        )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
@@ -1599,7 +1644,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       -- better text wrapping
       vim.api.nvim_command("setlocal wrap linebreak")
       -- prepare handler
-      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", false):create_handler()
+      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", false, spinner):create_handler()
       self:toggle_add(self._toggle_kind.popup, { win = win, buf = buf, close = popup_close })
     elseif type(target) == "table" then
       if target.type == ui.Target.new().type then
@@ -1630,17 +1675,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
       vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 
-      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor):create_handler()
+      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor, spinner):create_handler()
     end
 
     -- call the model and write the response
     prov:set_model(model_obj.name)
-
-    local spinner = nil
-    if self.options.enable_spinner then
-      spinner = Spinner:new(self.options.spinner_type)
-      spinner:start("calling API...")
-    end
 
     -- add completion context
     for _, message in ipairs(messages) do
@@ -1656,10 +1695,15 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       utils.prepare_payload(messages, model_obj.name, cmd_params),
       handler,
       vim.schedule_wrap(function(qid)
+        local qt = self.queries:get(qid)
         if self.options.enable_spinner and spinner then
-          spinner:stop()
+          local error_occurred = qt and qt.error_occurred or false
+          spinner:stop(error_occurred)
         end
-        on_exit(qid)
+        -- Call the custom on_exit handler if it exists
+        if on_exit then
+          on_exit(qid)
+        end
         vim.cmd("doautocmd User PrtDone")
       end)
     )
@@ -1732,6 +1776,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     last_line = -1,
     ns_id = nil,
     ex_id = nil,
+    error_occurred = false,
   })
 
   self.queries:cleanup(8, 60)
@@ -1771,9 +1816,15 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
           exit_code = exit_code,
           response = response:result(),
         })
+        -- Mark query as having an error
+        local qt = self.queries:get(qid)
+        if qt then
+          qt.error_occurred = true
+        end
         if on_exit then
           on_exit(qid)
         end
+        return
       end
       local result = response:result()
       result = utils.parse_raw_response(result)

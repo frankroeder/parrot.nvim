@@ -12,6 +12,7 @@ local logger = require("parrot.logger")
 ---@field prefix string
 ---@field cursor boolean
 ---@field hl_handler_group string
+---@field spinner any
 local ResponseHandler = {}
 ResponseHandler.__index = ResponseHandler
 
@@ -23,8 +24,9 @@ ResponseHandler.__index = ResponseHandler
 ---@param first_undojoin boolean|nil
 ---@param prefix string|nil
 ---@param cursor boolean
+---@param spinner any|nil
 ---@return ResponseHandler
-function ResponseHandler:new(queries, buffer, window, line, first_undojoin, prefix, cursor)
+function ResponseHandler:new(queries, buffer, window, line, first_undojoin, prefix, cursor, spinner)
   local self = setmetatable({}, ResponseHandler)
   self.buffer = buffer or vim.api.nvim_get_current_buf()
   self.window = window or vim.api.nvim_get_current_win()
@@ -35,6 +37,7 @@ function ResponseHandler:new(queries, buffer, window, line, first_undojoin, pref
   self.response = ""
   self.queries = queries
   self.skip_first_undojoin = not first_undojoin
+  self.spinner = spinner -- Optional spinner for progress tracking
 
   self.hl_handler_group = "PrtHandlerStandout"
   vim.api.nvim_set_hl(0, self.hl_handler_group, { link = "CursorLine" })
@@ -88,6 +91,12 @@ end
 function ResponseHandler:update_response(chunk)
   if chunk ~= nil then
     self.response = self.response .. chunk
+
+    -- Update spinner progress if available
+    if self.spinner then
+      self.spinner:update_progress(#chunk)
+    end
+
     logger.debug("ResponseHandler:update_response", {
       response = self.response,
       chunk = chunk,
@@ -120,11 +129,43 @@ end
 function ResponseHandler:update_highlighting(qt)
   local lines = vim.split(self.response, "\n")
   local new_finished_lines = math.max(0, #lines - 1)
+
+  -- Check if buffer is still valid before highlighting
+  if not vim.api.nvim_buf_is_valid(self.buffer) then
+    return
+  end
+
+  -- Get current buffer line count to avoid out of range errors
+  local buf_line_count = vim.api.nvim_buf_line_count(self.buffer)
+
   for i = self.finished_lines, new_finished_lines do
-    vim.api.nvim_buf_set_extmark(self.buffer, qt.ns_id, self.first_line + i, 0, {
-      end_col = -1,
-      hl_group = self.hl_handler_group,
-    })
+    local line_num = self.first_line + i
+    -- Only set extmark if the line exists in the buffer
+    if line_num < buf_line_count then
+      -- Get the actual line content to ensure it exists
+      local line_content = vim.api.nvim_buf_get_lines(self.buffer, line_num, line_num + 1, false)[1]
+      if line_content then
+        -- Use pcall to safely set extmark and handle any errors
+        local success, err = pcall(vim.api.nvim_buf_set_extmark, self.buffer, qt.ns_id, line_num, 0, {
+          end_col = -1,
+          hl_group = self.hl_handler_group,
+        })
+        if not success then
+          -- Log the error but continue processing
+          logger.debug("Failed to set extmark", {
+            error = err,
+            line_num = line_num,
+            buffer = self.buffer,
+            buf_line_count = buf_line_count,
+            line_content = line_content,
+          })
+          -- Try with a simpler extmark that doesn't use end_col
+          pcall(vim.api.nvim_buf_set_extmark, self.buffer, qt.ns_id, line_num, 0, {
+            hl_group = self.hl_handler_group,
+          })
+        end
+      end
+    end
   end
   self.finished_lines = new_finished_lines
 end
