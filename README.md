@@ -7,9 +7,6 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 
 [Features](#features) • [Demo](#demo) • [Getting Started](#getting-started) • [Commands](#commands) • [Configuration](#configuration) • [Roadmap](#roadmap) • [FAQ](#faq)
 
-> [!NOTE]  
-> For best stability, I recommend using version 1.8.0 or earlier.
-> Future releases may include new features and enhancements that could affect your experience.
 
 <img src="https://github.com/frankroeder/parrot.nvim/assets/19746932/b19c5260-1713-400a-bd55-3faa87f4b509" alt="parrot.nvim logo" width="50%">
 </div>
@@ -17,8 +14,12 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 ## Features
 
 [parrot.nvim](https://github.com/frankroeder/parrot.nvim) offers a seamless out-of-the-box experience, providing tight integration of current LLM APIs into your Neovim workflows, with a focus solely on text generation.
-The selected core features include on-demand text completion and editing, as well as chat-like sessions within native Neovim buffers.
-While this project is still under development, a substantial part of the code is based on an early fork of the brilliant work by Tibor Schmidt's [gp.nvim](https://github.com/Robitx/gp.nvim).
+The selected core features include **on-demand text completion and editing**, as well as **chat-like sessions** within native **Neovim buffers**.
+
+This plugin is intended for people who actually know what they are doing and people who care for **privacy and transparency**.
+The user is always under **full control** of what will be sent to the LLM API endpoint, hence this plugin fully **excludes** the whole notion of agents provided by tools such as [codex](https://github.com/openai/codex), [claude-code](https://github.com/anthropics/claude-code), and the [gemini-cli](https://github.com/google-gemini/gemini-cli).
+
+A substantial part of the code is based on an early fork of the brilliant work by Tibor Schmidt's [gp.nvim](https://github.com/Robitx/gp.nvim).
 
 - Persistent conversations stored as markdown files within Neovim's standard path or a user-defined location
 - Custom hooks for inline text editing based on user instructions and chats with predefined system prompts
