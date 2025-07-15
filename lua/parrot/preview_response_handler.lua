@@ -114,11 +114,21 @@ end
 function PreviewResponseHandler:show_preview()
   local new_content = self:prepare_new_content()
 
+  -- Get filename from buffer
+  local filename = vim.api.nvim_buf_get_name(self.buffer)
+  if filename and filename ~= "" then
+    -- Get relative path if possible
+    local cwd = vim.fn.getcwd()
+    if filename:sub(1, #cwd) == cwd then
+      filename = filename:sub(#cwd + 2) -- Remove cwd + separator
+    end
+  end
+
   self.preview:show_diff_preview(self.original_content, new_content, self.target_type, function()
     self:apply_changes()
   end, function()
     self:reject_changes()
-  end)
+  end, filename, self.start_line, self.end_line)
 end
 
 --- Prepares the new content based on target type

@@ -119,7 +119,19 @@ end
 ---@param target_type string Type of operation (rewrite, append, prepend)
 ---@param apply_callback function Function to call when applying changes
 ---@param reject_callback function Function to call when rejecting changes
-function Preview:show_diff_preview(old_content, new_content, target_type, apply_callback, reject_callback)
+---@param filename string|nil Optional filename to display in header
+---@param start_line number|nil Optional start line number
+---@param end_line number|nil Optional end line number
+function Preview:show_diff_preview(
+  old_content,
+  new_content,
+  target_type,
+  apply_callback,
+  reject_callback,
+  filename,
+  start_line,
+  end_line
+)
   if not self.options.enable_preview_mode then
     -- Preview disabled, apply changes directly
     apply_callback()
@@ -132,9 +144,23 @@ function Preview:show_diff_preview(old_content, new_content, target_type, apply_
 
   -- Prepare diff content for display
   local diff_content = {}
+
+  -- Create header with filename and line range if available
+  local file_info = ""
+  if filename then
+    file_info = string.format("File: %s", filename)
+    if start_line and end_line then
+      if start_line == end_line then
+        file_info = file_info .. string.format(" (line %d)", start_line)
+      else
+        file_info = file_info .. string.format(" (lines %d-%d)", start_line, end_line)
+      end
+    end
+  end
+
   local header = {
     string.format("=== %s Preview ===", target_type:upper()),
-    string.format("Lines: %d -> %d", #old_lines, #new_lines),
+    file_info ~= "" and file_info or string.format("Lines: %d -> %d", #old_lines, #new_lines),
     "",
     "Actions: [a]pply, [r]eject, [q]uit",
     "───────────────────────────────────",
