@@ -20,6 +20,7 @@ function Preview:new(options)
   self.close_fn = nil
   self.apply_fn = nil
   self.reject_fn = nil
+  self.quit_fn = nil
   self.auto_apply_timer = nil
   return self
 end
@@ -122,6 +123,7 @@ end
 ---@param filename string|nil Optional filename to display in header
 ---@param start_line number|nil Optional start line number
 ---@param end_line number|nil Optional end line number
+---@param quit_callback function|nil Optional function to call when quitting (defaults to reject)
 function Preview:show_diff_preview(
   old_content,
   new_content,
@@ -130,7 +132,8 @@ function Preview:show_diff_preview(
   reject_callback,
   filename,
   start_line,
-  end_line
+  end_line,
+  quit_callback
 )
   if not self.options.enable_preview_mode then
     -- Preview disabled, apply changes directly
@@ -206,6 +209,7 @@ function Preview:show_diff_preview(
   -- Store callbacks
   self.apply_fn = apply_callback
   self.reject_fn = reject_callback
+  self.quit_fn = quit_callback
 
   -- Set up keymaps
   self:setup_preview_keymaps()
@@ -308,7 +312,12 @@ end
 
 --- Closes the preview without applying changes
 function Preview:close_preview()
-  self:reject_changes()
+  if self.quit_fn then
+    self.quit_fn()
+  else
+    self:reject_changes()
+  end
+  self:cleanup()
 end
 
 --- Cleans up timers and closes preview window
@@ -331,6 +340,7 @@ function Preview:cleanup()
   self.close_fn = nil
   self.apply_fn = nil
   self.reject_fn = nil
+  self.quit_fn = nil
 end
 
 return Preview

@@ -124,11 +124,23 @@ function PreviewResponseHandler:show_preview()
     end
   end
 
-  self.preview:show_diff_preview(self.original_content, new_content, self.target_type, function()
-    self:apply_changes()
-  end, function()
-    self:reject_changes()
-  end, filename, self.start_line, self.end_line)
+  self.preview:show_diff_preview(
+    self.original_content,
+    new_content,
+    self.target_type,
+    function()
+      self:apply_changes()
+    end,
+    function()
+      self:reject_changes()
+    end,
+    filename,
+    self.start_line,
+    self.end_line,
+    function()
+      self:quit_changes()
+    end
+  )
 end
 
 --- Prepares the new content based on target type
@@ -238,6 +250,12 @@ function PreviewResponseHandler:reject_changes()
   end
 
   vim.cmd("doautocmd User PrtPreviewRejected")
+end
+
+--- Quits the preview without any prompts or actions
+function PreviewResponseHandler:quit_changes()
+  logger.debug("PreviewResponseHandler: Preview quit")
+  vim.cmd("doautocmd User PrtPreviewQuit")
 end
 
 --- Creates a handler function for the response processing
