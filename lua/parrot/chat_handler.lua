@@ -1561,7 +1561,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
           end_line,
           prefix,
           self.options,
-          spinner
+          spinner,
+          self,
+          params,
+          model_obj,
+          template
         )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
@@ -1583,7 +1587,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
           end_line,
           prefix,
           self.options,
-          spinner
+          spinner,
+          self,
+          params,
+          model_obj,
+          template
         )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview
@@ -1606,7 +1614,11 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
           end_line,
           prefix,
           self.options,
-          spinner
+          spinner,
+          self,
+          params,
+          model_obj,
+          template
         )
         handler = preview_handler:create_handler()
         -- Custom on_exit to show preview

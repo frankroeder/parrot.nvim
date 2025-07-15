@@ -15,6 +15,10 @@ local Preview = require("parrot.preview")
 ---@field preview Preview
 ---@field options table
 ---@field spinner any
+---@field chat_handler table
+---@field params table
+---@field model_obj table
+---@field template string
 local PreviewResponseHandler = {}
 PreviewResponseHandler.__index = PreviewResponseHandler
 
@@ -28,6 +32,10 @@ PreviewResponseHandler.__index = PreviewResponseHandler
 ---@param prefix string
 ---@param options table Plugin options
 ---@param spinner any|nil Optional spinner for progress tracking
+---@param chat_handler table|nil Reference to ChatHandler for edit functionality
+---@param params table|nil Original command params for edit functionality
+---@param model_obj table|nil Model object for edit functionality
+---@param template string|nil Template for edit functionality
 ---@return PreviewResponseHandler
 function PreviewResponseHandler:new(
   queries,
@@ -38,7 +46,11 @@ function PreviewResponseHandler:new(
   end_line,
   prefix,
   options,
-  spinner
+  spinner,
+  chat_handler,
+  params,
+  model_obj,
+  template
 )
   local self = setmetatable({}, PreviewResponseHandler)
   self.buffer = buffer
@@ -52,6 +64,10 @@ function PreviewResponseHandler:new(
   self.options = options
   self.spinner = spinner -- Optional spinner for progress tracking
   self.preview = Preview:new(options)
+  self.chat_handler = chat_handler -- Reference to ChatHandler for edit functionality
+  self.params = params -- Original command params for edit functionality
+  self.model_obj = model_obj -- Model object for edit functionality
+  self.template = template -- Template for edit functionality
 
   -- Capture original content for diff
   self:capture_original_content()
@@ -165,9 +181,52 @@ function PreviewResponseHandler:apply_changes()
   vim.cmd("doautocmd User PrtPreviewApplied")
 end
 
---- Rejects the changes (no-op for now)
+--- Rejects the changes and prompts for edit
 function PreviewResponseHandler:reject_changes()
   logger.debug("PreviewResponseHandler: Changes rejected")
+
+  -- If we have chat_handler reference, implement edit functionality like PrtEdit
+  if self.chat_handler and self.params and self.model_obj and self.template then
+    -- Set up the parameters for re-prompting
+    local edit_params = vim.deepcopy(self.params)
+    edit_params.line1 = self.start_line
+    edit_params.line2 = self.end_line
+    edit_params.range = 2
+
+    -- Get the target from the target_type
+    local ui = require("parrot.ui")
+    local target = ui.Target.rewrite
+    if self.target_type == "append" then
+      target = ui.Target.append
+    elseif self.target_type == "prepend" then
+      target = ui.Target.prepend
+    end
+
+    -- Get the last command from history
+    local last_command = self.chat_handler.history.last_command or ""
+
+    -- Use the same input method as PrtEdit
+    local input_function = self.options.user_input_ui == "buffer" and require("parrot.ui").input
+      or self.options.user_input_ui == "native" and vim.ui.input
+
+    if input_function then
+      input_function({ prompt = "🤖 Edit ~ ", default = last_command }, function(input)
+        if not input or input == "" or input:match("^%s*$") then
+          return
+        end
+        -- Update the history with the new command
+        self.chat_handler.history.last_command = input
+        -- Re-execute the prompt with the edited command
+        self.chat_handler:prompt(edit_params, target, self.model_obj, nil, self.template, false)
+      end)
+    else
+      logger.error("Invalid user input ui option: " .. self.options.user_input_ui)
+    end
+  else
+    -- Fallback to simple rejection
+    logger.warning("Edit functionality not available - missing chat_handler context")
+  end
+
   vim.cmd("doautocmd User PrtPreviewRejected")
 end
 
