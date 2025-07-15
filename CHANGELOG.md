@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.3.0](https://github.com/frankroeder/parrot.nvim/compare/v2.2.0...v2.3.0) (2025-07-15)
+
+
+### Features
+
+* make &lt;C-c&gt; cancel interactive rewrite/append/prepend commands ([7bc2dc1](https://github.com/frankroeder/parrot.nvim/commit/7bc2dc116e7541e5572e96010bd2b73b1c75dc34))
+* preview (r)eject now jumps back to edit prompt and call API again ([621bd76](https://github.com/frankroeder/parrot.nvim/commit/621bd76108bfe83431612aed1abccca6fe1dcaea))
+
+
+### Bug Fixes
+
+* make preview (q)uit cancel the whole process ([1a8e3de](https://github.com/frankroeder/parrot.nvim/commit/1a8e3de0e4fd5d97766f2c8d99e76744334196ca))
+
 ## [2.2.0](https://github.com/frankroeder/parrot.nvim/compare/v2.1.0...v2.2.0) (2025-07-11)
 
 
