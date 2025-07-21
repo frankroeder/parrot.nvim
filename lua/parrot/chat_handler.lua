@@ -1573,7 +1573,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       else
         -- Traditional immediate application
         vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
-        handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+        handler =
+          ResponseHandler
+            :new(self.queries, buf, win, start_line - 1, true, prefix, cursor and not self.options.chat_free_cursor)
+            :create_handler()
       end
     elseif target == ui.Target.append then
       if self.options.enable_preview_mode then
@@ -1600,7 +1603,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
         -- Traditional immediate application
         vim.api.nvim_win_set_cursor(0, { end_line, 0 })
         vim.api.nvim_put({ "" }, "l", true, true)
-        handler = ResponseHandler:new(self.queries, buf, win, end_line, true, prefix, cursor):create_handler()
+        handler = ResponseHandler
+          :new(self.queries, buf, win, end_line, true, prefix, cursor and not self.options.chat_free_cursor)
+          :create_handler()
       end
     elseif target == ui.Target.prepend then
       if self.options.enable_preview_mode then
@@ -1627,7 +1632,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
         -- Traditional immediate application
         vim.api.nvim_win_set_cursor(0, { start_line, 0 })
         vim.api.nvim_put({ "" }, "l", false, true)
-        handler = ResponseHandler:new(self.queries, buf, win, start_line - 1, true, prefix, cursor):create_handler()
+        handler =
+          ResponseHandler
+            :new(self.queries, buf, win, start_line - 1, true, prefix, cursor and not self.options.chat_free_cursor)
+            :create_handler()
       end
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
@@ -1687,7 +1695,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
       vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 
-      handler = ResponseHandler:new(self.queries, buf, win, 0, false, "", cursor, spinner):create_handler()
+      handler = ResponseHandler
+        :new(self.queries, buf, win, 0, false, "", cursor and not self.options.chat_free_cursor, spinner)
+        :create_handler()
     end
 
     -- call the model and write the response
