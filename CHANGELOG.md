@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/frankroeder/parrot.nvim/compare/v2.3.0...v2.3.1) (2025-07-21)
+
+
+### Bug Fixes
+
+* rewrite, append and prepend now respect chat_free_cursor option ([6ad76a1](https://github.com/frankroeder/parrot.nvim/commit/6ad76a1b170b3fa49851504ab17cb39075b93b03))
+
 ## [2.3.0](https://github.com/frankroeder/parrot.nvim/compare/v2.2.0...v2.3.0) (2025-07-15)
 
 
