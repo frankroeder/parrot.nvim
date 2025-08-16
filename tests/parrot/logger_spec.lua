@@ -3,6 +3,7 @@ local logger = require("parrot.logger")
 describe("Logger", function()
   local original_notify
   local original_schedule
+  local original_logger_notify
   local notify_calls = {}
   local schedule_calls = {}
 
@@ -10,6 +11,12 @@ describe("Logger", function()
     -- Mock vim.notify
     original_notify = vim.notify
     vim.notify = function(msg, level, opts)
+      table.insert(notify_calls, { msg = msg, level = level, opts = opts })
+    end
+
+    -- Mock logger.notify
+    original_logger_notify = logger.notify
+    logger.notify = function(msg, level, opts)
       table.insert(notify_calls, { msg = msg, level = level, opts = opts })
     end
 
@@ -28,6 +35,7 @@ describe("Logger", function()
   after_each(function()
     vim.notify = original_notify
     vim.schedule = original_schedule
+    logger.notify = original_logger_notify
   end)
 
   describe("error function", function()

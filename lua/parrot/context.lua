@@ -61,7 +61,7 @@ function M.insert_contexts(msg)
         end
         content = content:gsub("\n+$", "")
         if show_hints then
-          vim.notify("Attached context " .. source_info .. ": " .. vim.fs.basename(filepath))
+          logger.notify("Attached context " .. source_info .. ": " .. vim.fs.basename(filepath))
         end
         table.insert(contexts, { content = content, filetype = ft, name = filepath })
       else
@@ -123,7 +123,7 @@ function M.insert_contexts(msg)
             local buf_lines = vim.api.nvim_buf_get_lines(buf_nr, 0, -1, false)
             local name = vim.api.nvim_buf_get_name(buf_nr)
             if show_hints then
-              vim.notify("Attached context @buffer: " .. vim.fs.basename(name))
+              logger.notify("Attached context @buffer: " .. vim.fs.basename(name))
             end
             return { content = table.concat(buf_lines, "\n"), filetype = ft, name = name }
           end)
@@ -165,7 +165,7 @@ function M.insert_contexts(msg)
                     end
                     content = content:gsub("\n+$", "")
                     if show_hints then
-                      vim.notify(
+                      logger.notify(
                         "Attached context @directory: " .. vim.fs.basename(dir_path) .. " - " .. vim.fs.basename(file)
                       )
                     end

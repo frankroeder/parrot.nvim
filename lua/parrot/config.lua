@@ -255,7 +255,7 @@ M.hooks = nil
 
 function M.setup(opts)
   if vim.fn.has("nvim-0.10") == 0 then
-    return vim.notify("parrot.nvim requires Neovim >= 0.10", vim.log.levels.ERROR)
+    return M.logger.notify("parrot.nvim requires Neovim >= 0.10", vim.log.levels.ERROR)
   end
 
   math.randomseed(os.time())

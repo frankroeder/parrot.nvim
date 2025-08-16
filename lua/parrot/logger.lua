@@ -3,12 +3,13 @@ local M = {
   _logfile = vim.fn.stdpath("state") .. "/parrot.nvim.log",
   _max_log_lines = 10000,
   _debug_enabled = vim.env.DEBUG_PARROT ~= nil,
+  notify = vim.notify
 }
 
 -- Use pcall to safely require the notify plugin
 local notify_ok, notify = pcall(require, "notify")
 if notify_ok then
-  vim.notify = notify
+  M.notify = notify
 end
 
 -- Get stack trace information
@@ -84,9 +85,9 @@ local function write_to_logfile(msg, kind, stack_info)
 
   local success = write_file(M._logfile, limited_log .. log_entry .. "\n")
   if not success and kind ~= "Debug" then
-    -- Fallback to vim.notify if file write fails
+    -- Fallback to M.notify if file write fails
     vim.schedule(function()
-      vim.notify("Failed to write to log file: " .. M._logfile, vim.log.levels.WARN, { title = M._plugin_name })
+      M.notify("Failed to write to log file: " .. M._logfile, vim.log.levels.WARN, { title = M._plugin_name })
     end)
   end
 end
@@ -109,7 +110,7 @@ local function log(msg, kind, level, include_stack)
         msg = msg .. "\nLocation: " .. stack_info
       end
 
-      vim.notify(msg, level, notify_opts)
+      M.notify(msg, level, notify_opts)
     end)
   end
 end
