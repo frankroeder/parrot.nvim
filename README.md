@@ -214,10 +214,6 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtEdit`                 | Like `PrtRewrite` but you can change the last prompt |
 | `PrtAppend <optional prompt>` | Append text to the visual selection based on a provided prompt (direct input, input dialog or from collection) |
 | `PrtPrepend <optional prompt>` | Prepend text to the visual selection based on a provided prompt (direct input, input dialog or from collection) |
-| `PrtNew`                  | Prompt the model to respond in a new window   |
-| `PrtEnew`                 | Prompt the model to respond in a new buffer   |
-| `PrtVnew`                 | Prompt the model to respond in a vsplit       |
-| `PrtTabnew`               | Prompt the model to respond in a new tab      |
 | `PrtRetry`                | Repeats the last rewrite/append/prepend       |
 |  __Example Hooks__        | |
 | `PrtImplement`            | Takes the visual selection as prompt to generate code |
