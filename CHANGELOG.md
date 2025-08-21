@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.1](https://github.com/frankroeder/parrot.nvim/compare/v2.3.0...v2.3.1) (2025-08-21)
+
+
+### Bug Fixes
+
+* **logger:** stop overwriting global vim.notify function ([55676bc](https://github.com/frankroeder/parrot.nvim/commit/55676bce578969fce606bac04fefc27fd16e3a8a))
+* remove chat prompt buffer, chats should be fully functional buffers ([da1eb03](https://github.com/frankroeder/parrot.nvim/commit/da1eb031ccb9d5822978d06f181b89e30cb66b81))
+* rewrite, append and prepend now respect chat_free_cursor option ([6ad76a1](https://github.com/frankroeder/parrot.nvim/commit/6ad76a1b170b3fa49851504ab17cb39075b93b03))
+
 ## [2.3.0](https://github.com/frankroeder/parrot.nvim/compare/v2.2.0...v2.3.0) (2025-07-15)
 
 
