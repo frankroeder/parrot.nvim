@@ -315,9 +315,6 @@ to consider a visual selection within an API request.
     -- Option to move the cursor to the end of the file after finished respond
     chat_free_cursor = false,
 
-     -- use prompt buftype for chats (:h prompt-buffer)
-    chat_prompt_buf_type = false,
-
     -- Default target for  PrtChatToggle, PrtChatNew, PrtContext and the chats opened from the ChatFinder
     -- values: popup / split / vsplit / tabnew
     toggle_target = "vsplit",

@@ -122,14 +122,6 @@ function ChatHandler:prep_chat(buf, file_name)
 
   chatutils.prep_md(buf)
 
-  if self.options.chat_prompt_buf_type then
-    vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf })
-    vim.fn.prompt_setprompt(buf, "")
-    vim.fn.prompt_setcallback(buf, function()
-      self:chat_respond({ args = "" })
-    end)
-  end
-
   -- setup chat specific commands
   local range_commands = {
     {

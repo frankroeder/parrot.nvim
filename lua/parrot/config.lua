@@ -48,7 +48,6 @@ local defaults = {
   chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
   chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
   chat_free_cursor = false,
-  chat_prompt_buf_type = false,
   toggle_target = "vsplit",
   user_input_ui = "native",
   style_popup_border = "single",
