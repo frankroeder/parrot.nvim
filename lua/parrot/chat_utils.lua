@@ -26,6 +26,7 @@ M.prep_md = function(buf)
   vim.api.nvim_command("setlocal wrap linebreak")
   -- auto save on TextChanged, InsertLeave
   vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
+  vim.api.nvim_command("nnoremap <buffer> <CR> :PrtChatResponde<CR>")
 
   -- register shortcuts local to this buffer
   buf = buf or vim.api.nvim_get_current_buf()
