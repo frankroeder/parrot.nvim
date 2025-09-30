@@ -3,7 +3,7 @@ local M = {
   _logfile = vim.fn.stdpath("state") .. "/parrot.nvim.log",
   _max_log_lines = 10000,
   _debug_enabled = vim.env.DEBUG_PARROT ~= nil,
-  notify = vim.notify
+  notify = vim.notify,
 }
 
 -- Use pcall to safely require the notify plugin

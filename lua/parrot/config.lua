@@ -210,6 +210,39 @@ local defaults = {
       parrot.logger.info("Asking model: " .. model_obj.name)
       parrot.Prompt(params, parrot.ui.Target.popup, model_obj, "🤖 Ask ~ ", template)
     end,
+    -- PrtReloadCache reloads cached models for all or specific providers
+    ReloadCache = function(parrot, params)
+      local provider = params.args  -- Optional provider name from command args
+      local state = parrot.chat_handler.state
+      local spinner = parrot.options.enable_spinner and require("parrot.spinner"):new(parrot.options.spinner_type) or nil
+
+      -- Validate provider if specified
+      if provider and not vim.tbl_contains(parrot.available_providers, provider) then
+        parrot.logger.error("Provider '" .. provider .. "' is not configured or available")
+        return
+      end
+
+      -- Clear cache
+      state:clear_cache(provider)
+
+      -- Determine providers to reload (only available ones)
+      local providers_to_reload = provider and {provider} or parrot.available_providers
+
+      -- Refetch models (similar to setup logic, only for available providers)
+      for _, prov_name in ipairs(providers_to_reload) do
+        local _prov = require("parrot.provider").init_provider(vim.tbl_deep_extend("force", {name = prov_name}, parrot.providers[prov_name]))
+        if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours > 0 then
+          local endpoint_hash = require("parrot.utils").generate_endpoint_hash(_prov)
+          parrot.logger.info("Reloading model cache for " .. prov_name)
+          local fresh_models = _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
+          parrot.available_models[prov_name] = fresh_models
+        end
+      end
+
+      -- Refresh state with updated models
+      state:refresh(parrot.available_providers, parrot.available_models)
+      parrot.logger.info("Model cache reloaded" .. (provider and " for " .. provider or " for all providers"))
+    end,
   },
   prompts = {
     ["ProofReader"] = "You are a professional proofreader looking for spell and grammar errors",
@@ -382,9 +415,15 @@ end
 M.register_hooks = function(hooks, options)
   -- register user commands
   for hook, _ in pairs(hooks) do
+    local complete_func = nil
+    if hook == "ReloadCache" then
+      complete_func = function()
+        return M.available_providers
+      end
+    end
     vim.api.nvim_create_user_command(options.cmd_prefix .. hook, function(params)
       M.call_hook(hook, params)
-    end, { nargs = "?", range = true, desc = "Parrot LLM plugin" })
+    end, { nargs = "?", range = true, desc = "Parrot LLM plugin", complete = complete_func })
   end
 end
 

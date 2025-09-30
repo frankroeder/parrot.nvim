@@ -208,6 +208,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
 | `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
 | `PrtStatus`               | Prints current provider and model selection   |
+| `PrtReloadCache <optional provider>` | Reload cached models for all or specific provider |
 | `PrtCmd <optional prompt>` | Directly generate executable Neovim commands (requires explicit Return to execute) |
 |  __Interactive__          | |
 | `PrtRewrite <optional prompt>` | Rewrites the visual selection based on a provided prompt (direct input, input dialog or from collection) |
