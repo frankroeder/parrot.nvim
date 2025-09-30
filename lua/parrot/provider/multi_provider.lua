@@ -35,13 +35,15 @@ local defaults = {
       message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
     end
 
-    -- TODO: Remove later --
-    -- Changes according to beta limitations of the OpenAI reasoning API
-    if payload.model and string.match(payload.model, "o[134]") then
-      -- remove system prompt
+    -- OpenAI reasoning models (o1, o3, o4) have specific parameter requirements
+    -- These models don't support system prompts or certain sampling parameters
+    -- See: https://platform.openai.com/docs/guides/reasoning
+    if payload.model and string.match(payload.model, "^o[134]") then
+      -- Remove system prompt as it's not supported by reasoning models
       if payload.messages[1] and payload.messages[1].role == "system" then
         table.remove(payload.messages, 1)
       end
+      -- Set fixed values for parameters that reasoning models don't support
       payload.temperature = 1
       payload.top_p = 1
       payload.presence_penalty = 0
@@ -367,8 +369,18 @@ function MultiProvider:curl_params()
 
   for k, v in pairs(hdrs) do
     table.insert(args, "-H")
-    -- TODO: Check if this really makes sense to be a table --
-    local header_value = type(v) == "table" and table.concat(v, " ") or tostring(v)
+    -- HTTP headers should always be strings, but handle edge cases defensively
+    local header_value
+    if type(v) == "table" then
+      logger.warning("Header value is a table, this is likely a configuration error", {
+        provider = self.name,
+        header = k,
+        value = v,
+      })
+      header_value = table.concat(v, " ")
+    else
+      header_value = tostring(v)
+    end
     table.insert(args, k .. ": " .. header_value)
   end
   return args
@@ -427,8 +439,18 @@ function MultiProvider:get_available_models()
     -- Add headers to args
     for k, v in pairs(hdrs) do
       table.insert(args, "-H")
-      -- TODO: Check if this really makes sense to be a table --
-      local header_value = type(v) == "table" and table.concat(v, " ") or tostring(v)
+      -- HTTP headers should always be strings, but handle edge cases defensively
+      local header_value
+      if type(v) == "table" then
+        logger.warning("Header value is a table, this is likely a configuration error", {
+          provider = self.name,
+          header = k,
+          value = v,
+        })
+        header_value = table.concat(v, " ")
+      else
+        header_value = tostring(v)
+      end
       table.insert(args, k .. ": " .. header_value)
     end
 
