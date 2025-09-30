@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.4.0](https://github.com/frankroeder/parrot.nvim/compare/v2.3.0...v2.4.0) (2025-09-30)
+
+
+### Features
+
+* add PrtReloadCache command to reload cached models ([10d146f](https://github.com/frankroeder/parrot.nvim/commit/10d146fba858b2e0c858ebbcddcd601ae6cb5e25))
+
+
+### Bug Fixes
+
+* addresses issue [#177](https://github.com/frankroeder/parrot.nvim/issues/177), reload list after deleting chat item ([708fccf](https://github.com/frankroeder/parrot.nvim/commit/708fccf259aab04cb5304802d00d03f437d74f4c))
+* **logger:** stop overwriting global vim.notify function ([55676bc](https://github.com/frankroeder/parrot.nvim/commit/55676bce578969fce606bac04fefc27fd16e3a8a))
+* remove chat prompt buffer, chats should be fully functional buffers ([da1eb03](https://github.com/frankroeder/parrot.nvim/commit/da1eb031ccb9d5822978d06f181b89e30cb66b81))
+* rewrite, append and prepend now respect chat_free_cursor option ([6ad76a1](https://github.com/frankroeder/parrot.nvim/commit/6ad76a1b170b3fa49851504ab17cb39075b93b03))
+* typos and correct chat/command mode detection ([8f97191](https://github.com/frankroeder/parrot.nvim/commit/8f9719188a5ce294c045a3973f83d7ee3a106277))
+
 ## [2.3.0](https://github.com/frankroeder/parrot.nvim/compare/v2.2.0...v2.3.0) (2025-07-15)
 
 
