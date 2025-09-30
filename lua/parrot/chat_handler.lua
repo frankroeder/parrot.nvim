@@ -999,15 +999,18 @@ function ChatHandler:chat_finder()
     end
     -- add custom action to delete chat files
     actions["ctrl-d"] = {
-      fn = function(selected)
+      fn = function(selected, opts)
         local filename = filename_from_selection(selected)
         if vim.fn.confirm("Are you sure you want to delete " .. filename .. "?", "&Yes\n&No", 2) == 1 then
           futils.delete_file(self.options.chat_dir .. "/" .. filename, self.options.chat_dir)
           logger.info(filename .. " deleted")
+          -- Return true to reload the picker after deletion
+          return true
         end
+        -- Return false if deletion was cancelled
+        return false
       end,
-      -- TODO: Fix bug, currently not possible --
-      reload = false,
+      reload = true,
     }
 
     if self.options.toggle_target == "popup" then
@@ -1025,9 +1028,6 @@ function ChatHandler:chat_finder()
       prompt = "Chat selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
       previewer = "builtin",
-      fn_transform = function(x)
-        return require("fzf-lua").make_entry.file(x, { file_icons = true, color_icons = true })
-      end,
       actions = actions,
     })
     return
