@@ -248,12 +248,12 @@ local defaults = {
     ["ProofReader"] = "You are a professional proofreader looking for spell and grammar errors",
     ["CodeFixer"] = [[
     You are a proficient programmer in the provided language. I want you to
-    look for erros and bugs within the provided snippet. Simply assume that you
+    look for errors and bugs within the provided snippet. Simply assume that you
     have access to the used libraries and packages, hence skip importing them.
     ]],
     ["CodeFixerContext"] = [[
     You are a proficient programmer in the provided language. I want you to
-    look for erros and bugs within the provided snippet given the full file content
+    look for errors and bugs within the provided snippet given the full file content
 
     ```{{filetype}}
     {{filecontent}}
@@ -459,8 +459,11 @@ M.add_default_commands = function(commands, hooks, options)
             return completions[cmd]
           end
           if cmd == "Model" then
-            -- TODO: Should detect the respective mode --
-            local current_provider = M.chat_handler.state:get_provider(true) -- Use chat provider by default
+            -- Detect whether we're in chat mode or command mode
+            local buf = vim.api.nvim_get_current_buf()
+            local file_name = vim.api.nvim_buf_get_name(buf)
+            local is_chat = utils.is_chat(buf, file_name, M.options.chat_dir)
+            local current_provider = M.chat_handler.state:get_provider(is_chat)
             if current_provider and M.available_models[current_provider] then
               return M.available_models[current_provider]
             end
