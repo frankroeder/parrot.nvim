@@ -213,8 +213,9 @@ M.prepare_payload = function(messages, model_name, params)
     model = model_name,
   }
 
-  -- TODO: Provider specific --
-  -- insert the model parameters with validation
+  -- Insert model parameters with basic validation
+  -- Note: These ranges (temperature: 0-2, top_p: 0-1) are common across most providers
+  -- Provider-specific adjustments can be made in preprocess_payload if needed
   for k, v in pairs(params) do
     if k == "temperature" then
       -- Validate temperature range
