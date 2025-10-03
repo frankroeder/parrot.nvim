@@ -212,7 +212,7 @@ local defaults = {
     end,
     -- PrtReloadCache reloads cached models for all or specific providers
     ReloadCache = function(parrot, params)
-      local provider = params.args  -- Optional provider name from command args
+      local provider = params.args ~= "" and params.args or nil  -- Optional provider name from command args
       local state = parrot.chat_handler.state
       local spinner = parrot.options.enable_spinner and require("parrot.spinner"):new(parrot.options.spinner_type) or nil
 
