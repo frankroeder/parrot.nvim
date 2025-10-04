@@ -12,6 +12,7 @@ local Job = require("plenary.job")
 ---@field models table
 ---@field name string
 ---@field headers function|table
+---@field _curl_params table
 ---@field preprocess_payload_func function
 ---@field process_stdout_func function
 ---@field process_onexit_func function
@@ -228,6 +229,9 @@ function MultiProvider:new(config)
     self.models = config.models
   end
 
+  -- Provider-specific curl parameters
+  self._curl_params = config.curl_params or {}
+
   -- Function overrides (use defaults if not provided)
   self.headers = config.headers or defaults.headers
   self.preprocess_payload_func = config.preprocess_payload or defaults.preprocess_payload
@@ -321,6 +325,17 @@ function MultiProvider:validate_config()
     })
     error("Headers must be a function or table for provider " .. self.name)
   end
+
+  -- Validate curl_params if provided
+  if type(self._curl_params) ~= "table" then
+    logger.error("Invalid curl_params type for provider", {
+      method = "MultiProvider:validate_config",
+      provider = self.name,
+      curl_params_type = type(self._curl_params),
+      expected = "curl_params must be a table",
+    })
+    error("curl_params must be a table for provider " .. self.name)
+  end
 end
 
 function MultiProvider:set_model(model)
@@ -366,6 +381,11 @@ function MultiProvider:curl_params()
   local args = {
     endp,
   }
+
+  -- Add provider-specific curl params first
+  for _, param in ipairs(self._curl_params) do
+    table.insert(args, param)
+  end
 
   for k, v in pairs(hdrs) do
     table.insert(args, "-H")
