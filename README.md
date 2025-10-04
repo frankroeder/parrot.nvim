@@ -206,7 +206,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtChatRespond`          | Trigger chat respond (in chat file)           |
 | `PrtStop`                 | Interrupt ongoing respond                     |
 | `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
-| `PrtModel <model>`        | Switch the model (empty arg triggers fzf)     |
+| `PrtModel <model>`        | Switch the interactive command model (empty arg triggers fzf). Note: Chat model must be changed from within the chat buffer. |
 | `PrtStatus`               | Prints current provider and model selection   |
 | `PrtReloadCache <optional provider>` | Reload cached models for all or specific provider |
 | `PrtCmd <optional prompt>` | Directly generate executable Neovim commands (requires explicit Return to execute) |
@@ -967,6 +967,8 @@ ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
     > If the state is corrupted, simply delete the file `~/.local/share/nvim/parrot/persisted/state.json`.
 - The completion feature is not functioning, and I am receiving errors.
     > Ensure that you have an adequate amount of API credits and examine the log file `~/.local/state/nvim/parrot.nvim.log` for any errors.
+- How do model selections work for chat vs. interactive commands?
+    > Model selection is separate for chat and interactive commands. To change the chat model, you must be inside a chat window started with `PrtChatNew`. Switching the model outside of a chat window only affects the interactive command model (e.g., `PrtRewrite`, `PrtAppend`). The selections are persistent after being set.
 - I have discovered a bug, have a feature suggestion, or possess a general idea to enhance this project.
     > Everyone is invited to contribute to this project! If you have any suggestions, ideas, or bug reports, please feel free to submit an issue.
 
