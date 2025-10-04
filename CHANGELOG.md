@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/frankroeder/parrot.nvim/compare/v2.4.0...v2.4.1) (2025-10-04)
+
+
+### Bug Fixes
+
+* **providers:** reload all caches on empty argument ([a2b869d](https://github.com/frankroeder/parrot.nvim/commit/a2b869d6ea37675f32100ff72c212e6c812472be))
+
 ## [2.4.0](https://github.com/frankroeder/parrot.nvim/compare/v2.3.0...v2.4.0) (2025-09-30)
 
 
