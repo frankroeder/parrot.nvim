@@ -591,6 +591,35 @@ describe("MultiProvider", function()
       assert.are.same({}, params)
       assert.spy(logger_mock.error).was_called()
     end)
+
+    it("should include provider-specific curl_params", function()
+      local provider_with_params = MultiProvider:new({
+        name = "test-curl-params",
+        endpoint = "https://api.test.com/v1/chat",
+        api_key = "test-key",
+        model = { "test-model" },
+        curl_params = { "--insecure", "--max-time", "30" },
+      })
+      local params = provider_with_params:curl_params()
+      assert.is_true(#params > 0)
+      assert.equals("https://api.test.com/v1/chat", params[1])
+      assert.equals("--insecure", params[2])
+      assert.equals("--max-time", params[3])
+      assert.equals("30", params[4])
+    end)
+
+    it("should work without curl_params when not provided", function()
+      local provider_without_params = MultiProvider:new({
+        name = "test-no-curl-params",
+        endpoint = "https://api.test.com/v1/chat",
+        api_key = "test-key",
+        model = { "test-model" },
+      })
+      local params = provider_without_params:curl_params()
+      assert.is_true(#params > 0)
+      assert.equals("https://api.test.com/v1/chat", params[1])
+      -- Should only have endpoint and headers, no extra curl params
+    end)
   end)
 
   describe("get_available_models", function()

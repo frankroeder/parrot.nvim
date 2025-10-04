@@ -915,6 +915,8 @@ or have suggestions for improving provider support.
       api_key = os.getenv("MY_API_KEY"),
       endpoint = "https://api.example.com/v1/chat/completions",
       model = { "model-1", "model-2" },
+      -- Provider-specific curl parameters (optional)
+      curl_params = { "--insecure", "--max-time", "30", "--proxy", "http://proxy:8080" },
       -- Custom headers function
       headers = function(api_key)
         return {
