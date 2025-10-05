@@ -456,6 +456,10 @@ function MultiProvider:get_available_models()
       args = type(self.model_endpoint) == "table" and self.model_endpoint or { self.model_endpoint }
     end
 
+    for _, param in ipairs(self._curl_params) do
+      table.insert(args, param)
+    end
+
     -- Add headers to args
     for k, v in pairs(hdrs) do
       table.insert(args, "-H")
