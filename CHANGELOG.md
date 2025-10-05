@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.5.0](https://github.com/frankroeder/parrot.nvim/compare/v2.4.0...v2.5.0) (2025-10-05)
+
+
+### Features
+
+* **provider:** add support for provider-specific curl parameters ([1959be7](https://github.com/frankroeder/parrot.nvim/commit/1959be7f889ed585b12a966e6e41fafe18d5352a))
+* **provider:** add support for provider-specific curl parameters ([54a6d92](https://github.com/frankroeder/parrot.nvim/commit/54a6d92110e173a6a13e7c803536d5e1464eada7))
+
+
+### Bug Fixes
+
+* **providers:** reload all caches on empty argument ([a2b869d](https://github.com/frankroeder/parrot.nvim/commit/a2b869d6ea37675f32100ff72c212e6c812472be))
+* **providers:** use provider-specific curl parameters on fetch models ([35155c6](https://github.com/frankroeder/parrot.nvim/commit/35155c68149961d02a86db19617472e2763f7570))
+* **providers:** use provider-specific curl parameters on fetch models ([43b0d91](https://github.com/frankroeder/parrot.nvim/commit/43b0d916c0d28a01bbe41fa8bcc7ff2fcee708b2))
+
 ## [2.4.0](https://github.com/frankroeder/parrot.nvim/compare/v2.3.0...v2.4.0) (2025-09-30)
 
 
