@@ -60,6 +60,12 @@ function ResponseHandler:handle_chunk(qid, chunk)
     return
   end
 
+  -- Check if query was cancelled
+  if qt.cancelled then
+    self:cleanup_on_cancel()
+    return
+  end
+
   if not self.skip_first_undojoin then
     utils.undojoin(self.buffer)
   end
@@ -192,6 +198,33 @@ function ResponseHandler:create_handler()
   return vim.schedule_wrap(function(qid, chunk)
     self:handle_chunk(qid, chunk)
   end)
+end
+
+---Cleans up on cancellation
+function ResponseHandler:cleanup_on_cancel()
+  -- Clear namespace/extmarks
+  if self.ns_id and self.buffer and vim.api.nvim_buf_is_valid(self.buffer) then
+    pcall(vim.api.nvim_buf_clear_namespace, self.buffer, self.ns_id, 0, -1)
+  end
+
+  -- Remove partial response
+  if self.first_line and self.buffer and vim.api.nvim_buf_is_valid(self.buffer) then
+    local line_count = #vim.split(self.response, "\n")
+    local success = pcall(vim.api.nvim_buf_set_lines,
+      self.buffer,
+      self.first_line,
+      self.first_line + line_count,
+      false,
+      {}
+    )
+
+    if not success then
+      logger.debug("ResponseHandler: Failed to remove partial response on cancel", {
+        first_line = self.first_line,
+        line_count = line_count,
+      })
+    end
+  end
 end
 
 return ResponseHandler

@@ -377,19 +377,81 @@ function ChatHandler:Cmd(params)
 end
 
 --- Stops all ongoing processes by killing associated jobs.
----@param signal number | nil Signal to send to the processes.
-function ChatHandler:stop(signal)
+---@param options table|number|nil Options table or signal number for backwards compatibility
+---   - options.signal: Signal to send to processes (default: 15)
+---   - options.buffer: Buffer number to stop jobs for (nil = stop all)
+---   - options.notify: Show notification after stopping (default: true)
+function ChatHandler:stop(options)
+  -- Backwards compatibility: if options is a number, treat it as signal
+  if type(options) == "number" then
+    options = { signal = options }
+  end
+  options = options or {}
+  local signal = options.signal or 15
+  local target_buf = options.buffer
+  local show_notification = options.notify ~= false
+
   if self.pool:is_empty() then
+    if show_notification then
+      logger.warning("No active Parrot processes to stop")
+    end
     return
   end
 
-  for _, process_info in self.pool:ipairs() do
-    if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
-      vim.uv.kill(process_info.job.pid, signal or 15)
+  local stopped_count = 0
+  local cancelled_queries = {}
+
+  -- Collect jobs to stop (either for specific buffer or all)
+  for i = #self.pool._processes, 1, -1 do
+    local process_info = self.pool._processes[i]
+    local should_stop = target_buf == nil or process_info.buf == target_buf
+
+    if should_stop then
+      -- Mark associated query as cancelled
+      if process_info.qid then
+        self.queries:mark_cancelled(process_info.qid, "user")
+        table.insert(cancelled_queries, process_info.qid)
+      end
+
+      -- Kill the job
+      if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
+        vim.uv.kill(process_info.job.pid, signal)
+        stopped_count = stopped_count + 1
+      end
+
+      -- Remove from pool
+      table.remove(self.pool._processes, i)
     end
   end
 
-  self.pool = Pool:new()
+  -- Clean up extmarks and partial responses for cancelled queries
+  vim.schedule(function()
+    for _, qid in ipairs(cancelled_queries) do
+      local qt = self.queries:get(qid)
+      if qt then
+        -- Clear namespace/extmarks
+        if qt.ns_id and qt.buf and vim.api.nvim_buf_is_valid(qt.buf) then
+          pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
+        end
+      end
+    end
+
+    -- Show notification
+    if show_notification then
+      if stopped_count > 0 then
+        local msg = stopped_count == 1 and "Stopped 1 process" or string.format("Stopped %d processes", stopped_count)
+        if target_buf then
+          msg = msg .. " in current buffer"
+        end
+        logger.info(msg)
+      else
+        logger.warning("No active processes found" .. (target_buf and " in current buffer" or ""))
+      end
+    end
+
+    -- Fire autocmd event for user hooks
+    vim.cmd("doautocmd User PrtCancelled")
+  end)
 end
 
 --- Context command
@@ -1889,9 +1951,21 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     end,
   })
   job:start()
-  self.pool:add(job, buf)
+
+  -- Determine target type for better tracking
+  local target_type = "unknown"
+  if buf and vim.api.nvim_buf_is_valid(buf) then
+    local file_name = vim.api.nvim_buf_get_name(buf)
+    local utils_module = require("parrot.utils")
+    if utils_module.is_chat(buf, file_name, self.options.chat_dir) then
+      target_type = "chat"
+    end
+  end
+
+  self.pool:add(job, buf, qid, target_type)
   logger.debug("ChatHandler:query pool updated", {
     pool = self.pool,
+    qid = qid,
   })
 end
 

@@ -204,7 +204,7 @@ Additional useful commands are implemented through hooks (see below).
 | `PrtChatFinder`           | Fuzzy search chat files using fzf             |
 | `PrtChatDelete`           | Delete the current chat file                  |
 | `PrtChatRespond`          | Trigger chat respond (in chat file)           |
-| `PrtStop`                 | Interrupt ongoing respond                     |
+| `PrtStop`                 | Interrupt any ongoing Parrot generation (works everywhere) |
 | `PrtProvider <provider>`  | Switch the provider (empty arg triggers fzf)  |
 | `PrtModel <model>`        | Switch the interactive command model (empty arg triggers fzf). Note: Chat model must be changed from within the chat buffer. |
 | `PrtStatus`               | Prints current provider and model selection   |
@@ -309,6 +309,9 @@ to consider a visual selection within an API request.
     chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
     chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 
+    -- Global shortcut for stopping generation (works in any buffer)
+    global_shortcut_stop = { modes = { "n", "i" }, shortcut = "<C-c><C-c>" },
+
     -- Option to move the cursor to the end of the file after finished respond
     chat_free_cursor = false,
 
@@ -403,7 +406,8 @@ This plugin provides the following default key mappings:
 |--------------|-------------------------------------------------------------|
 | `<C-g>c`     | Opens a new chat via `PrtChatNew`                           |
 | `<C-g><C-g>` | Trigger the API to generate a response via `PrtChatRespond` |
-| `<C-g>s`     | Stop the current text generation via `PrtStop`              |
+| `<C-g>s`     | Stop the current text generation in chat via `PrtStop`      |
+| `<C-c><C-c>` | Stop any ongoing Parrot generation (works in any buffer)    |
 | `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
 
 ### Provider Configuration Examples
@@ -940,6 +944,53 @@ or have suggestions for improving provider support.
       end,
     },
   }
+```
+
+## Cancellation
+
+You can stop any ongoing Parrot generation at any time using multiple methods:
+
+### Methods
+
+1. **Global Keybinding** (works in any buffer): `<C-c><C-c>` (configurable via `global_shortcut_stop`)
+2. **Chat-Specific Keybinding**: `<C-g>s` in chat buffers (configurable via `chat_shortcut_stop`)
+3. **Command**: `:PrtStop` (works everywhere)
+
+### Behavior
+
+When you cancel a generation:
+
+- **Immediate Termination**: The API request is stopped immediately
+- **Clean Buffers**: Partial responses are automatically removed
+- **Visual Feedback**: You receive a notification confirming the cancellation
+- **Preview Mode**: If cancelled during streaming, the preview won't be shown
+- **Multiple Jobs**: If multiple generations are running, all are stopped
+
+### Autocommand Event
+
+A `User PrtCancelled` event is fired when generation is cancelled, allowing you to create custom hooks:
+
+```lua
+vim.api.nvim_create_autocmd("User", {
+  pattern = "PrtCancelled",
+  callback = function()
+    -- Your custom logic here
+    print("Parrot generation was cancelled")
+  end,
+})
+```
+
+### Advanced Usage
+
+For buffer-specific cancellation in custom code:
+
+```lua
+-- Stop only jobs for current buffer
+local chat_handler = require("parrot").chat_handler
+chat_handler:stop({ buffer = vim.api.nvim_get_current_buf() })
+
+-- Stop without notification
+chat_handler:stop({ notify = false })
 ```
 
 ## Bonus
