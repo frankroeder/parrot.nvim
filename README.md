@@ -309,9 +309,6 @@ to consider a visual selection within an API request.
     chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
     chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
 
-    -- Global shortcut for stopping generation (works in any buffer)
-    global_shortcut_stop = { modes = { "n", "i" }, shortcut = "<C-c><C-c>" },
-
     -- Option to move the cursor to the end of the file after finished respond
     chat_free_cursor = false,
 
@@ -406,8 +403,7 @@ This plugin provides the following default key mappings:
 |--------------|-------------------------------------------------------------|
 | `<C-g>c`     | Opens a new chat via `PrtChatNew`                           |
 | `<C-g><C-g>` | Trigger the API to generate a response via `PrtChatRespond` |
-| `<C-g>s`     | Stop the current text generation in chat via `PrtStop`      |
-| `<C-c><C-c>` | Stop any ongoing Parrot generation (works in any buffer)    |
+| `<C-g>s`     | Stop any ongoing Parrot generation via `PrtStop`            |
 | `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
 
 ### Provider Configuration Examples
@@ -952,16 +948,15 @@ You can stop any ongoing Parrot generation at any time using multiple methods:
 
 ### Methods
 
-1. **Global Keybinding** (works in any buffer): `<C-c><C-c>` (configurable via `global_shortcut_stop`)
-2. **Chat-Specific Keybinding**: `<C-g>s` in chat buffers (configurable via `chat_shortcut_stop`)
-3. **Command**: `:PrtStop` (works everywhere)
+1. **Keybinding**: `<C-g>s` (configurable via `chat_shortcut_stop`)
+2. **Command**: `:PrtStop` (works everywhere)
 
 ### Behavior
 
 When you cancel a generation:
 
 - **Immediate Termination**: The API request is stopped immediately
-- **Clean Buffers**: Partial responses are automatically removed
+- **Preserves Generated Text**: The text generated so far remains in the buffer
 - **Visual Feedback**: You receive a notification confirming the cancellation
 - **Preview Mode**: If cancelled during streaming, the preview won't be shown
 - **Multiple Jobs**: If multiple generations are running, all are stopped

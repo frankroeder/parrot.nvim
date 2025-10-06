@@ -47,7 +47,6 @@ local defaults = {
   chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
   chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
   chat_shortcut_new = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>c" },
-  global_shortcut_stop = { modes = { "n", "i" }, shortcut = "<C-c><C-c>" },
   chat_free_cursor = false,
   toggle_target = "vsplit",
   user_input_ui = "native",
@@ -372,8 +371,7 @@ function M.setup(opts)
 
   M.cmd = {
     ChatFinder = "chat_finder",
-    ChatStop = "stop",
-    Stop = "stop", -- Global stop command (works everywhere, not just chat)
+    Stop = "stop",
     ChatNew = "chat_new",
     ChatToggle = "chat_toggle",
     ChatPaste = "chat_paste",

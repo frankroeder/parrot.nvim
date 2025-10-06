@@ -424,12 +424,12 @@ function ChatHandler:stop(options)
     end
   end
 
-  -- Clean up extmarks and partial responses for cancelled queries
+  -- Clean up extmarks only (preserve generated text)
   vim.schedule(function()
     for _, qid in ipairs(cancelled_queries) do
       local qt = self.queries:get(qid)
       if qt then
-        -- Clear namespace/extmarks
+        -- Clear namespace/extmarks only
         if qt.ns_id and qt.buf and vim.api.nvim_buf_is_valid(qt.buf) then
           pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
         end
