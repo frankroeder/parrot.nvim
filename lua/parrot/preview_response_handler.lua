@@ -99,6 +99,13 @@ function PreviewResponseHandler:handle_chunk(qid, chunk)
     return
   end
 
+  -- Check if query was cancelled
+  if qt.cancelled then
+    -- For preview, we don't show the preview if cancelled
+    logger.debug("PreviewResponseHandler: Query cancelled, aborting preview")
+    return
+  end
+
   if chunk and chunk ~= "" then
     self.response = self.response .. chunk
     qt.response = self.response
@@ -269,7 +276,14 @@ end
 --- Creates a completion handler that shows the preview
 ---@return function
 function PreviewResponseHandler:create_completion_handler()
-  return vim.schedule_wrap(function(_)
+  return vim.schedule_wrap(function(qid)
+    -- Check if cancelled before showing preview
+    local qt = self.queries:get(qid)
+    if qt and qt.cancelled then
+      logger.debug("PreviewResponseHandler: Completion cancelled, not showing preview")
+      return
+    end
+
     -- Clean up the response (remove code fences, etc.)
     self.response = self
       .response

@@ -371,7 +371,7 @@ function M.setup(opts)
 
   M.cmd = {
     ChatFinder = "chat_finder",
-    ChatStop = "stop",
+    Stop = "stop",
     ChatNew = "chat_new",
     ChatToggle = "chat_toggle",
     ChatPaste = "chat_paste",
