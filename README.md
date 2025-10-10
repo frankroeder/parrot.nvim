@@ -656,7 +656,7 @@ providers = {
 <summary>Perplexity</summary>
 
 ```lua
-proviers = {
+providers = {
   perplexity = {
     name = "perplexity",
     api_key = os.getenv("PERPLEXITY_API_KEY"),
