@@ -60,6 +60,11 @@ function ResponseHandler:handle_chunk(qid, chunk)
     return
   end
 
+  -- Check if query was cancelled - just stop processing, preserve existing text
+  if qt.cancelled then
+    return
+  end
+
   if not self.skip_first_undojoin then
     utils.undojoin(self.buffer)
   end

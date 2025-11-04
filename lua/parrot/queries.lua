@@ -13,6 +13,10 @@ end
 --- @param qid number # Query ID.
 --- @param data table # Query data.
 function Queries:add(qid, data)
+  -- Initialize cancellation state
+  data.cancelled = false
+  data.cancellation_reason = nil
+  data.cancellation_time = nil
   self._queries[qid] = data
 end
 
@@ -36,6 +40,39 @@ function Queries:get(qid)
     return nil
   end
   return self._queries[qid]
+end
+
+--- Gets queries for a specific buffer.
+--- @param buf number # The buffer number
+--- @return table # List of query IDs for the buffer
+function Queries:get_for_buffer(buf)
+  local result = {}
+  for qid, query_data in pairs(self._queries) do
+    if query_data.buf == buf then
+      table.insert(result, qid)
+    end
+  end
+  return result
+end
+
+--- Marks a query as cancelled.
+--- @param qid string # Query ID.
+--- @param reason string|nil # Cancellation reason (optional)
+function Queries:mark_cancelled(qid, reason)
+  local query = self._queries[qid]
+  if query then
+    query.cancelled = true
+    query.cancellation_reason = reason or "user"
+    query.cancellation_time = os.time()
+  end
+end
+
+--- Checks if a query was cancelled.
+--- @param qid string # Query ID.
+--- @return boolean # True if cancelled, false otherwise.
+function Queries:is_cancelled(qid)
+  local query = self._queries[qid]
+  return query and query.cancelled or false
 end
 
 --- Cleans up old queries from the collection based on the specified criteria.
