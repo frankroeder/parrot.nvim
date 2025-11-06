@@ -491,7 +491,7 @@ end
 function MultiProvider:get_available_models_cached(state, cache_expiry_hours, spinner)
   -- Only use caching if model_endpoint is configured
   -- otherwise return fallback models
-  if not self:online_model_fetching() and cache_expiry_hours == 0 then
+  if not self:online_model_fetching() then
     return self.models
   end
 
@@ -499,12 +499,14 @@ function MultiProvider:get_available_models_cached(state, cache_expiry_hours, sp
   local endpoint_hash = utils.generate_endpoint_hash(self)
 
   -- Try to get from cache first
+  -- Note: cache_expiry_hours = 0 means "never expire, use cached models forever"
   local cached_models = state:get_cached_models(self.name, cache_expiry_hours, endpoint_hash)
   if cached_models then
     return cached_models
   end
 
-  -- Cache miss or expired - fetch fresh models
+  -- Cache miss or expired - fetch fresh models only if expiry > 0
+  -- When cache_expiry_hours = 0, only fetch if no cache exists (first time setup)
   if spinner then
     spinner:start("Fetching models for " .. self.name .. "...")
   end

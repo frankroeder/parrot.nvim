@@ -1243,8 +1243,9 @@ function ChatHandler:model(params)
   local has_telescope, telescope = pcall(require, "telescope")
 
   -- Get models with caching support
+  -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
   local models
-  if prov:online_model_fetching() and self.options.model_cache_expiry_hours > 0 then
+  if prov:online_model_fetching() and self.options.model_cache_expiry_hours >= 0 then
     local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
     models = prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner)
   else

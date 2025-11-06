@@ -231,7 +231,7 @@ local defaults = {
       -- Refetch models (similar to setup logic, only for available providers)
       for _, prov_name in ipairs(providers_to_reload) do
         local _prov = require("parrot.provider").init_provider(vim.tbl_deep_extend("force", {name = prov_name}, parrot.providers[prov_name]))
-        if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours > 0 then
+        if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours >= 0 then
           local endpoint_hash = require("parrot.utils").generate_endpoint_hash(_prov)
           parrot.logger.info("Reloading model cache for " .. prov_name)
           local fresh_models = _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
@@ -341,7 +341,8 @@ function M.setup(opts)
     local _prov = init_provider(provider_config)
 
     -- Use cached model fetching if provider has model_endpoint
-    if _prov:online_model_fetching() and M.options.model_cache_expiry_hours > 0 then
+    -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
+    if _prov:online_model_fetching() and M.options.model_cache_expiry_hours >= 0 then
       -- Check cache validity for this specific provider
       local endpoint_hash = utils.generate_endpoint_hash(_prov)
       local needs_update = not temp_state:is_cache_valid(prov_name, M.options.model_cache_expiry_hours, endpoint_hash)

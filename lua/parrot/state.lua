@@ -229,7 +229,8 @@ function State:get_cached_models(provider, cache_expiry_hours, endpoint_hash)
   local expiry_seconds = cache_expiry_hours * 3600
 
   -- Check if cache is expired
-  if (now - cached.timestamp) > expiry_seconds then
+  -- Note: cache_expiry_hours = 0 means "never expire" (keep cached models forever)
+  if cache_expiry_hours > 0 and (now - cached.timestamp) > expiry_seconds then
     return nil
   end
 
