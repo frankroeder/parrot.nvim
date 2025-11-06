@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/frankroeder/parrot.nvim/compare/v2.5.0...v2.5.1) (2025-11-06)
+
+
+### Bug Fixes
+
+* turning off model cache now correctly keeps it untouched ([ccb35e9](https://github.com/frankroeder/parrot.nvim/commit/ccb35e9fea98c1cc14ef5f8e8d0829bfbd1c103e))
+
 ## [2.5.0](https://github.com/frankroeder/parrot.nvim/compare/v2.4.0...v2.5.0) (2025-10-05)
 
 
