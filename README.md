@@ -187,6 +187,47 @@ The minimal requirement is to at least set up one provider, such as the one prov
 }
 ```
 
+## Usage
+
+### Chat Basics
+
+Chats in `parrot.nvim` are essentially standard Markdown buffers.
+
+**How it works:**
+1. **Open a Chat**: Use `:PrtChatNew` to open a fresh chat buffer (or `:PrtChatToggle` to toggle the last one).
+2. **Type your prompt**: Just write your question or instruction in the buffer after the user prefix `🗨:`.
+3. **Trigger the LLM**: Press the trigger keymap (default `<C-g><C-g>` in insert mode) or use the `:PrtChatRespond` command.
+4. **Receive Response**: The LLM streams its response directly into the buffer at your cursor position.
+5. **Stop Generation**: Press `<C-g>s` to stop the generation at any time.
+
+**Key Concepts:**
+- **Context**: The entire buffer content is sent as context (unless hidden comments are used).
+- **System Prompts**: You can set unique system prompts per chat or globally.
+- **Persistence**: Chats are saved as `.md` files in your configured directory.
+
+### Command Mode (Interactive Commands)
+
+Command mode allows you to interact with LLMs directly on your code without leaving your current buffer.
+
+**Available Commands:**
+- `:PrtRewrite` – Rewrite the visual selection based on your prompt.
+- `:PrtAppend` – Append generated text after the selection.
+- `:PrtPrepend` – Prepend generated text before the selection.
+- `:PrtRetry` – Retry the last rewrite/append/prepend operation.
+- `:PrtEdit` – Edit and re-run the last command with a modified prompt.
+
+**Workflow:**
+1. Select the code you want to modify (visual mode).
+2. Run one of the commands above (e.g., `:PrtRewrite fix the bug`).
+3. The LLM processes your selection and streams the result or presents you with a `diff view`.
+
+**Separate Model Selection:**
+`parrot.nvim` maintains **two independent model selections**:
+- **Chat Model**: Used for chat buffers. Change it from within a chat buffer using `:PrtModel`.
+- **Command Model**: Used for interactive commands (`PrtRewrite`, etc.). Change it from any non-chat buffer using `:PrtModel`.
+
+This allows you to use a fast/cheap model for quick inline edits while keeping a more capable model for in-depth chat conversations.
+
 ## Commands
 
 Below are the available commands that can be configured as keybindings.
