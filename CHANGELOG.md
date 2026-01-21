@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.2](https://github.com/frankroeder/parrot.nvim/compare/v2.5.1...v2.5.2) (2026-01-21)
+
+
+### Bug Fixes
+
+* **chat_finder:** make rg pattern quoting Windows-compatible ([34bff8b](https://github.com/frankroeder/parrot.nvim/commit/34bff8b294d85f445843cb70faa205e07e22d4f0))
+* **chat_finder:** make rg pattern quoting Windows-compatible ([aacc6df](https://github.com/frankroeder/parrot.nvim/commit/aacc6dfad498398e2d2b99a24beb9a7b72077520))
+
 ## [2.5.1](https://github.com/frankroeder/parrot.nvim/compare/v2.5.0...v2.5.1) (2025-11-06)
 
 
