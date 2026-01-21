@@ -1085,7 +1085,7 @@ function ChatHandler:chat_finder()
       actions["default"] = actions["ctrl-t"]
     end
 
-    fzf_lua.fzf_exec("rg --no-heading '# topic:' --type=md --sortr=accessed", {
+    fzf_lua.fzf_exec('rg --no-heading "# topic:" --type=md --sortr=accessed', {
       cwd = self.options.chat_dir,
       prompt = "Chat selection ❯",
       fzf_opts = self.options.fzf_lua_opts,
