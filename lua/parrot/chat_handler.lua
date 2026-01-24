@@ -1858,40 +1858,97 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
 
   self.queries:cleanup(8, 60)
 
-  local curl_params = vim.deepcopy(self.options.curl_params or {})
-  payload = provider:preprocess_payload(payload)
-  local args = {
-    "--no-buffer",
-    "--silent",
-    "-d",
-    "@-",
-  }
-
-  for _, parg in ipairs(provider:curl_params()) do
-    table.insert(curl_params, parg)
+  -- Determine if this is a JSON-based provider or CLI
+  local uses_json = true
+  if provider.uses_json_payload ~= nil then
+    uses_json = provider:uses_json_payload()
   end
+  local command = provider.get_command and provider:get_command() or "curl"
 
-  for _, arg in ipairs(args) do
-    table.insert(curl_params, arg)
-  end
-
-  local json_payload = vim.json.encode(payload)
-  logger.debug("ChatHandler:query json payload", {
-    json_payload = json_payload,
+  logger.debug("Provider type detection", {
+    provider = provider.name,
+    uses_json = uses_json,
+    command = command,
   })
 
+  local writer_data
+  local final_args = {}
+
+  if uses_json then
+    -- HTTP API providers (OpenAI, Anthropic, etc.)
+    payload = provider:preprocess_payload(payload)
+
+    -- Add global curl params from options (only for HTTP providers)
+    local curl_params = vim.deepcopy(self.options.curl_params or {})
+    for _, param in ipairs(curl_params) do
+      if type(param) == "string" then
+        final_args[#final_args + 1] = param
+      end
+    end
+
+    -- Add provider-specific curl params
+    local provider_params = provider:curl_params()
+    if type(provider_params) == "table" then
+      for _, parg in ipairs(provider_params) do
+        if type(parg) == "string" then
+          final_args[#final_args + 1] = parg
+        end
+      end
+    end
+
+    -- Add curl-specific flags
+    local args = {
+      "--no-buffer",
+      "--silent",
+      "-d",
+      "@-",
+    }
+    for _, arg in ipairs(args) do
+      final_args[#final_args + 1] = arg
+    end
+
+    writer_data = vim.json.encode(payload)
+    logger.debug("ChatHandler:query json payload", {
+      json_payload = writer_data,
+    })
+  else
+    -- CLI providers (Claude CLI, etc.)
+    -- Don't use global curl_params for CLI providers
+    writer_data = provider:preprocess_payload(payload)
+
+    -- Get CLI-specific args (includes flags based on payload)
+    local cli_args = provider:curl_params(payload)
+    if type(cli_args) == "table" then
+      for _, parg in ipairs(cli_args) do
+        if type(parg) == "string" then
+          final_args[#final_args + 1] = parg
+        end
+      end
+    end
+
+    logger.info("ChatHandler:query CLI invocation", {
+      command = command,
+      args = table.concat(final_args, " "),
+      stdin_length = #writer_data,
+      stdin_preview = writer_data:sub(1, 100),
+    })
+  end
+
   local job = Job:new({
-    command = "curl",
-    args = curl_params,
-    writer = json_payload,
+    command = command,
+    args = final_args,
+    writer = writer_data,
     on_exit = function(response, exit_code)
       logger.debug("ChatHandler:query on_exit", {
         response = response:result(),
       })
       if exit_code ~= 0 then
-        logger.error("ChatHandler:query curl failed", {
+        local cmd_type = uses_json and "API request" or "CLI command"
+        logger.error("ChatHandler:query " .. cmd_type .. " failed", {
+          command = command,
           exit_code = exit_code,
           response = response:result(),
+          provider = provider.name,
         })
         -- Mark query as having an error
         local qt = self.queries:get(qid)
@@ -1948,6 +2005,15 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
           qt.response = qt.response .. content
           handler(qid, content)
         end
+      end
+    end,
+    on_stderr = function(_, data)
+      -- Log stderr for debugging (especially useful for CLI providers)
+      if data and data ~= "" then
+        logger.warning("ChatHandler:query stderr output", {
+          provider = provider.name,
+          stderr = data,
+        })
       end
     end,
   })
