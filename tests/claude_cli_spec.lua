@@ -283,16 +283,16 @@ describe("ClaudeCliProvider", function()
       })
     end)
 
-    it("returns line as-is", function()
+    it("adds newline to preserve formatting", function()
       local result = provider:process_stdout("Hello world")
 
-      assert.equals("Hello world", result)
+      assert.equals("Hello world\n", result)
     end)
 
-    it("returns nil for empty line", function()
+    it("returns newline for empty line (preserves blank lines)", function()
       local result = provider:process_stdout("")
 
-      assert.is_nil(result)
+      assert.equals("\n", result)
     end)
 
     it("returns nil for nil line", function()
@@ -340,7 +340,10 @@ describe("ClaudeCliProvider", function()
         models = { "claude-sonnet-4-5" },
       })
 
-      assert.equals("ClaudeCliProvider", getmetatable(provider).__index.__class)
+      -- CLI provider returns false for uses_json_payload
+      assert.is_false(provider:uses_json_payload())
+      -- CLI provider returns "claude" for get_command
+      assert.equals("claude", provider:get_command())
     end)
 
     it("CLI provider does not require api_key", function()
