@@ -342,6 +342,18 @@ function MultiProvider:set_model(model)
   self._model = model
 end
 
+-- Returns the command to execute (always "curl" for HTTP providers)
+---@return string
+function MultiProvider:get_command()
+  return "curl"
+end
+
+-- Returns whether this provider uses JSON payload format
+---@return boolean
+function MultiProvider:uses_json_payload()
+  return true
+end
+
 -- Preprocesses the payload before sending to the API
 ---@param payload table
 ---@return table
@@ -350,8 +362,9 @@ function MultiProvider:preprocess_payload(payload)
 end
 
 -- Returns the curl parameters for the API request
+---@param payload table|nil Optional payload (for CLI provider compatibility)
 ---@return table
-function MultiProvider:curl_params()
+function MultiProvider:curl_params(payload)
   local api_key = self:resolve_api_key(self.api_key)
   if not api_key then
     return {}
