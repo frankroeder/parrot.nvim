@@ -29,7 +29,7 @@ A substantial part of the code is based on an early fork of the brilliant work b
     + [Google Gemini API](https://ai.google.dev/gemini-api/docs)
     + [xAI API](https://console.x.ai)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
-    + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), and [NVIDIA API](https://docs.api.nvidia.com)
+    + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), [NVIDIA API](https://docs.api.nvidia.com), and [EveryAPI](https://everyapi.ai) (multi-provider gateway · 240+ models behind one key)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -726,6 +726,53 @@ providers = {
   }
 }
 ```
+</details>
+
+<details>
+<summary>EveryAPI (OpenAI-compatible gateway · 240+ models behind one key)</summary>
+
+[EveryAPI](https://everyapi.ai) aggregates Claude / GPT / Gemini / DeepSeek / Mistral / Bedrock / Azure / …
+behind a single OpenAI-compatible `/v1` endpoint, so one `api_key` and one
+`endpoint` covers every upstream model your account has access to. Configure
+exactly like any OpenAI-compatible provider:
+
+```lua
+providers = {
+  everyapi = {
+    name = "everyapi",
+    endpoint = "https://api.everyapi.ai/v1/chat/completions",
+    model_endpoint = "https://api.everyapi.ai/v1/models",
+    api_key = os.getenv("EVERYAPI_API_KEY"),
+    params = {
+      chat = { temperature = 0.7, top_p = 1 },
+      command = { temperature = 0.7, top_p = 1 },
+    },
+    topic = {
+      model = "deepseek-chat",
+      params = { max_tokens = 64 },
+    },
+    headers = function(self)
+      return {
+        ["Content-Type"] = "application/json",
+        ["Authorization"] = "Bearer " .. self.api_key,
+      }
+    end,
+    -- Drop the explicit `models` list to let parrot auto-fetch from
+    -- /v1/models (the `model_endpoint` above) — useful when your
+    -- EveryAPI account has access to a moving set of upstream models.
+    models = {
+      "claude-3-5-sonnet",
+      "gpt-4o",
+      "gemini-2.5-pro",
+      "deepseek-chat",
+      "deepseek-reasoner",
+    },
+  },
+}
+```
+
+Create the API key at https://app.everyapi.ai. The same key works for every
+upstream model EveryAPI proxies — no per-provider rotation.
 </details>
 
 ### Adding a new command
