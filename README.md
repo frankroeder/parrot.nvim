@@ -500,6 +500,59 @@ providers = {
 </details>
 
 <details>
+<summary>Claude Code CLI (Local Subprocess)</summary>
+
+The Claude Code CLI provider runs Claude as a local subprocess instead of making HTTP API calls. No API key needed - uses local authentication.
+
+**Installation:**
+```bash
+pip install claude-code
+```
+
+**Configuration:**
+```lua
+providers = {
+  claude_cli = {
+    name = "claude_cli",
+    -- Use the command field instead of endpoint for CLI providers
+    command = "claude",  -- Assumes 'claude' is in PATH
+
+    -- Optional: additional command arguments (e.g., "--model", "opus")
+    command_args = {},
+
+    -- Models (static list for selection)
+    models = {
+      "claude-sonnet-4-5",
+      "claude-opus-4-5",
+      "claude-haiku-4",
+    },
+
+    params = {
+      chat = {},
+      command = {},
+    },
+  },
+}
+```
+
+**Features:**
+- No API key required (uses Claude CLI's local auth)
+- Runs Claude as a subprocess instead of HTTP API calls
+- Automatic streaming via `--output-format stream-json`
+- Supports visual selection and chat history
+- System prompts via `--system-prompt` flag
+- Works with all parrot.nvim features
+
+**How it works:**
+1. Executes `claude -p --output-format stream-json`
+2. Passes system prompt via `--system-prompt` flag
+3. Sends user messages via stdin
+4. Receives streaming JSON output via stdout
+5. Parrot displays output in real-time
+
+</details>
+
+<details>
 <summary>Google Gemini</summary>
 
 ```lua
