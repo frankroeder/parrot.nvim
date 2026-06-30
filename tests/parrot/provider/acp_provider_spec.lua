@@ -25,6 +25,7 @@ describe("AcpProvider", function()
   it("uses grok models CLI when available", function()
     if vim.fn.executable("grok") ~= 1 then
       pending("grok CLI not installed")
+      return
     end
     local models = provider:get_available_models()
     assert.is_true(#models >= 2)

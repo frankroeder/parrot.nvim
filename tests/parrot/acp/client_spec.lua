@@ -200,8 +200,8 @@ describe("parrot.acp.client", function()
     it("parses grok models output when available", function()
       if vim.fn.executable("grok") ~= 1 then
         pending("grok CLI not installed")
+        return
       end
-
       local models = acp_client.fetch_models_from_cli({ "grok" })
       assert.is_true(#models > 0)
       assert.is_true(vim.tbl_contains(models, "grok-build") or vim.tbl_contains(models, "grok-composer-2.5-fast"))
