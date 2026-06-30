@@ -17,7 +17,7 @@ This is [parrot.nvim](https://github.com/frankroeder/parrot.nvim), the ultimate 
 The selected core features include **on-demand text completion and editing**, as well as **chat-like sessions** within native **Neovim buffers**.
 
 This plugin is intended for people who actually know what they are doing and people who care for **privacy and transparency**.
-The user is always under **full control** of what will be sent to the LLM API endpoint, hence this plugin fully **excludes** the whole notion of agents provided by tools such as [codex](https://github.com/openai/codex), [claude-code](https://github.com/anthropics/claude-code), and the [gemini-cli](https://github.com/google-gemini/gemini-cli).
+The user is always under **full control** of what will be sent to the LLM (or agent) endpoint. Parrot does **not** ship autonomous agent loops like those in [codex](https://github.com/openai/codex), [claude-code](https://github.com/anthropics/claude-code), or the [gemini-cli](https://github.com/google-gemini/gemini-cli). Instead, it **integrates** with agentic backends via the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/get-started/introduction). This lets you use tools such as Grok Build (`grok agent stdio`) and benefit from agent subscriptions, tool use, goals, and long-running sessions — all while everything stays explicit, visible, and under your control inside native Neovim buffers.
 
 A substantial part of the code is based on an early fork of the brilliant work by Tibor Schmidt's [gp.nvim](https://github.com/Robitx/gp.nvim).
 
