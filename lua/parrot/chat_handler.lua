@@ -19,6 +19,44 @@ local ChatHandler = {}
 
 ChatHandler.__index = ChatHandler
 
+---fzf-lua opts for simple string lists (model/provider pickers).
+---Disables preview and the hide profile, which can error on empty scratch buffers.
+---@param options table
+---@param prompt string
+---@param actions table
+---@return table
+local function simple_fzf_opts(options, prompt, actions)
+  local opts = {
+    prompt = prompt,
+    no_hide = true,
+    previewer = false,
+    -- Force a floating window (never inherit split from global fzf-lua config).
+    -- The split path does heavy src_bufnr swapping + winrest + delete which can
+    -- leave fzf operating on an empty scratch buffer during close, triggering
+    -- "Vim(print):E749: Empty buffer".
+    winopts = {
+      split = false,
+      preview = { hidden = true },
+    },
+    -- Treat items as plain strings, not file paths (avoids file-icon / path
+    -- processing that can assume contentful buffers).
+    file_icons = false,
+    git_icons = false,
+    color_icons = false,
+    fzf_opts = vim.tbl_extend("force", {}, options.fzf_lua_opts, {
+      ["--preview-window"] = "hidden",
+    }),
+  }
+  if actions and next(actions) then
+    local norm = {}
+    for k, v in pairs(actions) do
+      norm[k] = type(v) == "function" and { fn = v } or v
+    end
+    opts.actions = norm
+  end
+  return opts
+end
+
 function ChatHandler:new(options, providers, available_providers, available_models, cmd)
   local state = State:new(options.state_dir)
   state:refresh(available_providers, available_models)
@@ -54,14 +92,23 @@ function ChatHandler:new(options, providers, available_providers, available_mode
   }, self)
 end
 
+---@param buf number|nil
+---@return table
+function ChatHandler:buffer_session_scope(buf)
+  return require("parrot.acp.sessions").session_scope(buf, self.options.chat_dir, self.state)
+end
+
 -- Retrieves status information about the current buffer.
 ---@return table { is_chat = boolean, prov = table | nil, model = string }
 function ChatHandler:get_status_info()
   local buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(buf)
-  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
-  local model_obj = self:get_model(is_chat and "chat" or "command")
-  return { is_chat = is_chat, prov = self.current_provider, model = model_obj.name }
+  local scope = self:buffer_session_scope(buf)
+  local model_obj = self:get_model(scope.kind)
+  return {
+    is_chat = scope.is_chat_buf,
+    prov = self.current_provider,
+    model = (model_obj and model_obj.name) or "",
+  }
 end
 
 --- Sets the current provider for chat or command.
@@ -69,10 +116,31 @@ end
 ---@param is_chat boolean True for chat provider, false for command provider.
 function ChatHandler:set_provider(selected_prov, is_chat)
   -- Ensure params table exists for this provider
-  local provider_config = self.providers[selected_prov]
+  local provider_config = vim.tbl_deep_extend("force", { name = selected_prov }, self.providers[selected_prov] or {})
   local _prov = init_provider(provider_config)
-  self.current_provider[is_chat and "chat" or "command"] = _prov
+  local slot = is_chat and "chat" or "command"
+  local old = self.current_provider[slot]
+  if old and old.is_acp and old:is_acp() and old.name ~= _prov.name then
+    old:terminate()
+  end
+  self.current_provider[slot] = _prov
   self.state:set_provider(_prov.name, is_chat)
+
+  if _prov.is_acp and _prov:is_acp() then
+    local acp_ui = require("parrot.acp.ui")
+    local runtime = _prov:get_runtime_config()
+    acp_ui.preload_slash_cache_from_state(self.state, runtime, _prov.name, self.options.model_cache_expiry_hours)
+    local utils = require("parrot.utils")
+    vim.schedule(function()
+      utils.check_internet(function(online)
+        if online then
+          vim.schedule(function()
+            acp_ui.refresh_slash_commands_cache(self.state, runtime, _prov.name, self.options.model_cache_expiry_hours, function() end)
+          end)
+        end
+      end)
+    end)
+  end
 
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
@@ -163,8 +231,9 @@ function ChatHandler:prep_chat(buf, file_name)
     self:stop()
   end, "Parrot Chat Stop")
 
-  -- remember last opened chat file
+  -- remember last opened chat file and bind ACP project scope at first open
   self.state:set_last_chat(file_name)
+  require("parrot.acp.sessions").bind_chat_project_cwd(self.state, file_name)
   self.state:refresh(self.available_providers, self.available_models)
 end
 
@@ -237,6 +306,13 @@ function ChatHandler:get_model(model_type)
     return {}
   end
   local model = self.state:get_model(prov.name, model_type)
+  if not model and prov.models and prov.models[1] then
+    model = prov.models[1]
+  end
+  if not model then
+    logger.error("No model configured for provider: " .. prov.name)
+    return {}
+  end
   local system_prompt = self.options.system_prompt[model_type] or ""
   return {
     name = model,
@@ -255,6 +331,9 @@ function ChatHandler:prepare_commands()
     -- popup is like ephemeral one off chat
     if target == ui.Target.popup then
       model_obj = self:get_model("chat")
+    end
+    if not model_obj or not model_obj.name then
+      goto continue
     end
 
     local cmd = function(params)
@@ -275,7 +354,7 @@ function ChatHandler:prepare_commands()
       end
       local cmd_prefix = Placeholders:render_from_list(
         self.options.command_prompt_prefix_template,
-        { ["{{llm}}"] = self:get_model("command").name }
+        { ["{{llm}}"] = model_obj.name }
       )
       self:prompt(params, target, model_obj, cmd_prefix, utils.trim(template), true)
     end
@@ -283,6 +362,7 @@ function ChatHandler:prepare_commands()
     self:addCommand(command, function(params)
       cmd(params)
     end)
+    ::continue::
   end
 end
 
@@ -413,8 +493,15 @@ function ChatHandler:stop(options)
         table.insert(cancelled_queries, process_info.qid)
       end
 
-      -- Kill the job
-      if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
+      local qt = process_info.qid and self.queries:get(process_info.qid) or nil
+      if qt and qt.acp then
+        local is_chat = process_info.target_type == "chat"
+        local prov = self:get_provider(is_chat)
+        if prov and prov.is_acp and prov:is_acp() and process_info.qid then
+          prov:cancel(process_info.qid)
+        end
+        stopped_count = stopped_count + 1
+      elseif process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
         vim.uv.kill(process_info.job.pid, signal)
         stopped_count = stopped_count + 1
       end
@@ -652,6 +739,7 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
 
   -- create chat file
   vim.fn.writefile(vim.split(template, "\n"), filename)
+  require("parrot.acp.sessions").bind_chat_project_cwd(self.state, filename)
   local target = chatutils.resolve_buf_target(params)
   local buf = self:open_buf(filename, target, self._toggle_kind.chat, toggle)
 
@@ -1161,21 +1249,40 @@ function ChatHandler:provider(params)
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   local has_telescope, telescope = pcall(require, "telescope")
   local buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(buf)
-  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local is_chat = self:buffer_session_scope(buf).is_chat_buf
 
   if prov_arg ~= "" then
     self:switch_provider(prov_arg, is_chat)
   elseif has_fzf then
-    fzf_lua.fzf_exec(self.available_providers, {
-      prompt = "Provider selection ❯",
-      fzf_opts = self.options.fzf_lua_opts,
-      actions = {
-        ["default"] = function(selected)
+    local providers = self.available_providers or {}
+    if #providers == 0 then
+      logger.warning("No providers available")
+      return
+    end
+    -- Make sure the source buffer has at least 1 line. fzf-lua's close() path
+    -- (and some on_closes / restore) can execute a "print" (via nvim_exec2)
+    -- against the src_bufnr or a context buffer. An empty buffer raises
+    -- E749. Parrot creates lots of scratch/empty buffers (popups, new chats,
+    -- response bufs, ...), so defend against it here.
+    local curbuf = vim.api.nvim_get_current_buf()
+    if vim.api.nvim_buf_line_count(curbuf) == 0 then
+      vim.api.nvim_buf_set_lines(curbuf, 0, -1, false, { "" })
+    end
+    -- Use actions table (passed via 3rd arg to simple_fzf_opts) so that
+    -- fzf-lua's fn_selected / act dispatches our handler on enter.
+    -- We use schedule() inside to let fzf close() finish first.
+    -- This + src buf guard + forced float prevents all the previous races
+    -- (thread return from direct assign, E749 print empty, invalid winid).
+    local actions = {
+      default = function(selected)
+        if type(selected) ~= 'table' or #selected == 0 then return end
+        vim.schedule(function()
           self:switch_provider(selected[1], is_chat)
-        end,
-      },
-    })
+        end)
+      end,
+    }
+    local fzf_opts = simple_fzf_opts(self.options, "Provider selection ❯", actions)
+    fzf_lua.fzf_exec(providers, fzf_opts)
   elseif has_telescope then
     local pickers = require("telescope.pickers")
     local actions = require("telescope.actions")
@@ -1227,6 +1334,14 @@ function ChatHandler:switch_model(is_chat, selected_model, prov)
     self.state:set_model(prov.name, selected_model, "command")
     logger.info("Command model: " .. selected_model)
   end
+
+  if prov.is_acp and prov:is_acp() then
+    if prov._model and prov._model ~= selected_model and prov.terminate_connection then
+      prov:terminate_connection(prov._model)
+    end
+    prov:set_model(selected_model)
+  end
+
   self.state:refresh(self.available_providers, self.available_models)
   self:prepare_commands()
 end
@@ -1235,78 +1350,88 @@ end
 ---@param params table Parameters for model selection.
 function ChatHandler:model(params)
   local buf = vim.api.nvim_get_current_buf()
-  local file_name = vim.api.nvim_buf_get_name(buf)
-  local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
+  local scope = self:buffer_session_scope(buf)
+  local is_chat = scope.is_chat_buf
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   local has_telescope, telescope = pcall(require, "telescope")
 
-  -- Get models with caching support
-  -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
-  local models
-  if prov:online_model_fetching() and self.options.model_cache_expiry_hours >= 0 then
-    local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
-    models = prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner)
-  else
-    models = prov:get_available_models()
-  end
-
+  -- Get models with caching support. Gate net behind conn probe; use cb form so inner never sync-waits on async path.
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
-  elseif has_fzf then
-    fzf_lua.fzf_exec(models, {
-      prompt = "Model selection ❯",
-      fzf_opts = self.options.fzf_lua_opts,
-      actions = {
-        ["default"] = function(selected)
-          if #selected == 0 then
-            logger.warning("No model selected")
-            return
-          end
-          local selected_model = selected[1]
-          self:switch_model(is_chat, selected_model, prov)
+    return
+  end
+
+  local function open_picker(mods)
+    -- Guard against empty/nil model list to prevent fzf_exec "must supply contents" error.
+    if not mods or type(mods) ~= "table" or #mods == 0 then
+      mods = (prov and prov.models) or {}
+    end
+    if not mods or #mods == 0 then
+      logger.warning("No models available for current provider")
+      return
+    end
+
+    -- Same defensive guard as the provider picker: ensure the buffer that will
+    -- become fzf's src_bufnr has at least one line, otherwise fzf-lua close
+    -- can hit Vim(print):E749 on empty scratch buffers.
+    local curbuf = vim.api.nvim_get_current_buf()
+    if vim.api.nvim_buf_line_count(curbuf) == 0 then
+      vim.api.nvim_buf_set_lines(curbuf, 0, -1, false, { "" })
+    end
+
+    if has_fzf then
+      local actions = {
+        default = function(selected)
+          if type(selected) ~= 'table' or #selected == 0 then return end
+          vim.schedule(function() self:switch_model(is_chat, selected[1], prov) end)
         end,
-      },
-    })
-  elseif has_telescope then
-    local pickers = require("telescope.pickers")
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    local finders = require("telescope.finders")
-    local sorters = require("telescope.config")
-    pickers
-      .new({}, {
+      }
+      local fzf_opts = simple_fzf_opts(self.options, "Model selection ❯", actions)
+      fzf_lua.fzf_exec(mods, fzf_opts)
+    elseif has_telescope then
+      local pickers = require("telescope.pickers")
+      local actions = require("telescope.actions")
+      local action_state = require("telescope.actions.state")
+      local finders = require("telescope.finders")
+      local sorters = require("telescope.config")
+      pickers.new({}, {
         prompt_title = "Model selection",
-        finder = finders.new_table({
-          results = models,
-        }),
+        finder = finders.new_table({ results = mods }),
         sorter = sorters.values.generic_sorter({}),
         attach_mappings = function(_, map)
           local on_select = function(prompt_bufnr)
-            local selected_entry = action_state.get_selected_entry()
+            local entry = action_state.get_selected_entry()
             actions.close(prompt_bufnr)
-            if not selected_entry then
-              logger.warning("No model selected")
-              return
-            end
-            local selected_model = selected_entry[1]
-            self:switch_model(is_chat, selected_model, prov)
+            if entry then self:switch_model(is_chat, entry[1], prov) end
           end
-          map("i", "<CR>", on_select)
-          map("n", "<CR>", on_select)
-
+          map("i", "<CR>", on_select) map("n", "<CR>", on_select)
           return true
         end,
-      })
-      :find()
-  else
-    vim.ui.select(models, {
-      prompt = "Select your model:",
-    }, function(selected_model)
-      self:switch_model(is_chat, selected_model, prov)
-    end)
+      }):find()
+    else
+      vim.ui.select(mods, { prompt = "Select your model:" }, function(sm) if sm then self:switch_model(is_chat, sm, prov) end end)
+    end
   end
+
+  if prov:online_model_fetching() and self.options.model_cache_expiry_hours >= 0 then
+    utils.check_internet(function(online)
+      if online then
+        local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
+        prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner, function(mods)
+          vim.schedule(function() open_picker(mods) end)
+        end)
+      else
+        local eh = utils.generate_endpoint_hash(prov)
+        local mods = self.state:get_cached_models(prov.name, self.options.model_cache_expiry_hours, eh) or (prov and prov.models) or {}
+        vim.schedule(function() open_picker(mods) end)
+      end
+    end)
+    return
+  end
+  -- non-online case: static list, no network, no get_available_models call
+  open_picker( (prov and (prov.models or prov:get_available_models())) or {} )
 end
 
 -- Retries the last command action.
@@ -1821,6 +1946,98 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   end)
 end
 
+function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
+  if type(handler) ~= "function" then
+    logger.error("Unexpected handler function", {
+      method = "ChatHandler:acp_query",
+      type = type(handler),
+    })
+    if on_exit then
+      on_exit(nil)
+    end
+    return
+  end
+
+  if not provider.verify or not provider:verify() then
+    logger.error("ACP provider verification failed", { provider = provider.name })
+    if on_exit then
+      on_exit(nil)
+    end
+    return
+  end
+
+  local qid = utils.uuid()
+  self.queries:add(qid, {
+    timestamp = os.time(),
+    buf = buf,
+    provider = provider.name,
+    payload = payload,
+    handler = handler,
+    on_exit = on_exit,
+    response = "",
+    first_line = -1,
+    last_line = -1,
+    ns_id = nil,
+    ex_id = nil,
+    error_occurred = false,
+    acp = true,
+  })
+
+  self.queries:cleanup(8, 60)
+
+  provider:set_model(payload.model)
+
+  local file_name = buf and vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) or ""
+  local acp_sessions = require("parrot.acp.sessions")
+  local scope = acp_sessions.session_scope(buf, self.options.chat_dir, self.state)
+  local session_kind = scope.kind
+  local acp_cwd = scope.cwd
+  local is_chat = scope.is_chat_buf
+
+  local target_type = is_chat and "chat" or "command"
+  local fake_job = {
+    pid = os.time() + math.random(1000, 9999),
+    handle = {
+      is_closing = function()
+        return false
+      end,
+    },
+  }
+
+  self.pool:add(fake_job, buf, qid, target_type)
+
+  provider:prompt({
+    qid = qid,
+    state = self.state,
+    messages = payload.messages,
+    session_kind = session_kind,
+    cwd = acp_cwd,
+    on_chunk = function(chunk)
+      local qt = self.queries:get(qid)
+      if not qt or qt.cancelled then
+        return
+      end
+      if type(chunk) == "string" and #chunk > 0 then
+        qt.response = qt.response .. chunk
+        handler(qid, chunk)
+      end
+    end,
+    on_error = function(err)
+      logger.error("ACP prompt error: " .. tostring(err))
+      local qt = self.queries:get(qid)
+      if qt then
+        qt.error_occurred = true
+      end
+    end,
+    on_done = function()
+      if on_exit then
+        on_exit(qid)
+      end
+      self.pool:remove(fake_job.pid)
+    end,
+  })
+end
+
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
@@ -1830,6 +2047,10 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       handler = handler,
     })
     return
+  end
+
+  if provider.is_acp and provider:is_acp() then
+    return self:acp_query(buf, provider, payload, handler, on_exit)
   end
 
   if not provider:verify() then

@@ -54,10 +54,19 @@ M.table_to_file = function(tbl, file_path)
   file:close()
 end
 
--- helper function to find the root directory of the current git repository
+-- helper function to find the root directory of a git repository
+---@param start_dir string|nil directory to start from; defaults to current buffer dir or Neovim cwd
 ---@return string # returns the path of the git root dir or an empty string if not found
-M.find_git_root = function()
-  local cwd = vim.fn.expand("%:p:h")
+M.find_git_root = function(start_dir)
+  local cwd = start_dir
+  if not cwd or cwd == "" then
+    local buf_dir = vim.fn.expand("%:p:h")
+    if buf_dir ~= "" and vim.fn.isdirectory(buf_dir) == 1 then
+      cwd = buf_dir
+    else
+      cwd = vim.fn.getcwd()
+    end
+  end
   while cwd ~= "" do
     if vim.fn.isdirectory(cwd .. "/.git") == 1 then
       return cwd

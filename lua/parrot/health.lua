@@ -41,6 +41,28 @@ function M.check()
       vim.health.warn(("`%s` is not installed"):format(name))
     end
   end
+
+  if vim.fn.executable("grok") == 1 then
+    vim.health.ok("`grok` CLI is installed (ACP agent available via `grok agent stdio`)")
+    local done = false
+    local output = ""
+    vim.system({ "grok", "models" }, { text = true }, function(result)
+      output = (result and result.stdout) or ""
+      done = true
+    end)
+    vim.wait(5000, function()
+      return done
+    end)
+    if output:match("Available models") then
+      vim.health.ok("Grok models can be listed via `grok models`")
+    elseif not done then
+      vim.health.info("`grok models` timed out — check network or run manually")
+    else
+      vim.health.info("Could not list Grok models — check authentication (`grok login` or XAI_API_KEY)")
+    end
+  else
+    vim.health.info("`grok` CLI not installed — install from https://x.ai/cli for ACP integration")
+  end
 end
 
 return M

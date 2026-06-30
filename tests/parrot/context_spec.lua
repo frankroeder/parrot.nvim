@@ -68,13 +68,15 @@ describe("context", function()
     end)
 
     it("should correctly handle buffers", function()
-      vim.fn.writefile(
-        { "local test_buffer_content = 'this is a buffer'", "print(test_buffer_content)" },
-        "test/buffer.lua"
-      )
-      vim.cmd("edit test/buffer.lua")
-      local buf_id = vim.api.nvim_get_current_buf()
-      local buf_name = vim.api.nvim_buf_get_name(buf_id)
+      local buf_id = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, {
+        "local test_buffer_content = 'this is a buffer'",
+        "print(test_buffer_content)",
+      })
+      local buf_name = vim.fn.fnamemodify("test/buffer.lua", ":p")
+      vim.api.nvim_buf_set_name(buf_id, buf_name)
+      vim.api.nvim_set_current_buf(buf_id)
+      -- Note: avoid vim.cmd("edit *.lua") to prevent nvim treesitter ftplugin query error on lua FileType
       local result_current_buffer = context.insert_contexts("@buffer:" .. buf_name)
       local buf_content = table.concat(vim.api.nvim_buf_get_lines(buf_id, 0, -1, false), "\n")
       local expected = "\n\n" .. buf_name .. "\n```lua\n" .. buf_content .. "\n```"
@@ -82,6 +84,7 @@ describe("context", function()
       local non_existent_buffer = "@buffer:non_existent_buffer.lua"
       local result_buffer_not_found = context.insert_contexts(non_existent_buffer)
       assert.are.equal("", result_buffer_not_found)
+      vim.api.nvim_buf_delete(buf_id, { force = true })
     end)
 
     it("should handle multiple commands", function()

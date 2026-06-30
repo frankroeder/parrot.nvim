@@ -102,11 +102,13 @@ describe("State", function()
             chat_model = nil,
             command_model = nil,
             cached_models = {},
+            acp_sessions = {},
           },
           mistral = {
             chat_model = nil,
             command_model = nil,
             cached_models = {},
+            acp_sessions = {},
           },
           current_provider = { chat = nil, command = nil },
         }, state.file_state)
@@ -126,6 +128,7 @@ describe("State", function()
             chat_model = "model1",
             command_model = "model1",
             cached_models = {},
+            acp_sessions = {},
           },
         }, state._state)
       end)
@@ -183,31 +186,37 @@ describe("State", function()
             chat_model = "Gemma-7B",
             command_model = "Gemma-7B",
             cached_models = {},
+            acp_sessions = {},
           },
           openai = {
             chat_model = "ChatGPT4",
             command_model = "ChatGPT4",
             cached_models = {},
+            acp_sessions = {},
           },
           anthropic = {
             chat_model = "Claude-3-Haiku-Chat",
             command_model = "Claude-3-Haiku-Chat",
             cached_models = {},
+            acp_sessions = {},
           },
           mistral = {
             chat_model = "Open-Mixtral-8x7B",
             command_model = "Open-Mixtral-8x7B",
             cached_models = {},
+            acp_sessions = {},
           },
           pplx = {
             chat_model = "Llama3-Sonar-Large-32k-Chat",
             command_model = "Llama3-Sonar-Large-32k-Chat",
             cached_models = {},
+            acp_sessions = {},
           },
           current_provider = {
             chat = "ollama",
             command = "ollama",
           },
+          chat_project_cwd = {},
         }, state._state)
       end)
     end)
@@ -232,16 +241,19 @@ describe("State", function()
             chat_model = "Gemma-7B",
             command_model = "Gemma-7B",
             cached_models = {},
+            acp_sessions = {},
           },
           openai = {
             chat_model = "ChatGPT4",
             command_model = "ChatGPT4",
             cached_models = {},
+            acp_sessions = {},
           },
           current_provider = {
             chat = "ollama",
             command = "ollama",
           },
+          chat_project_cwd = {},
         }, state._state)
       end)
     end)
@@ -616,6 +628,78 @@ describe("State", function()
           assert.is_not_nil(state.file_state.openai.cached_models)
           assert.is_not_nil(state.file_state.anthropic.cached_models)
         end)
+      end)
+    end)
+  end)
+
+  describe("cached slash commands", function()
+    before_each(setup_mocks)
+    after_each(teardown_mocks)
+
+    it("should cache slash commands with timestamp and CLI version hash", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        local commands = { { name = "compact" }, { name = "context" } }
+        local version_hash = "grok 0.2.67 (03e13f99286)"
+        local before_time = os.time()
+
+        state:set_cached_slash_commands("grok", commands, version_hash)
+
+        local cached = state.file_state.grok.cached_slash_commands
+        assert.are.same(commands, cached.commands)
+        assert.are.same(version_hash, cached.version_hash)
+        assert.is_true(cached.timestamp >= before_time)
+      end)
+    end)
+
+    it("should treat incomplete caches as invalid for refresh", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:set_cached_slash_commands("grok", { { name = "compact" } }, "grok 0.2.67", false)
+        assert.is_nil(state:get_cached_slash_commands("grok", 48, "grok 0.2.67", true))
+        assert.is_false(state:is_slash_commands_cache_valid("grok", 48, "grok 0.2.67"))
+        assert.equals(1, #(state:get_cached_slash_commands("grok", 48, nil, false) or {}))
+      end)
+    end)
+
+    it("should return nil when CLI version hash does not match", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state.file_state.grok = {
+          cached_slash_commands = {
+            commands = { { name = "compact" } },
+            timestamp = os.time(),
+            version_hash = "grok 0.2.66",
+          },
+        }
+
+        local result = state:get_cached_slash_commands("grok", 48, "grok 0.2.67")
+        assert.is_nil(result)
+      end)
+    end)
+
+    it("should store and retrieve cli version hash per provider", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        state:set_cli_version_hash("grok", "grok 0.2.67 (abc)")
+        assert.equals("grok 0.2.67 (abc)", state:get_cli_version_hash("grok"))
+      end)
+    end)
+
+    it("should return cached commands without version check for fast tab completion", function()
+      async.run(function()
+        local state = State:new("/tmp")
+        local commands = { { name = "goal" } }
+        state.file_state.grok = {
+          cached_slash_commands = {
+            commands = commands,
+            timestamp = os.time(),
+            version_hash = "grok 0.2.66",
+          },
+        }
+
+        local result = state:get_cached_slash_commands("grok", 48, nil)
+        assert.are.same(commands, result)
       end)
     end)
   end)

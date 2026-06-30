@@ -1,0 +1,10 @@
+local protocol = require("parrot.acp.protocol")
+
+describe("parrot.acp.protocol", function()
+  it("exposes stable agent and client method names", function()
+    assert.equals("initialize", protocol.agent.initialize)
+    assert.equals("session/prompt", protocol.agent.session_prompt)
+    assert.equals("session/update", protocol.client.session_update)
+    assert.equals(1, protocol.PROTOCOL_VERSION)
+  end)
+end)

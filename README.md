@@ -28,6 +28,7 @@ A substantial part of the code is based on an early fork of the brilliant work b
     + [Anthropic API](https://www.anthropic.com/api)
     + [Google Gemini API](https://ai.google.dev/gemini-api/docs)
     + [xAI API](https://console.x.ai)
+    + [Grok Build CLI](https://docs.x.ai/build/overview) via [ACP](https://agentclientprotocol.com/get-started/introduction) (`grok agent stdio`)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
     + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), [NVIDIA API](https://docs.api.nvidia.com), and [EveryAPI](https://everyapi.ai) (multi-provider gateway · 240+ models behind one key)
 - Flexible API credential management from various sources:
@@ -613,6 +614,85 @@ providers = {
   },
 }
 ```
+</details>
+
+<details>
+<summary>Grok Build (ACP)</summary>
+
+Use the [Grok Build CLI](https://docs.x.ai/build/overview) as a provider through the
+[Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction).
+This routes chat, inline edits (`PrtRewrite`, etc.), and slash commands through
+`grok agent stdio` instead of direct HTTP API calls. Models are listed via
+`grok models` and `:PrtModel`.
+
+Install the CLI from https://x.ai/cli, then authenticate with `grok login` or
+`XAI_API_KEY`.
+
+```lua
+providers = {
+  grok = {
+    type = "acp",
+    name = "grok",
+    command = { "grok", "agent", "stdio" },
+    cli_command = { "grok" },
+    models = { "grok-composer-2.5-fast", "grok-build" },
+    always_approve = false, -- set true to skip ACP permission prompts
+    resume_session = true,  -- resume the last Grok ACP session for this git repo (default)
+  },
+}
+```
+
+#### How sessions fit into the parrot workflow
+
+Parrot and Grok maintain **two different kinds of state**:
+
+| Layer | What it stores | Where |
+|-------|----------------|-------|
+| **Parrot transcript** | Markdown chat/command buffers you see in Neovim | `chat_dir` (e.g. `~/.local/share/nvim/parrot/chats`) |
+| **Grok agent state** | Tool history, goals, slash-command context, permission mode | `~/.grok/sessions` on disk; session IDs in parrot `state.json` |
+
+They are related but not identical. Editing or deleting a parrot `.md` chat file does **not** reset the Grok session, and resuming a Grok session does **not** replay old turns into the buffer.
+
+**Scope:** Session IDs are keyed by **git repository root** (fallback: Neovim `cwd`). Any file under `chat_dir` is an ACP **chat** session (path-based); parrot chat keymaps (`PrtChatRespond`, etc.) still require the full markdown template (`utils.is_chat`). Command sessions use the buffer file's directory / git root at prompt time.
+
+**Chat project binding** (`chat_project_cwd` in `state.json`): set at `:PrtChatNew` / first `BufEnter` on a chat file. Legacy chats created before this feature bind on the **first ACP prompt** after upgrade, using whatever Neovim `cwd` is then — `:cd` to the intended repo before that prompt. Once bound, prompts, slash commands, and mode changes keep that project even if you `:cd` elsewhere mid-chat.
+
+**Kinds:** `chat` and `command` use **separate session IDs** per repo (`PrtChatNew` / chat buffers vs `PrtAsk`, `PrtRewrite`, popups, etc.).
+
+**Lifecycle:**
+
+1. Neovim starts → parrot spawns `grok agent stdio` (one process per model/connection).
+2. First prompt for a kind → `initialize` → `authenticate` → `session/load` (if `resume_session = true` and a stored ID exists) or `session/new`.
+3. Prompts stream via `session/prompt` / `session/update` (`agent_message_chunk`).
+4. Neovim exits → parrot terminates ACP processes (`VimLeavePre`).
+
+Set `resume_session = false` to always call `session/new` (fresh Grok context; parrot still keeps markdown transcripts).
+
+**Recommended workflows**
+
+- **Long-running agent work in a repo:** `resume_session = true`, chat with `grok-build`, set a goal via `:PrtAcpSlashCommand goal`, continue across Neovim restarts. Parrot markdown is your readable log; Grok session is the agent's working memory.
+- **One-off edits / popups:** Command sessions (`PrtRewrite`, `PrtAsk`) stay isolated from chat. Same repo, different session kind.
+- **Switch repos:** `:cd` to the other project before starting a **new** chat or command prompt. Existing chat files keep their original project binding; reopening an old chat resumes that project's Grok session.
+- **Reset agent context without losing transcripts:** `resume_session = false` temporarily, or delete the repo's entries under `state.json` → `acp_sessions`, or start a new Grok session from the CLI and update the stored ID.
+- **After `grok` CLI upgrade:** `:PrtReloadCache grok` refreshes models and slash-command cache (keyed by `grok --version`).
+
+**Background agent:** Plugin setup, Tab completion on incomplete slash caches, and `:PrtReloadCache` may spawn `grok agent stdio` in the background (with a 15s warm timeout). Use `make test-acp` / `make test-acp-smoke` for offline verification without a live agent.
+
+**Slash commands:** The full list arrives after `session/new` or `session/load` via `available_commands_update` (not from `initialize` alone). Parrot caches commands in `state.json` for instant Tab completion; incomplete caches refresh in the background. `:PrtAcpSlashCommand` with no args opens a picker; Tab completes `name` + description.
+
+**Transcript vs agent desync:** If you `:PrtChatNew` (new markdown file) but `resume_session = true`, Grok still remembers prior tool runs. For a clean agent slate, use `resume_session = false` or clear the repo's `acp_sessions` entry. Conversely, an old markdown chat file can be reopened while Grok resumes — the buffer shows history Grok may not re-ingest unless you paste or summarize it in a new prompt.
+
+**ACP-specific commands** (registered automatically):
+
+- `:PrtAcpSlashCommand [cmd]` — run Grok slash commands (`/compact`, `/context`, `/goal`, …)
+- `:PrtAcpMode [mode]` — session mode picker; for Grok, toggles permission behavior (`always-approve-on` / `always-approve-off`)
+- `:PrtReloadCache [provider]` — refresh model and slash-command caches (use after CLI updates)
+
+**Other options:**
+
+- `always_approve = true` — skip ACP permission prompts (same as `/always-approve on`)
+- `show_thoughts = true` — include `agent_thought_chunk` streams in the response (when the agent emits them)
+
 </details>
 
 <details>

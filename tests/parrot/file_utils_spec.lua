@@ -109,6 +109,16 @@ describe("file_utils", function()
       -- Restore original directory
       vim.cmd("cd " .. original_cwd)
     end)
+
+    it("should search from an explicit start_dir", function()
+      local git_dir = temp_dir .. "/.git"
+      os.execute("mkdir -p " .. git_dir)
+      local nested = temp_dir .. "/deep/nested"
+      vim.fn.mkdir(nested, "p")
+
+      local result = file_utils.find_git_root(nested)
+      assert.equal(vim.fn.resolve(temp_dir), vim.fn.resolve(result))
+    end)
   end)
 
   describe("delete_file", function()

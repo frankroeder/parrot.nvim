@@ -22,6 +22,7 @@ function State:init_file_state(available_providers)
         chat_model = nil,
         command_model = nil,
         cached_models = {},
+        acp_sessions = {},
       }
     end
   else
@@ -29,11 +30,14 @@ function State:init_file_state(available_providers)
     for _, prov in ipairs(available_providers) do
       if self.file_state[prov] then
         self.file_state[prov].cached_models = self.file_state[prov].cached_models or {}
+        self.file_state[prov].acp_sessions = self.file_state[prov].acp_sessions or {}
+        self.file_state[prov].cached_slash_commands = self.file_state[prov].cached_slash_commands
       else
         self.file_state[prov] = {
           chat_model = nil,
           command_model = nil,
           cached_models = {},
+          acp_sessions = {},
         }
       end
     end
@@ -52,11 +56,22 @@ function State:init_state(available_providers, available_models)
         chat_model = nil,
         command_model = nil,
         cached_models = {},
+        acp_sessions = {},
       }
 
     -- Copy cached_models from file_state if they exist
     if self.file_state[provider] and self.file_state[provider].cached_models then
       self._state[provider].cached_models = self.file_state[provider].cached_models
+    end
+
+    if self.file_state[provider] and self.file_state[provider].acp_sessions then
+      self._state[provider].acp_sessions = vim.deepcopy(self.file_state[provider].acp_sessions)
+    else
+      self._state[provider].acp_sessions = self._state[provider].acp_sessions or {}
+    end
+
+    if self.file_state[provider] and self.file_state[provider].cached_slash_commands then
+      self._state[provider].cached_slash_commands = vim.deepcopy(self.file_state[provider].cached_slash_commands)
     end
 
     -- Only load models if the provider has available models
@@ -109,6 +124,9 @@ function State:refresh(available_providers, available_models)
   set_current_provider("command")
 
   self._state.last_chat = self._state.last_chat or self.file_state.last_chat or nil
+  self._state.chat_project_cwd = self._state.chat_project_cwd
+    or (self.file_state.chat_project_cwd and vim.deepcopy(self.file_state.chat_project_cwd))
+    or {}
 
   self:save()
 end
@@ -117,8 +135,13 @@ end
 function State:save()
   -- Merge cached_models from file_state into _state before saving
   for provider, data in pairs(self.file_state) do
-    if type(data) == "table" and data.cached_models and self._state[provider] then
-      self._state[provider].cached_models = data.cached_models
+    if type(data) == "table" and self._state[provider] then
+      if data.cached_models then
+        self._state[provider].cached_models = data.cached_models
+      end
+      if data.cached_slash_commands then
+        self._state[provider].cached_slash_commands = data.cached_slash_commands
+      end
     end
   end
 
@@ -163,7 +186,67 @@ end
 --- @return table|nil
 function State:get_model(provider, model_type)
   local key = model_type .. "_model"
-  return self._state[provider][key] or self.file_state[provider][key]
+  local data = self._state[provider] or self.file_state[provider]
+  if not data then
+    return nil
+  end
+  return data[key]
+end
+
+---@param provider string
+---@return string|nil
+function State:get_cli_version_hash(provider)
+  local data = self._state[provider] or self.file_state[provider]
+  return data and data.cli_version_hash
+end
+
+---@param provider string
+---@param version_hash string
+function State:set_cli_version_hash(provider, version_hash)
+  if not version_hash or version_hash == "" then
+    return
+  end
+
+  if not self.file_state[provider] then
+    self.file_state[provider] = {
+      chat_model = nil,
+      command_model = nil,
+      cached_models = {},
+      acp_sessions = {},
+    }
+  end
+
+  self.file_state[provider].cli_version_hash = version_hash
+  if self._state[provider] then
+    self._state[provider].cli_version_hash = version_hash
+  end
+end
+
+---@param provider string
+---@param repo_key string
+---@param kind string "chat" or "command"
+---@return string|nil
+function State:get_acp_session(provider, repo_key, kind)
+  local data = self._state[provider] or self.file_state[provider]
+  if not data or not data.acp_sessions then
+    return nil
+  end
+  local repo = data.acp_sessions[repo_key]
+  return repo and repo[kind]
+end
+
+---@param provider string
+---@param repo_key string
+---@param kind string
+---@param session_id string
+function State:set_acp_session(provider, repo_key, kind, session_id)
+  if not self._state[provider] then
+    return
+  end
+  self._state[provider].acp_sessions = self._state[provider].acp_sessions or {}
+  self._state[provider].acp_sessions[repo_key] = self._state[provider].acp_sessions[repo_key] or {}
+  self._state[provider].acp_sessions[repo_key][kind] = session_id
+  self:save()
 end
 
 --- Sets the last opened chat file path.
@@ -178,6 +261,100 @@ function State:get_last_chat()
   return self._state.last_chat
 end
 
+---@param chat_file string
+---@return string|nil
+function State:get_chat_project_cwd(chat_file)
+  if not chat_file or chat_file == "" then
+    return nil
+  end
+  local map = self._state.chat_project_cwd or {}
+  return map[vim.fn.resolve(chat_file)]
+end
+
+---Bind a chat markdown file to the Neovim project cwd at open/create time.
+---@param chat_file string
+---@param cwd string
+function State:set_chat_project_cwd(chat_file, cwd)
+  if not chat_file or chat_file == "" or not cwd or cwd == "" then
+    return
+  end
+  self._state.chat_project_cwd = self._state.chat_project_cwd or {}
+  self._state.chat_project_cwd[vim.fn.resolve(chat_file)] = vim.fn.resolve(cwd)
+  self:save()
+end
+
+---@param provider string
+---@param commands table[]
+---@param version_hash string
+---@param complete boolean|nil True when list came from session/available_commands_update
+function State:set_cached_slash_commands(provider, commands, version_hash, complete)
+  if not self.file_state[provider] then
+    self.file_state[provider] = {
+      chat_model = nil,
+      command_model = nil,
+      cached_models = {},
+      acp_sessions = {},
+    }
+  end
+
+  local cache_entry = {
+    commands = commands,
+    timestamp = os.time(),
+    version_hash = version_hash,
+    complete = complete == true,
+  }
+
+  self.file_state[provider].cached_slash_commands = cache_entry
+  if self._state[provider] then
+    self._state[provider].cached_slash_commands = cache_entry
+  end
+end
+
+---@param provider string
+---@param cache_expiry_hours number
+---@param version_hash string|nil
+---@param require_complete boolean|nil
+---@return table|nil
+function State:get_slash_commands_cache_entry(provider, cache_expiry_hours, version_hash, require_complete)
+  local cached = self.file_state[provider] and self.file_state[provider].cached_slash_commands
+  if not cached or not cached.commands or not cached.timestamp then
+    return nil
+  end
+
+  local expiry_seconds = cache_expiry_hours * 3600
+  if cache_expiry_hours > 0 and (os.time() - cached.timestamp) > expiry_seconds then
+    return nil
+  end
+
+  if version_hash and version_hash ~= "" and cached.version_hash ~= version_hash then
+    return nil
+  end
+
+  if require_complete and cached.complete ~= true then
+    return nil
+  end
+
+  return cached
+end
+
+---@param provider string
+---@param cache_expiry_hours number
+---@param version_hash string|nil
+---@param require_complete boolean|nil
+---@return table[]|nil
+function State:get_cached_slash_commands(provider, cache_expiry_hours, version_hash, require_complete)
+  local cached = self:get_slash_commands_cache_entry(provider, cache_expiry_hours, version_hash, require_complete)
+  return cached and cached.commands
+end
+
+---@param provider string
+---@param cache_expiry_hours number
+---@param version_hash string|nil
+---@return boolean
+function State:is_slash_commands_cache_valid(provider, cache_expiry_hours, version_hash)
+  return self:get_slash_commands_cache_entry(provider, cache_expiry_hours, version_hash, true) ~= nil
+end
+
 --- Sets cached models for a provider with timestamp
 --- @param provider string # Provider name
 --- @param models table # Array of model names
@@ -189,6 +366,7 @@ function State:set_cached_models(provider, models, endpoint_hash)
       chat_model = nil,
       command_model = nil,
       cached_models = {},
+      acp_sessions = {},
     }
   end
 
@@ -256,14 +434,24 @@ end
 function State:clear_cache(provider)
   if provider then
     -- Clear cache for specific provider
-    if self.file_state[provider] and self.file_state[provider].cached_models then
+    if self.file_state[provider] then
       self.file_state[provider].cached_models = {}
+      self.file_state[provider].cached_slash_commands = nil
+      if self._state[provider] then
+        self._state[provider].cached_models = {}
+        self._state[provider].cached_slash_commands = nil
+      end
     end
   else
     -- Clear all caches
     for prov_name, prov_data in pairs(self.file_state) do
-      if type(prov_data) == "table" and prov_data.cached_models then
+      if type(prov_data) == "table" then
         prov_data.cached_models = {}
+        prov_data.cached_slash_commands = nil
+        if self._state[prov_name] then
+          self._state[prov_name].cached_models = {}
+          self._state[prov_name].cached_slash_commands = nil
+        end
       end
     end
   end

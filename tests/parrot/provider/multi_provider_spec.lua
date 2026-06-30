@@ -820,6 +820,51 @@ describe("MultiProvider", function()
       local models = provider_no_spinner:get_available_models_cached(mock_state, 48, nil)
       assert.are.same({ "fresh-model" }, models)
     end)
+
+    it("should short-circuit to static without calling fetch when offline (gate)", function()
+      mock_state.get_cached_models = function() return nil end
+      local fetch_called = false
+      local provider_offline = MultiProvider:new({
+        name = "test-offline",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "static-model" },
+        get_available_models = function(self, args)
+          fetch_called = true
+          return { "would-fetch" }
+        end,
+      })
+      -- patch has_internet to simulate offline
+      local orig_has = require("parrot.utils").has_internet
+      require("parrot.utils").has_internet = function() return false end
+      local models = provider_offline:get_available_models_cached(mock_state, 48, nil)
+      require("parrot.utils").has_internet = orig_has
+      assert.are.same({ "static-model" }, models)
+      assert.is_false(fetch_called, "must not invoke inner fetch when offline")
+    end)
+
+    it("should fetch when cache miss and online (via has_internet)", function()
+      mock_state.get_cached_models = function() return nil end
+      local fetch_called = false
+      local provider_online = MultiProvider:new({
+        name = "test-online",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "static" },
+        get_available_models = function(self, args)
+          fetch_called = true
+          return { "fetched-model" }
+        end,
+      })
+      local orig_has = require("parrot.utils").has_internet
+      require("parrot.utils").has_internet = function() return true end
+      local models = provider_online:get_available_models_cached(mock_state, 48, nil)
+      require("parrot.utils").has_internet = orig_has
+      assert.are.same({ "fetched-model" }, models)
+      assert.is_true(fetch_called)
+    end)
   end)
   describe("resolve_api_key", function()
     describe("string api_key", function()

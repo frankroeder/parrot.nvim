@@ -126,7 +126,11 @@ function Spinner:stop(error_occurred)
     local elapsed = (vim.loop.hrtime() - self.start_time) / 1e9
     self:show_final_message(string.format("✓ Completed in %.1fs", elapsed), "DiagnosticOk")
   else
-    self:clear()
+    -- Defer clear so a redraw during plugin setup does not invoke statusline hooks
+    -- before parrot.config.chat_handler exists.
+    vim.schedule(function()
+      self:clear()
+    end)
   end
 end
 

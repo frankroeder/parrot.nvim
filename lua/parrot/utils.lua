@@ -583,4 +583,38 @@ function M.generate_endpoint_hash(provider)
   return string.format("%08x", hash)
 end
 
+-- Short-timeout async internet connectivity probe.
+-- callback(boolean): true if a HEAD to 1.1.1.1 succeeds within ~2s.
+-- Never blocks the caller; safe to call from setup paths.
+function M.check_internet(callback)
+  callback = callback or function() end
+  if vim.fn.executable("curl") == 0 then
+    return callback(false)
+  end
+  local cmd = { "curl", "-s", "-o", "/dev/null", "--max-time", "2", "--head", "https://1.1.1.1" }
+  vim.system(cmd, { text = true }, function(res)
+    callback(res and res.code == 0)
+  end)
+end
+
+-- Sync short probe for on-demand paths after startup (rare).
+-- Uses short max-time; prefer check_internet(async) when possible.
+-- Never blocks in fast event contexts (e.g. vim.system on_exit callbacks).
+function M.has_internet(timeout_ms)
+  if vim.in_fast_event and vim.in_fast_event() then
+    -- Cannot safely wait in fast event. Return optimistic true so callers that
+    -- reach here can proceed to (async-preferring) fetch paths if any.
+    return true
+  end
+  timeout_ms = timeout_ms or 1500
+  if vim.fn.executable("curl") == 0 then
+    return false
+  end
+  local secs = math.max(1, math.floor((timeout_ms or 1500) / 1000))
+  local cmd = { "curl", "-s", "-o", "/dev/null", "--max-time", tostring(secs), "--head", "https://1.1.1.1" }
+  local proc = vim.system(cmd, { text = true })
+  local res = proc:wait(timeout_ms + 300)
+  return res and res.code == 0
+end
+
 return M

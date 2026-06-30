@@ -48,38 +48,42 @@ describe("completion.utils", function()
   end)
 
   describe("is_completion_available", function()
-    it("should return true in parrot chat files", function()
-      local config_mock = mock(require("parrot.config"), true)
-      config_mock.loaded = true
-      config_mock.options = { chat_dir = "/mock/chat/dir" }
+    it("should return true in parrot chat files (path-based, including drafts)", function()
+      local chat_dir = vim.fn.tempname() .. "_chat"
+      vim.fn.mkdir(chat_dir, "p")
+      local chat_file = chat_dir .. "/draft.md"
 
-      local utils_mock = mock(require("parrot.utils"), true)
-      utils_mock.is_chat.returns(true)
+      local config = require("parrot.config")
+      local orig_loaded = config.loaded
+      local orig_chat_dir = config.options and config.options.chat_dir
+      config.loaded = true
+      config.options = vim.tbl_deep_extend("force", config.options or {}, { chat_dir = chat_dir })
 
-      local api_mock = mock(vim.api, true)
-      api_mock.nvim_get_current_buf.returns(1)
-      api_mock.nvim_buf_get_name.returns("/mock/chat/dir/test.txt")
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_name(buf, chat_file)
+      vim.api.nvim_set_current_buf(buf)
 
-      assert.is_true(comp_utils.is_completion_available())
+      assert.is_true(comp_utils.is_completion_available(buf))
 
-      mock.revert(config_mock)
-      mock.revert(utils_mock)
-      mock.revert(api_mock)
+      config.loaded = orig_loaded
+      if orig_chat_dir then
+        config.options.chat_dir = orig_chat_dir
+      end
+      vim.api.nvim_buf_delete(buf, { force = true })
+      vim.fn.delete(chat_dir, "rf")
     end)
 
     it("should return true in UI input buffers", function()
-      local api_mock = mock(vim.api, true)
-      api_mock.nvim_get_current_buf.returns(1)
-      api_mock.nvim_buf_get_name.returns("")
-      api_mock.nvim_get_option_value.returns("nofile")
-      api_mock.nvim_get_namespaces.returns({ 1 })
-      api_mock.nvim_buf_get_extmarks.returns({
-        { 1, 0, 0, { virt_text = { { "Enter text here", "Comment" } } } },
+      local ns = vim.api.nvim_create_namespace("parrot_test_completion")
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+      vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
+        virt_text = { { "Enter text here", "Comment" } },
       })
 
-      assert.is_true(comp_utils.is_completion_available())
+      assert.is_true(comp_utils.is_completion_available(buf))
 
-      mock.revert(api_mock)
+      vim.api.nvim_buf_delete(buf, { force = true })
     end)
 
     it("should return false in regular files", function()

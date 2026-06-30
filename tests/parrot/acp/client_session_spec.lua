@@ -1,0 +1,20 @@
+local acp_client = require("parrot.acp.client")
+local acp_sessions = require("parrot.acp.sessions")
+
+describe("parrot.acp.client sessions", function()
+  it("session_cache_key scopes sessions by kind and repo root", function()
+    local cwd = vim.fn.getcwd()
+    local key_cmd = acp_client.session_cache_key("command", cwd)
+    local key_chat = acp_client.session_cache_key("chat", cwd)
+
+    assert.not_equals(key_cmd, key_chat)
+    assert.matches("^command:", key_cmd)
+    assert.matches("^chat:", key_chat)
+    assert.matches(":" .. vim.pesc(acp_sessions.repo_key(cwd)), key_cmd)
+  end)
+
+  it("repo_key is stable for the same project root", function()
+    local root = acp_sessions.repo_key("/any/path")
+    assert.equals(root, acp_sessions.repo_key("/any/path"))
+  end)
+end)
