@@ -167,7 +167,7 @@ function M.create(opts)
             return
           end
           terminal.output = terminal.output .. data
-          if terminal.outputByteLimit then
+          if terminal.outputByteLimit and #terminal.output > terminal.outputByteLimit then
             terminal.output = terminal.output:sub(-terminal.outputByteLimit)
             terminal.truncated = true
           end

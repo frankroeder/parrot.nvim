@@ -1987,7 +1987,6 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
 
   provider:set_model(payload.model)
 
-  local file_name = buf and vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) or ""
   local acp_sessions = require("parrot.acp.sessions")
   local scope = acp_sessions.session_scope(buf, self.options.chat_dir, self.state)
   local session_kind = scope.kind

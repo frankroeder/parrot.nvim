@@ -31,11 +31,35 @@ describe("parrot.acp.client", function()
       { id = "grok.com", name = "Grok" },
     }
 
-    it("prefers xai.api_key when XAI_API_KEY is set", function()
+    it("prefers cached_token even when XAI_API_KEY is set", function()
       local old = os.getenv("XAI_API_KEY")
       vim.env.XAI_API_KEY = "test-key"
 
       local method_id = acp_client.resolve_auth_method_id({ authMethods = auth_methods }, {})
+      assert.equals("cached_token", method_id)
+
+      if old then
+        vim.env.XAI_API_KEY = old
+      else
+        vim.env.XAI_API_KEY = nil
+      end
+    end)
+
+    it("honors agent defaultAuthMethodId from _meta", function()
+      local method_id = acp_client.resolve_auth_method_id({
+        authMethods = auth_methods,
+        _meta = { defaultAuthMethodId = "cached_token" },
+      }, {})
+      assert.equals("cached_token", method_id)
+    end)
+
+    it("falls back to xai.api_key when only that and API key available", function()
+      local old = os.getenv("XAI_API_KEY")
+      vim.env.XAI_API_KEY = "test-key"
+
+      local method_id = acp_client.resolve_auth_method_id({
+        authMethods = { { id = "xai.api_key" }, { id = "grok.com" } },
+      }, {})
       assert.equals("xai.api_key", method_id)
 
       if old then
@@ -45,23 +69,22 @@ describe("parrot.acp.client", function()
       end
     end)
 
-    it("falls back to cached_token without API key", function()
-      local old = os.getenv("XAI_API_KEY")
-      vim.env.XAI_API_KEY = nil
-
-      local method_id = acp_client.resolve_auth_method_id({ authMethods = auth_methods }, {})
-      assert.equals("cached_token", method_id)
-
-      if old then
-        vim.env.XAI_API_KEY = old
-      end
-    end)
-
     it("honors explicit auth_method override", function()
       local method_id = acp_client.resolve_auth_method_id({ authMethods = auth_methods }, {
-        auth_method = "cached_token",
+        auth_method = "xai.api_key",
       })
-      assert.equals("cached_token", method_id)
+      assert.equals("xai.api_key", method_id)
+    end)
+  end)
+
+  describe("format_rpc_error", function()
+    it("includes data when present", function()
+      local msg = acp_client.format_rpc_error({
+        message = "Internal error",
+        data = { detail = "auth failed" },
+      })
+      assert.matches("Internal error", msg)
+      assert.matches("auth failed", msg)
     end)
   end)
 

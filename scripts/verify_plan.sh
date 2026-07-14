@@ -6,7 +6,7 @@ set -euo pipefail
 # Cleans SCRATCH, runs exact Verification plan steps 1-6 in order,
 # writes ONLY the plan-named artifacts, asserts 0 fails, exits with VERIFY_EXIT.
 
-SCRATCH="${SCRATCH:-/var/folders/bd/4hc9dqg10b51m5f4lr9g4clc0000gn/T/grok-goal-76e13525d840/implementer}"
+SCRATCH="${SCRATCH:-$(mktemp -d -t parrot-verify)}"
 mkdir -p "$SCRATCH"
 
 echo "=== VERIFY_PLAN START ===" 

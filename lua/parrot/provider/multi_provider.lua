@@ -178,9 +178,6 @@ local defaults = {
 
   get_available_models = function(self, args, callback)
     local ids = {}
-    local function finish()
-      if callback then callback(ids) else return ids end
-    end
     local job = Job:new({
       command = "curl",
       args = args,
@@ -201,7 +198,11 @@ local defaults = {
             table.insert(ids, item.id)
           end
         end
-        if callback then callback(ids) end
+        -- Job on_exit runs in a fast event; deliver on the main loop so
+        -- callers can touch state/vim.fn safely.
+        if callback then
+          vim.schedule(function() callback(ids) end)
+        end
       end,
     })
     job:start()

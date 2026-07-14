@@ -14,6 +14,7 @@ local M = {}
 ---@field config_options table[]
 ---@field modes table|nil
 ---@field active_prompts table<string, { session_id: string, req_id: number? }>
+---@field _streams table<string, fun(text: string)> Per-session streaming callbacks
 ---@field initialized boolean
 
 local connections = {}
@@ -148,7 +149,11 @@ function M.fetch_cli_version(cli_command, callback)
     vim.system(cmd, { text = true }, function(res)
       local output = (res and res.stdout) or ""
       local line = output:match("[^\r\n]+")
-      callback(line and vim.trim(line) or "")
+      local version = line and vim.trim(line) or ""
+      -- Deliver on the main loop; downstream callers use vim.fn.
+      vim.schedule(function()
+        callback(version)
+      end)
     end)
     return nil
   end
@@ -179,7 +184,9 @@ function M.fetch_models_from_cli(cli_command, callback)
         local id = line:match("^%s*[%*%-]%s+([%w%.%-]+)")
         if id then table.insert(models, id) end
       end
-      callback(models)
+      vim.schedule(function()
+        callback(models)
+      end)
     end)
     return {}
   end
@@ -231,7 +238,27 @@ end
 
 local SUBCOMMANDS = { stdio = true, headless = true, serve = true, leader = true }
 
+---Format a JSON-RPC error for user-facing logs.
+---@param err table|string|nil
+---@return string
+function M.format_rpc_error(err)
+  if type(err) ~= "table" then
+    return tostring(err or "unknown error")
+  end
+  local msg = err.message or "ACP error"
+  if err.data ~= nil then
+    local data = err.data
+    if type(data) == "table" then
+      data = vim.inspect(data)
+    end
+    msg = msg .. ": " .. tostring(data)
+  end
+  return msg
+end
+
 ---Pick an auth method from initialize authMethods (xAI ACP headless flow).
+---Prefer the agent-advertised default (Grok: cached_token). Preferring XAI_API_KEY when both
+---exist causes 401s on cli-chat-proxy for OIDC-session models (composer, etc.).
 ---@param init_result table
 ---@param config table
 ---@return string|nil method_id
@@ -251,13 +278,19 @@ function M.resolve_auth_method_id(init_result, config)
     return nil, "auth method not advertised: " .. config.auth_method
   end
 
-  local api_key = vim.tbl_get(config, "env", "XAI_API_KEY") or os.getenv("XAI_API_KEY")
-  if api_key and api_key ~= "" and advertised["xai.api_key"] then
-    return "xai.api_key"
+  -- Agent default (e.g. Grok _meta.defaultAuthMethodId = "cached_token")
+  local default_id = vim.tbl_get(init_result, "_meta", "defaultAuthMethodId")
+  if default_id and advertised[default_id] then
+    return default_id
   end
 
   if advertised["cached_token"] then
     return "cached_token"
+  end
+
+  local api_key = vim.tbl_get(config, "env", "XAI_API_KEY") or os.getenv("XAI_API_KEY")
+  if api_key and api_key ~= "" and advertised["xai.api_key"] then
+    return "xai.api_key"
   end
 
   return nil, "Run `grok login` first, or set XAI_API_KEY."
@@ -304,7 +337,8 @@ local function build_command(config, model)
   end
 
   if config.no_auto_update then
-    table.insert(cmd, 1, "--no-auto-update")
+    -- Global CLI flag: goes right after the binary (grok --no-auto-update agent stdio).
+    table.insert(cmd, 2, "--no-auto-update")
   end
 
   insert_before_subcommand(cmd, flags)
@@ -351,7 +385,7 @@ local function create_session(config, connection, kind, cwd, session_opts, callb
     mcpServers = config.mcp_servers or {},
   }, function(err, result)
     if err then
-      callback(err.message or vim.inspect(err))
+      callback(M.format_rpc_error(err))
       return
     end
     if not result or not result.sessionId then
@@ -491,6 +525,7 @@ function M.get_connection(config, model, callback)
     config_options = {},
     modes = nil,
     active_prompts = {},
+    _streams = {},
     initialized = false,
     _pending_callbacks = { callback },
   }
@@ -503,10 +538,13 @@ function M.get_connection(config, model, callback)
     end,
     on_exit = function(code)
       logger.info("ACP agent exited (" .. tostring(code) .. ") for " .. key)
-      connection._stream_chunk = nil
-      connection._stream_session_id = nil
+      connection._streams = {}
       connection.active_prompts = {}
-      connections[key] = nil
+      -- Only clear the registry slot if it still points at this connection;
+      -- a replacement may already have been created after terminate().
+      if connections[key] == connection then
+        connections[key] = nil
+      end
     end,
     notification = function(method, params)
       if method ~= protocol.client.session_update then
@@ -514,21 +552,18 @@ function M.get_connection(config, model, callback)
       end
 
       local update = params.update or {}
+      local stream = params.sessionId and connection._streams[params.sessionId]
 
-      if update.sessionUpdate == "agent_message_chunk" and connection._stream_chunk then
-        if not connection._stream_session_id or params.sessionId == connection._stream_session_id then
+      if update.sessionUpdate == "agent_message_chunk" and stream then
+        local text = vim.tbl_get(update, "content", "text")
+        if text then
+          stream(text)
+        end
+      elseif update.sessionUpdate == "agent_thought_chunk" and stream then
+        if connection.config and connection.config.show_thoughts then
           local text = vim.tbl_get(update, "content", "text")
           if text then
-            connection._stream_chunk(text)
-          end
-        end
-      elseif update.sessionUpdate == "agent_thought_chunk" and connection._stream_chunk then
-        if connection.config and connection.config.show_thoughts then
-          if not connection._stream_session_id or params.sessionId == connection._stream_session_id then
-            local text = vim.tbl_get(update, "content", "text")
-            if text then
-              connection._stream_chunk(text)
-            end
+            stream(text)
           end
         end
       elseif update.sessionUpdate == "available_commands_update" then
@@ -572,7 +607,7 @@ function M.get_connection(config, model, callback)
     if err then
       connection.rpc.terminate()
       connections[key] = nil
-      finish_connection_callbacks(connection, err.message or vim.inspect(err))
+      finish_connection_callbacks(connection, M.format_rpc_error(err))
       return
     end
 
@@ -593,7 +628,7 @@ function M.get_connection(config, model, callback)
       if auth_rpc_err then
         connection.rpc.terminate()
         connections[key] = nil
-        finish_connection_callbacks(connection, auth_rpc_err.message or vim.inspect(auth_rpc_err))
+        finish_connection_callbacks(connection, M.format_rpc_error(auth_rpc_err))
         return
       end
 
@@ -654,10 +689,6 @@ function M.prompt(config, opts)
         return
       end
 
-      if qid then
-        connection.active_prompts[qid] = { session_id = session_id }
-      end
-
       local prompt_blocks = opts.prompt or M.messages_to_prompt(opts.messages or {})
       if #prompt_blocks == 0 then
         if opts.on_done then
@@ -666,12 +697,16 @@ function M.prompt(config, opts)
         return
       end
 
-      connection._stream_session_id = session_id
-      connection._stream_chunk = function(text)
+      if qid then
+        connection.active_prompts[qid] = { session_id = session_id }
+      end
+
+      local stream = function(text)
         if opts.on_chunk then
           opts.on_chunk(text)
         end
       end
+      connection._streams[session_id] = stream
 
       connection.rpc.request(protocol.agent.session_prompt, {
         sessionId = session_id,
@@ -680,12 +715,13 @@ function M.prompt(config, opts)
         if qid then
           connection.active_prompts[qid] = nil
         end
-        connection._stream_chunk = nil
-        connection._stream_session_id = nil
+        if connection._streams[session_id] == stream then
+          connection._streams[session_id] = nil
+        end
 
         if prompt_err then
           if opts.on_error then
-            opts.on_error(prompt_err.message or vim.inspect(prompt_err))
+            opts.on_error(M.format_rpc_error(prompt_err))
           end
         elseif result and result.stopReason == "cancelled" then
           logger.info("ACP prompt cancelled")

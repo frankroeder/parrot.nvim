@@ -60,7 +60,7 @@ describe("parrot.acp.ui", function()
     assert.is_true(config._slash_commands_complete)
   end)
 
-  it("slash_complete formats name and description for tab completion", function()
+  it("slash_complete returns matching command names for tab completion", function()
     package.loaded["parrot.config"] = {
       chat_handler = {
         get_provider = function()
@@ -91,7 +91,6 @@ describe("parrot.acp.ui", function()
 
     local results = acp_ui.slash_complete(parrot, "com")
     assert.equals(1, #results)
-    assert.equals("compact", results[1].word)
-    assert.matches("Compress", results[1].menu)
+    assert.equals("compact", results[1])
   end)
 end)

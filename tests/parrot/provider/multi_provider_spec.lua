@@ -670,6 +670,7 @@ describe("MultiProvider", function()
   end)
   describe("get_available_models_cached", function()
     local mock_state
+    local orig_has_internet
 
     before_each(function()
       mock_state = {
@@ -679,6 +680,15 @@ describe("MultiProvider", function()
         set_cached_models = function() end,
         save = function() end,
       }
+      -- Stub the connectivity gate so tests never hit the real network probe.
+      orig_has_internet = require("parrot.utils").has_internet
+      require("parrot.utils").has_internet = function()
+        return true
+      end
+    end)
+
+    after_each(function()
+      require("parrot.utils").has_internet = orig_has_internet
     end)
 
     it("should return predefined models when no model_endpoint", function()

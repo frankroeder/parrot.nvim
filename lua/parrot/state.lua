@@ -437,9 +437,12 @@ function State:clear_cache(provider)
     if self.file_state[provider] then
       self.file_state[provider].cached_models = {}
       self.file_state[provider].cached_slash_commands = nil
+      -- Force a fresh `--version` fetch so the slash cache is re-keyed after CLI upgrades.
+      self.file_state[provider].cli_version_hash = nil
       if self._state[provider] then
         self._state[provider].cached_models = {}
         self._state[provider].cached_slash_commands = nil
+        self._state[provider].cli_version_hash = nil
       end
     end
   else
@@ -448,9 +451,11 @@ function State:clear_cache(provider)
       if type(prov_data) == "table" then
         prov_data.cached_models = {}
         prov_data.cached_slash_commands = nil
+        prov_data.cli_version_hash = nil
         if self._state[prov_name] then
           self._state[prov_name].cached_models = {}
           self._state[prov_name].cached_slash_commands = nil
+          self._state[prov_name].cli_version_hash = nil
         end
       end
     end

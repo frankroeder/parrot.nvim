@@ -678,7 +678,7 @@ Set `resume_session = false` to always call `session/new` (fresh Grok context; p
 
 **Background agent:** Plugin setup, Tab completion on incomplete slash caches, and `:PrtReloadCache` may spawn `grok agent stdio` in the background (with a 15s warm timeout). Use `make test-acp` / `make test-acp-smoke` for offline verification without a live agent.
 
-**Slash commands:** The full list arrives after `session/new` or `session/load` via `available_commands_update` (not from `initialize` alone). Parrot caches commands in `state.json` for instant Tab completion; incomplete caches refresh in the background. `:PrtAcpSlashCommand` with no args opens a picker; Tab completes `name` + description.
+**Slash commands:** The full list arrives after `session/new` or `session/load` via `available_commands_update` (not from `initialize` alone). Parrot caches commands in `state.json` for instant Tab completion; incomplete caches refresh in the background. `:PrtAcpSlashCommand` with no args opens a picker (with descriptions); Tab completes command names.
 
 **Transcript vs agent desync:** If you `:PrtChatNew` (new markdown file) but `resume_session = true`, Grok still remembers prior tool runs. For a clean agent slate, use `resume_session = false` or clear the repo's `acp_sessions` entry. Conversely, an old markdown chat file can be reopened while Grok resumes — the buffer shows history Grok may not re-ingest unless you paste or summarize it in a new prompt.
 

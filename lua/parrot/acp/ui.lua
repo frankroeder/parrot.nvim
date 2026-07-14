@@ -441,10 +441,12 @@ function M.run_slash_command(parrot, text)
   end))
 end
 
----Build Neovim cmdline completion items (word + menu) from slash commands.
+---Build Neovim cmdline completion candidates from slash commands.
+---User-command complete functions act like 'customlist' and must return strings;
+---table items ({word=..., menu=...}) are silently dropped by Neovim.
 ---@param commands table[]
 ---@param lead string
----@return table[]
+---@return string[]
 local function command_completion_items(commands, lead)
   local results = {}
   lead = (lead or ""):gsub("^/*", ""):lower()
@@ -452,20 +454,17 @@ local function command_completion_items(commands, lead)
   for _, cmd in ipairs(commands) do
     local name = cmd.name or ""
     if lead == "" or vim.startswith(name:lower(), lead) then
-      local desc = cmd.description or cmd.hint or ""
-      table.insert(results, desc ~= "" and { word = name, menu = desc } or { word = name })
+      table.insert(results, name)
     end
   end
 
-  table.sort(results, function(a, b)
-    return a.word < b.word
-  end)
+  table.sort(results)
   return results
 end
 
 ---@param parrot table
 ---@param arg_lead string
----@return table[]
+---@return string[]
 function M.slash_complete(parrot, arg_lead)
   local ctx = M.get_context(parrot)
   if not ctx then
@@ -478,7 +477,7 @@ end
 
 ---@param parrot table
 ---@param arg_lead string
----@return table[]
+---@return string[]
 function M.mode_complete(parrot, arg_lead)
   local ctx = M.get_context(parrot)
   if not ctx then
@@ -491,14 +490,11 @@ function M.mode_complete(parrot, arg_lead)
   for _, mode in ipairs(M.cached_modes(ctx.config)) do
     local id = mode.id or ""
     if lead == "" or vim.startswith(id:lower(), lead) or vim.startswith((mode.name or ""):lower(), lead) then
-      local desc = mode.description or ""
-      table.insert(results, desc ~= "" and { word = id, menu = desc } or { word = id })
+      table.insert(results, id)
     end
   end
 
-  table.sort(results, function(a, b)
-    return a.word < b.word
-  end)
+  table.sort(results)
   return results
 end
 

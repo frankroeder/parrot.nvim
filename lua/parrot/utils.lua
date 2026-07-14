@@ -588,12 +588,23 @@ end
 -- Never blocks the caller; safe to call from setup paths.
 function M.check_internet(callback)
   callback = callback or function() end
+  if vim.in_fast_event() then
+    -- vim.fn is not allowed in fast events; re-enter on the main loop.
+    vim.schedule(function()
+      M.check_internet(callback)
+    end)
+    return
+  end
   if vim.fn.executable("curl") == 0 then
     return callback(false)
   end
   local cmd = { "curl", "-s", "-o", "/dev/null", "--max-time", "2", "--head", "https://1.1.1.1" }
   vim.system(cmd, { text = true }, function(res)
-    callback(res and res.code == 0)
+    local online = res and res.code == 0
+    -- Deliver on the main loop so callers can use vim.fn/vim.api directly.
+    vim.schedule(function()
+      callback(online)
+    end)
   end)
 end
 
