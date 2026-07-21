@@ -77,6 +77,9 @@ local defaults = {
 
       if decoded.choices and decoded.choices[1] and decoded.choices[1].delta and decoded.choices[1].delta.content then
         return decoded.choices[1].delta.content
+      elseif decoded.type == "response.output_text.delta" and type(decoded.delta) == "string" then
+        -- OpenAI / xAI Responses API streaming
+        return decoded.delta
       elseif decoded.message and decoded.message.content then
         return decoded.message.content
       elseif decoded.delta and decoded.delta.type == "text_delta" and decoded.delta.text then
@@ -115,6 +118,21 @@ local defaults = {
       return decoded.message.content
     elseif decoded.content and decoded.content[1] and decoded.content[1].text then
       return decoded.content[1].text
+    elseif decoded.output and type(decoded.output) == "table" then
+      -- OpenAI / xAI Responses API non-streaming output
+      local texts = {}
+      for _, item in ipairs(decoded.output) do
+        if item.type == "message" and type(item.content) == "table" then
+          for _, part in ipairs(item.content) do
+            if part.text and (part.type == "output_text" or part.type == "text") then
+              table.insert(texts, part.text)
+            end
+          end
+        end
+      end
+      if #texts > 0 then
+        return table.concat(texts)
+      end
     end
 
     return nil
@@ -342,11 +360,32 @@ function MultiProvider:set_model(model)
   self._model = model
 end
 
--- Preprocesses the payload before sending to the API
+-- Resolve endpoint string (handles function endpoints)
+---@return string|nil
+function MultiProvider:get_endpoint()
+  if type(self.endpoint) == "function" then
+    local ok, result = pcall(self.endpoint, self)
+    if not ok then
+      logger.error("Error executing endpoint function for provider " .. self.name .. ": " .. tostring(result))
+      return nil
+    end
+    return result
+  end
+  return self.endpoint
+end
+
+-- Preprocesses the payload before sending to the API.
+-- /v1/responses expects `input` instead of `messages`.
 ---@param payload table
 ---@return table
 function MultiProvider:preprocess_payload(payload)
-  return self.preprocess_payload_func(payload)
+  local result = self.preprocess_payload_func(payload)
+  local endp = self:get_endpoint()
+  if type(endp) == "string" and endp:find("/responses", 1, true) and result.messages then
+    result.input = result.messages
+    result.messages = nil
+  end
+  return result
 end
 
 -- Returns the curl parameters for the API request

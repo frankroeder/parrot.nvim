@@ -595,7 +595,7 @@ providers = {
 providers = {
   xai = {
     name = "xai",
-    endpoint = "https://api.x.ai/v1/chat/completions",
+    endpoint = "https://api.x.ai/v1/responses",
     model_endpoint = "https://api.x.ai/v1/language-models",
     api_key = os.getenv "XAI_API_KEY",
     params = {
@@ -603,12 +603,13 @@ providers = {
       command = { temperature = 1.1, top_p = 1 },
     },
     topic = {
-      model = "grok-3-mini-beta",
-      params = { max_completion_tokens = 64 },
+      model = "grok-4.3",
+      params = { max_output_tokens = 64 },
     },
     models = {
-      "grok-3-beta",
-      "grok-3-mini-beta",
+      "grok-4.3",
+      "grok-4.5",
+      "grok-4.20",
     },
   },
 }

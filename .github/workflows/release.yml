@@ -18,7 +18,7 @@ jobs:
             manager: sudo apt-get
             packages: -y ripgrep
           - os: ubuntu-latest
-            rev: v0.10.4/nvim-linux-x86_64.tar.gz
+            rev: v0.12.4/nvim-linux-x86_64.tar.gz
             manager: sudo apt-get
             packages: -y ripgrep
     steps:
