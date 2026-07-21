@@ -281,6 +281,15 @@ describe("MultiProvider", function()
 
       assert.is_nil(result)
     end)
+
+    it("should extract content from Responses API output_text delta", function()
+      local input =
+        'data: {"type":"response.output_text.delta","item_id":"msg_123","output_index":0,"content_index":0,"delta":" Hello"}'
+
+      local result = provider:process_stdout(input)
+
+      assert.equals(" Hello", result)
+    end)
   end)
 
   describe("preprocess_payload", function()
@@ -335,6 +344,56 @@ describe("MultiProvider", function()
 
       local result = provider:preprocess_payload(input)
       assert.are.same(result, expected)
+    end)
+
+    it("should use input for /responses endpoints", function()
+      local responses_provider = MultiProvider:new({
+        name = "xai",
+        endpoint = "https://api.x.ai/v1/responses",
+        api_key = "test_api_key",
+        model = { "grok-4.5" },
+      })
+
+      local result = responses_provider:preprocess_payload({
+        messages = {
+          { role = "system", content = "  You are Grok.  " },
+          { role = "user", content = " Hi " },
+        },
+        model = "grok-4.5",
+        stream = true,
+        temperature = 1.1,
+        top_p = 1,
+        max_output_tokens = 64,
+      })
+
+      assert.is_nil(result.messages)
+      assert.equals(64, result.max_output_tokens)
+      assert.equals("You are Grok.", result.input[1].content)
+      assert.equals("Hi", result.input[2].content)
+      assert.equals("grok-4.5", result.model)
+    end)
+  end)
+
+  describe("process_onexit responses", function()
+    it("should extract text from Responses API output", function()
+      local input = vim.json.encode({
+        id = "resp_123",
+        object = "response",
+        status = "completed",
+        output = {
+          {
+            type = "message",
+            role = "assistant",
+            content = {
+              { type = "output_text", text = "Hello from responses" },
+            },
+          },
+        },
+      })
+
+      local result = provider:process_onexit(input)
+
+      assert.equals("Hello from responses", result)
     end)
   end)
 
