@@ -1117,4 +1117,4 @@ ls -l | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=frankroeder/parrot.nvim&type=Date)](https://star-history.com/#frankroeder/parrot.nvim&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=frankroeder/parrot.nvim&type=Date)](https://star-history.dera.page/#frankroeder/parrot.nvim&Date)
