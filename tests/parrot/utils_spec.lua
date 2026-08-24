@@ -360,6 +360,47 @@ describe("utils", function()
       assert.is_not.equal(hash1, hash2)
     end)
   end)
+
+  describe("get_selection_details", function()
+    local function buf_with(lines)
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      return buf
+    end
+
+    it("should strip the common space indentation", function()
+      local buf = buf_with({ "    if x then", "      return 1", "    end" })
+      local details = utils.get_selection_details(buf, 1, 3)
+      assert.equal("    ", details.indent)
+      assert.equal("if x then\n  return 1\nend", details.text)
+    end)
+
+    it("should report tab indentation when tabs are used", function()
+      local buf = buf_with({ "\tfoo", "\tbar" })
+      local details = utils.get_selection_details(buf, 1, 2)
+      assert.equal("\t", details.indent)
+      assert.equal("foo\nbar", details.text)
+    end)
+
+    it("should ignore whitespace-only lines when measuring indentation", function()
+      local buf = buf_with({ "  a", "", "  b" })
+      local details = utils.get_selection_details(buf, 1, 3)
+      assert.equal("  ", details.indent)
+      assert.equal("a\n\nb", details.text)
+    end)
+
+    it("should return no indent for unindented lines", function()
+      local buf = buf_with({ "a", "  b" })
+      local details = utils.get_selection_details(buf, 1, 2)
+      assert.equal("", details.indent)
+      assert.equal("a\n  b", details.text)
+    end)
+
+    it("should honour the line range", function()
+      local buf = buf_with({ "one", "two", "three" })
+      assert.equal("two", utils.get_selection_details(buf, 2, 2).text)
+    end)
+  end)
 end)
 
 describe("utils improved error handling", function()
@@ -497,6 +538,50 @@ describe("utils improved error handling", function()
       local result = utils.is_chat(buf, "file.md", "")
       assert.is_false(result)
       vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    it("should match a chat dir reached through a symlink", function()
+      local real_dir = vim.fn.tempname()
+      local link_dir = vim.fn.tempname()
+      vim.fn.mkdir(real_dir, "p")
+      vim.fn.system({ "ln", "-s", real_dir, link_dir })
+
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# topic: x", "---", "", "🗨: hi", "" })
+      -- buffer names resolve to the real path, the configured dir is the symlink
+      local result = utils.is_chat(buf, real_dir .. "/chat.md", link_dir)
+
+      vim.api.nvim_buf_delete(buf, { force = true })
+      vim.fn.delete(link_dir)
+      vim.fn.delete(real_dir, "rf")
+
+      assert.is_true(result)
+    end)
+  end)
+
+  describe("resolve_path", function()
+    it("should return empty string for invalid input", function()
+      assert.equal("", utils.resolve_path(nil))
+      assert.equal("", utils.resolve_path(""))
+      assert.equal("", utils.resolve_path(42))
+    end)
+
+    it("should make relative paths absolute", function()
+      assert.equal(vim.fn.fnamemodify(".", ":p"):gsub("/$", ""), utils.resolve_path("."):gsub("/$", ""))
+    end)
+
+    it("should resolve symlinks", function()
+      local real_dir = vim.fn.tempname()
+      local link_dir = vim.fn.tempname()
+      vim.fn.mkdir(real_dir, "p")
+      vim.fn.system({ "ln", "-s", real_dir, link_dir })
+
+      local resolved = utils.resolve_path(link_dir)
+
+      vim.fn.delete(link_dir)
+      vim.fn.delete(real_dir, "rf")
+
+      assert.equal(vim.fn.resolve(real_dir), (resolved:gsub("/$", "")))
     end)
   end)
 

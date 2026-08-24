@@ -292,6 +292,53 @@ describe("MultiProvider", function()
     end)
   end)
 
+  describe("extract_usage", function()
+    it("should extract OpenAI-style usage", function()
+      local input = 'data: {"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}'
+
+      assert.are.same({ prompt_tokens = 10, completion_tokens = 5, total_tokens = 15 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Anthropic input tokens from message_start", function()
+      local input = 'data: {"type":"message_start","message":{"usage":{"input_tokens":42}}}'
+
+      assert.are.same({ prompt_tokens = 42 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Anthropic output tokens from message_delta", function()
+      local input = 'data: {"type":"message_delta","usage":{"output_tokens":7}}'
+
+      assert.are.same({ completion_tokens = 7 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Gemini usageMetadata", function()
+      local input = '{"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":4,"totalTokenCount":7}}'
+
+      assert.are.same({ prompt_tokens = 3, completion_tokens = 4, total_tokens = 7 }, provider:extract_usage(input))
+    end)
+
+    it("should return nil for chunks without usage", function()
+      assert.is_nil(provider:extract_usage('data: {"choices":[{"delta":{"content":"hi"}}]}'))
+      assert.is_nil(provider:extract_usage("data: [DONE]"))
+      assert.is_nil(provider:extract_usage("not json"))
+      assert.is_nil(provider:extract_usage(""))
+      assert.is_nil(provider:extract_usage(nil))
+    end)
+
+    it("should be overridable per provider", function()
+      local custom = MultiProvider:new({
+        name = "custom",
+        endpoint = "https://api.test.com",
+        api_key = "key",
+        model = { "m" },
+        extract_usage = function(_)
+          return { total_tokens = 99 }
+        end,
+      })
+      assert.are.same({ total_tokens = 99 }, custom:extract_usage("anything"))
+    end)
+  end)
+
   describe("preprocess_payload", function()
     it("should trim whitespace from message content", function()
       local payload = {

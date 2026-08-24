@@ -16,6 +16,7 @@ local Job = require("plenary.job")
 ---@field preprocess_payload_func function
 ---@field process_stdout_func function
 ---@field process_onexit_func function
+---@field extract_usage_func function
 ---@field resolve_api_key_func function
 ---@field curl_params_func function
 ---@field get_available_models_func function
@@ -138,6 +139,47 @@ local defaults = {
     return nil
   end,
 
+  -- Pulls token counts out of a streamed chunk or a final response.
+  -- Fields are reported piecemeal by some APIs (Anthropic sends input tokens in
+  -- `message_start` and output tokens in `message_delta`), so any subset may be returned.
+  extract_usage = function(response)
+    if not response or response == "" then
+      return nil
+    end
+
+    local json_str = response:gsub("^data:%s*", "")
+    if json_str == "[DONE]" then
+      return nil
+    end
+
+    local success, decoded = pcall(vim.json.decode, json_str)
+    if not success or type(decoded) ~= "table" then
+      return nil
+    end
+
+    -- Gemini reports usage under a different key
+    local meta = decoded.usageMetadata
+    if type(meta) == "table" then
+      return {
+        prompt_tokens = meta.promptTokenCount,
+        completion_tokens = meta.candidatesTokenCount,
+        total_tokens = meta.totalTokenCount,
+      }
+    end
+
+    local usage = decoded.usage or (type(decoded.message) == "table" and decoded.message.usage)
+    if type(usage) ~= "table" then
+      return nil
+    end
+
+    return {
+      -- OpenAI-style names first, then Anthropic's, then the Responses API's
+      prompt_tokens = usage.prompt_tokens or usage.input_tokens,
+      completion_tokens = usage.completion_tokens or usage.output_tokens,
+      total_tokens = usage.total_tokens,
+    }
+  end,
+
   resolve_api_key = function(self, api_key)
     -- Allow api_key to be provided as a function that returns the key or table
     if type(api_key) == "function" then
@@ -255,6 +297,7 @@ function MultiProvider:new(config)
   self.preprocess_payload_func = config.preprocess_payload or defaults.preprocess_payload
   self.process_stdout_func = config.process_stdout or defaults.process_stdout
   self.process_onexit_func = config.process_onexit or defaults.process_onexit
+  self.extract_usage_func = config.extract_usage or defaults.extract_usage
   self.resolve_api_key_func = config.resolve_api_key or defaults.resolve_api_key
   self.get_available_models_func = config.get_available_models or defaults.get_available_models
 
@@ -474,6 +517,13 @@ end
 ---@param res string
 function MultiProvider:process_onexit(res)
   return self.process_onexit_func(res)
+end
+
+-- Extracts token usage from a streamed chunk or a final response
+---@param response string
+---@return table|nil # { prompt_tokens?, completion_tokens?, total_tokens? }
+function MultiProvider:extract_usage(response)
+  return self.extract_usage_func(response)
 end
 
 -- Returns the list of available models

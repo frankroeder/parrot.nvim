@@ -1,7 +1,6 @@
 local ChatHandler = require("parrot.chat_handler")
 local init_provider = require("parrot.provider").init_provider
 local utils = require("parrot.utils")
-local Spinner = require("parrot.spinner")
 local State = require("parrot.state")
 
 local M = {
@@ -59,6 +58,10 @@ local defaults = {
   command_prompt_prefix_template = "🤖 {{llm}} ~ ",
   command_auto_select_response = true,
   model_cache_expiry_hours = 48,
+  -- Notify about the token usage of each request, when the provider reports it.
+  -- OpenAI-compatible APIs only send usage while streaming if the request asks for
+  -- it, so also set `params.chat.stream_options = { include_usage = true }` there.
+  report_usage = false,
   fzf_lua_opts = {
     ["--ansi"] = true,
     ["--sort"] = "",
@@ -178,6 +181,16 @@ local defaults = {
       local status_info = parrot.get_status_info()
       local provider = status_info.is_chat and status_info.prov.chat or status_info.prov.command
       local status = string.format("%s (%s)", provider.name, status_info.model)
+      local usage = status_info.usage
+      if usage and usage.requests > 0 then
+        status = status
+          .. string.format(
+            " | chat: %d requests, %d tokens, %d in context",
+            usage.requests,
+            usage.tokens,
+            usage.context
+          )
+      end
       parrot.logger.info(string.format("Current provider: %s", status))
     end,
     -- PrtImplement rewrites the provided selection/range based on comments in it
@@ -212,9 +225,10 @@ local defaults = {
     end,
     -- PrtReloadCache reloads cached models for all or specific providers
     ReloadCache = function(parrot, params)
-      local provider = params.args ~= "" and params.args or nil  -- Optional provider name from command args
+      local provider = params.args ~= "" and params.args or nil -- Optional provider name from command args
       local state = parrot.chat_handler.state
-      local spinner = parrot.options.enable_spinner and require("parrot.spinner"):new(parrot.options.spinner_type) or nil
+      local spinner = parrot.options.enable_spinner and require("parrot.spinner"):new(parrot.options.spinner_type)
+        or nil
 
       -- Validate provider if specified
       if provider and not vim.tbl_contains(parrot.available_providers, provider) then
@@ -226,15 +240,18 @@ local defaults = {
       state:clear_cache(provider)
 
       -- Determine providers to reload (only available ones)
-      local providers_to_reload = provider and {provider} or parrot.available_providers
+      local providers_to_reload = provider and { provider } or parrot.available_providers
 
       -- Refetch models (similar to setup logic, only for available providers)
       for _, prov_name in ipairs(providers_to_reload) do
-        local _prov = require("parrot.provider").init_provider(vim.tbl_deep_extend("force", {name = prov_name}, parrot.providers[prov_name]))
+        local _prov = require("parrot.provider").init_provider(
+          vim.tbl_deep_extend("force", { name = prov_name }, parrot.providers[prov_name])
+        )
         if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours >= 0 then
           local endpoint_hash = require("parrot.utils").generate_endpoint_hash(_prov)
           parrot.logger.info("Reloading model cache for " .. prov_name)
-          local fresh_models = _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
+          local fresh_models =
+            _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
           parrot.available_models[prov_name] = fresh_models
         end
       end
@@ -347,15 +364,13 @@ function M.setup(opts)
       local endpoint_hash = utils.generate_endpoint_hash(_prov)
       local needs_update = not temp_state:is_cache_valid(prov_name, M.options.model_cache_expiry_hours, endpoint_hash)
 
-      -- Show spinner only for this provider if needed
-      local spinner = nil
-      if needs_update and M.options.enable_spinner then
-        spinner = Spinner:new(M.options.spinner_type)
+      -- No spinner here: stop/clear redraws and can fire statusline before chat_handler exists.
+      if needs_update then
         M.logger.info("Updating model cache for " .. prov_name)
       end
 
       available_models[prov_name] =
-        _prov:get_available_models_cached(temp_state, M.options.model_cache_expiry_hours, spinner)
+        _prov:get_available_models_cached(temp_state, M.options.model_cache_expiry_hours, nil)
     else
       -- Fall back to static models for providers without model_endpoint
       available_models[prov_name] = _prov.models
@@ -410,6 +425,16 @@ M.get_model = function(model_type)
 end
 
 M.get_status_info = function()
+  -- Spinner redraw during setup (model cache fetch) can trigger statusline
+  -- before chat_handler exists.
+  if not M.chat_handler then
+    return {
+      is_chat = false,
+      prov = { chat = { name = "" }, command = { name = "" } },
+      model = "",
+      usage = nil,
+    }
+  end
   return M.chat_handler:get_status_info()
 end
 

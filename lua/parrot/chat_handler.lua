@@ -10,14 +10,62 @@ local init_provider = require("parrot.provider").init_provider
 local Spinner = require("parrot.spinner")
 local Job = require("plenary.job")
 local pft = require("plenary.filetype")
+local scan = require("plenary.scandir")
 local ResponseHandler = require("parrot.response_handler")
 local PreviewResponseHandler = require("parrot.preview_response_handler")
 local insert_contexts = require("parrot.context").insert_contexts
 local Placeholders = require("parrot.placeholders")
+local Conversation = require("parrot.conversation")
+local Picker = require("parrot.picker")
 
 local ChatHandler = {}
 
 ChatHandler.__index = ChatHandler
+
+--- Strips blank lines and a surrounding markdown fence from a written response.
+---@param buf number # buffer the response was written into
+---@param fl number # 0-based first line of the response
+---@param ll number # 0-based last line of the response
+---@return number, number # the adjusted first and last line
+local function trim_response(buf, fl, ll)
+  local flc, llc
+  -- remove empty lines from the start and end of the response
+  while true do
+    flc = vim.api.nvim_buf_get_lines(buf, fl, fl + 1, false)[1]
+    llc = vim.api.nvim_buf_get_lines(buf, ll, ll + 1, false)[1]
+
+    if not flc or not llc then
+      break
+    end
+
+    local flm = flc:match("%S")
+    local llm = llc:match("%S")
+
+    -- break loop if both lines contain non-whitespace characters or lines are equal
+    if (flm and llm) or fl >= ll then
+      break
+    end
+
+    utils.undojoin(buf)
+    if not flm then
+      vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
+    else
+      vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
+    end
+    ll = ll - 1
+  end
+
+  -- if fl and ll start with triple backticks, remove these lines
+  if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
+    utils.undojoin(buf)
+    vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
+    utils.undojoin(buf)
+    vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
+    ll = ll - 2
+  end
+
+  return fl, ll
+end
 
 function ChatHandler:new(options, providers, available_providers, available_models, cmd)
   local state = State:new(options.state_dir)
@@ -43,6 +91,7 @@ function ChatHandler:new(options, providers, available_providers, available_mode
       context = 3,
     },
     _plugin_name = "parrot.nvim",
+    _chat_usage = {},
     state = state,
     history = {
       last_selection = nil,
@@ -55,13 +104,18 @@ function ChatHandler:new(options, providers, available_providers, available_mode
 end
 
 -- Retrieves status information about the current buffer.
----@return table { is_chat = boolean, prov = table | nil, model = string }
+---@return table { is_chat = boolean, prov = table | nil, model = string, usage = table | nil }
 function ChatHandler:get_status_info()
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
   local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
   local model_obj = self:get_model(is_chat and "chat" or "command")
-  return { is_chat = is_chat, prov = self.current_provider, model = model_obj.name }
+  return {
+    is_chat = is_chat,
+    prov = self.current_provider,
+    model = model_obj.name,
+    usage = is_chat and self:get_chat_usage(file_name) or nil,
+  }
 end
 
 --- Sets the current provider for chat or command.
@@ -258,20 +312,10 @@ function ChatHandler:prepare_commands()
     end
 
     local cmd = function(params)
-      -- template is chosen dynamically based on mode in which the command is called
       local template = self.options.template_command
       if params.range == 2 then
-        template = self.options.template_selection
-        -- rewrite needs custom template
-        if target == ui.Target.rewrite then
-          template = self.options.template_rewrite
-        end
-        if target == ui.Target.append then
-          template = self.options.template_append
-        end
-        if target == ui.Target.prepend then
-          template = self.options.template_prepend
-        end
+        local key = ui.template_key_for_target(target)
+        template = (key and self.options[key]) or self.options.template_selection
       end
       local cmd_prefix = Placeholders:render_from_list(
         self.options.command_prompt_prefix_template,
@@ -303,14 +347,16 @@ function ChatHandler:Cmd(params)
     end
 
     -- Prepare messages
-    local messages = {}
+    local conversation = Conversation:new()
     local sys_placeholders = Placeholders:new(model_obj.system_prompt, command, "", "", "", nil, nil)
-    local sys_prompt = sys_placeholders:return_render()
-    sys_prompt = sys_prompt or ""
+    local sys_prompt = sys_placeholders:return_render() or ""
+    if sys_prompt ~= "" then
+      conversation:add_system_message(sys_prompt)
+    end
 
     local user_placeholders = Placeholders:new(template, command, "", "", "", "", "")
     local user_prompt = user_placeholders:return_render()
-    table.insert(messages, { role = "user", content = user_prompt })
+    conversation:add_user_message(user_prompt)
 
     -- Call the model
     local spinner = nil
@@ -328,7 +374,7 @@ function ChatHandler:Cmd(params)
     self:query(
       nil,
       prov,
-      utils.prepare_payload(messages, model_obj.name, cmd_params),
+      utils.prepare_payload(conversation:get_messages(), model_obj.name, cmd_params),
       function(qid, chunk)
         if chunk then
           full_response = full_response .. chunk
@@ -753,15 +799,20 @@ function ChatHandler:chat_delete()
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
 
-  -- check if file is in the chat dir
-  if not utils.starts_with(file_name, self.options.chat_dir) then
+  -- check if file is in the chat dir (resolved paths: chat_dir may be a symlink)
+  if not utils.starts_with(utils.resolve_path(file_name), utils.resolve_path(self.options.chat_dir)) then
     logger.warning("File is not in expected chat dir", { file_name = file_name })
     return
+  end
+
+  local clear_usage = function()
+    self._chat_usage[utils.resolve_path(file_name)] = nil
   end
 
   -- delete without confirmation
   if not self.options.chat_confirm_delete then
     futils.delete_file(file_name, self.options.chat_dir)
+    clear_usage()
     return
   end
 
@@ -769,6 +820,7 @@ function ChatHandler:chat_delete()
   vim.ui.input({ prompt = "Delete " .. file_name .. "? [y/N] " }, function(input)
     if input and input:lower() == "y" then
       futils.delete_file(file_name, self.options.chat_dir)
+      clear_usage()
     end
   end)
 end
@@ -800,42 +852,17 @@ function ChatHandler:_chat_respond(params)
     return
   end
 
-  -- headers are fields before first message ---
-  local headers = {}
-  local header_end = nil
-  local line_idx = 0
-  ---parse headers
-  for _, line in ipairs(lines) do
-    -- first line starts with ---
-    if line:sub(1, 3) == "---" then
-      header_end = line_idx
-      break
-    end
-    -- parse header fields
-    local key, value = line:match("^[-#] (%w+): (.*)")
-    if key ~= nil then
-      headers[key] = value
-    end
-
-    line_idx = line_idx + 1
-  end
-
-  if header_end == nil then
-    logger.error("Error while parsing headers: --- not found. Check your chat template.")
+  local llm_prefix = self.options.llm_prefix
+  local conversation, headers = Conversation.from_chat_buffer(lines, {
+    user_prefix = self.options.chat_user_prefix,
+    llm_prefix = llm_prefix,
+    system_prompt = model_obj.system_prompt,
+    line1 = params.range == 2 and params.line1 or nil,
+    line2 = params.range == 2 and params.line2 or nil,
+  })
+  if not conversation then
+    logger.error(headers)
     return
-  end
-
-  -- message needs role and content
-  local messages = {}
-  local role = ""
-  local content = ""
-
-  -- iterate over lines
-  local start_index = header_end + 1
-  local end_index = #lines
-  if params.range == 2 then
-    start_index = math.max(start_index, params.line1)
-    end_index = math.min(end_index, params.line2)
   end
 
   if headers.system and headers.system:match("%S") then
@@ -846,42 +873,8 @@ function ChatHandler:_chat_respond(params)
   local query_prov = model_obj.provider
   query_prov:set_model(model_obj.name)
 
-  local llm_prefix = self.options.llm_prefix
-  local llm_suffix = "[{{llm}}]"
-  local provider = query_prov.name
-  ---@diagnostic disable-next-line: cast-local-type
-  ---
-  llm_suffix = Placeholders:render_from_list(llm_suffix, { ["{{llm}}"] = model_name .. " - " .. provider })
-
-  for index = start_index, end_index do
-    local line = lines[index]
-    if line:sub(1, #self.options.chat_user_prefix) == self.options.chat_user_prefix then
-      table.insert(messages, { role = role, content = content })
-      role = "user"
-      content = line:sub(#self.options.chat_user_prefix + 1)
-    elseif line:sub(1, #llm_prefix) == llm_prefix then
-      table.insert(messages, { role = role, content = content })
-      role = "assistant"
-      content = ""
-    elseif role ~= "" then
-      content = content .. "\n" .. line
-    end
-  end
-  -- insert last message not handled in loop
-  table.insert(messages, { role = role, content = content })
-
-  -- replace first empty message with system prompt
-  content = ""
-  if headers.system and headers.system:match("%S") then
-    content = headers.system
-  else
-    content = model_obj.system_prompt
-  end
-  if content:match("%S") then
-    -- make it multiline again if it contains escaped newlines
-    content = content:gsub("\\n", "\n")
-    messages[1] = { role = "system", content = content }
-  end
+  local llm_suffix =
+    Placeholders:render_from_list("[{{llm}}]", { ["{{llm}}"] = model_name .. " - " .. query_prov.name })
 
   -- write assistant prompt
   local last_content_line = utils.last_content_line(buf)
@@ -894,8 +887,8 @@ function ChatHandler:_chat_respond(params)
   end
 
   -- add completion context
-  for _, message in ipairs(messages) do
-    message.content = self.has_completion and insert_contexts(message.content) or message.content
+  if self.has_completion then
+    conversation:map_content(insert_contexts)
   end
 
   -- determine chat params or fallback to {}
@@ -914,7 +907,7 @@ function ChatHandler:_chat_respond(params)
   self:query(
     buf,
     query_prov,
-    utils.prepare_payload(messages, model_obj.name, chat_params),
+    utils.prepare_payload(conversation:get_messages(), model_obj.name, chat_params),
     response_handler:create_handler(),
     vim.schedule_wrap(function(qid)
       local qt = self.queries:get(qid)
@@ -951,12 +944,12 @@ function ChatHandler:_chat_respond(params)
         local cfg = self.providers[topic_prov.name] or {}
         if cfg.topic and cfg.topic.model then
           -- insert last model response and prepare new topic request
-          table.insert(messages, { role = "assistant", content = qt.response })
+          conversation:add_message("assistant", qt.response)
           local topic_prompt = self.options.topic_prompt or cfg.topic_prompt or ""
           if topic_prompt == "" then
             logger.warning("No global or provider topic_prompt set for " .. topic_prov.name)
           end
-          table.insert(messages, { role = "user", content = topic_prompt })
+          conversation:add_user_message(topic_prompt)
 
           -- prepare invisible buffer for the model to write to
           local topic_buf = vim.api.nvim_create_buf(false, true)
@@ -968,10 +961,11 @@ function ChatHandler:_chat_respond(params)
           if topic_spinner then
             topic_spinner:start("summarizing...", false) -- No progress tracking for short topic generation
           end
-          local topic_payload = utils.prepare_payload(messages, cfg.topic.model, cfg.topic.params or {})
+          local topic_payload =
+            utils.prepare_payload(conversation:get_messages(), cfg.topic.model, cfg.topic.params or {})
           logger.debug("ChatHandler:query topic generation", {
             location = "ChatHandler:query",
-            messages = messages,
+            messages = conversation:get_messages(),
             topic_prov = topic_prov,
             payload = topic_payload,
           })
@@ -1031,16 +1025,9 @@ function ChatHandler:chat_respond(params)
   end
 
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  local cur_index = #lines
-  while cur_index > 0 and n_requests > 0 do
-    if lines[cur_index]:sub(1, #self.options.chat_user_prefix) == self.options.chat_user_prefix then
-      n_requests = n_requests - 1
-    end
-    cur_index = cur_index - 1
-  end
 
   params.range = 2
-  params.line1 = cur_index + 1
+  params.line1 = Conversation.nth_last_user_line(lines, n_requests, self.options.chat_user_prefix)
   params.line2 = #lines
   self:_chat_respond(params)
 end
@@ -1158,57 +1145,22 @@ end
 ---@param params table Parameters for provider selection.
 function ChatHandler:provider(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-  local has_fzf, fzf_lua = pcall(require, "fzf-lua")
-  local has_telescope, telescope = pcall(require, "telescope")
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
   local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
 
   if prov_arg ~= "" then
     self:switch_provider(prov_arg, is_chat)
-  elseif has_fzf then
-    fzf_lua.fzf_exec(self.available_providers, {
-      prompt = "Provider selection ❯",
-      fzf_opts = self.options.fzf_lua_opts,
-      actions = {
-        ["default"] = function(selected)
-          self:switch_provider(selected[1], is_chat)
-        end,
-      },
-    })
-  elseif has_telescope then
-    local pickers = require("telescope.pickers")
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    local finders = require("telescope.finders")
-    local sorters = require("telescope.config")
-
-    pickers
-      .new({}, {
-        prompt_title = "Provider selection ❯",
-        finder = finders.new_table({
-          results = self.available_providers,
-        }),
-        sorter = sorters.values.generic_sorter({}),
-        attach_mappings = function(_, map)
-          local on_select = function(prompt_bufnr)
-            local selection = action_state.get_selected_entry(prompt_bufnr)
-            actions.close(prompt_bufnr)
-            self:switch_provider(selection.value, is_chat)
-          end
-          map("i", "<CR>", on_select)
-          map("n", "<CR>", on_select)
-          return true
-        end,
-      })
-      :find()
-  else
-    vim.ui.select(self.available_providers, {
-      prompt = "Select your provider:",
-    }, function(selected_prov)
-      self:switch_provider(selected_prov, is_chat)
-    end)
+    return
   end
+
+  Picker.select(
+    self.available_providers,
+    { prompt = "Provider selection", fzf_opts = self.options.fzf_lua_opts },
+    function(selected_prov)
+      self:switch_provider(selected_prov, is_chat)
+    end
+  )
 end
 
 -- Switches the model for chat or command.
@@ -1239,8 +1191,6 @@ function ChatHandler:model(params)
   local is_chat = utils.is_chat(buf, file_name, self.options.chat_dir)
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-  local has_fzf, fzf_lua = pcall(require, "fzf-lua")
-  local has_telescope, telescope = pcall(require, "telescope")
 
   -- Get models with caching support
   -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
@@ -1254,59 +1204,23 @@ function ChatHandler:model(params)
 
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
-  elseif has_fzf then
-    fzf_lua.fzf_exec(models, {
-      prompt = "Model selection ❯",
-      fzf_opts = self.options.fzf_lua_opts,
-      actions = {
-        ["default"] = function(selected)
-          if #selected == 0 then
-            logger.warning("No model selected")
-            return
-          end
-          local selected_model = selected[1]
-          self:switch_model(is_chat, selected_model, prov)
-        end,
-      },
-    })
-  elseif has_telescope then
-    local pickers = require("telescope.pickers")
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    local finders = require("telescope.finders")
-    local sorters = require("telescope.config")
-    pickers
-      .new({}, {
-        prompt_title = "Model selection",
-        finder = finders.new_table({
-          results = models,
-        }),
-        sorter = sorters.values.generic_sorter({}),
-        attach_mappings = function(_, map)
-          local on_select = function(prompt_bufnr)
-            local selected_entry = action_state.get_selected_entry()
-            actions.close(prompt_bufnr)
-            if not selected_entry then
-              logger.warning("No model selected")
-              return
-            end
-            local selected_model = selected_entry[1]
-            self:switch_model(is_chat, selected_model, prov)
-          end
-          map("i", "<CR>", on_select)
-          map("n", "<CR>", on_select)
-
-          return true
-        end,
-      })
-      :find()
-  else
-    vim.ui.select(models, {
-      prompt = "Select your model:",
-    }, function(selected_model)
-      self:switch_model(is_chat, selected_model, prov)
-    end)
+    return
   end
+
+  Picker.select(models, { prompt = "Model selection", fzf_opts = self.options.fzf_lua_opts }, function(selected_model)
+    self:switch_model(is_chat, selected_model, prov)
+  end)
+end
+
+--- Template string for the last inline target (rewrite/append/prepend).
+---@return string|nil
+function ChatHandler:template_for_last_target()
+  local key = ui.template_key_for_target(self.history.last_target)
+  if not key then
+    logger.error("Invalid last target", { last_target = self.history.last_target })
+    return nil
+  end
+  return self.options[key]
 end
 
 -- Retries the last command action.
@@ -1315,22 +1229,16 @@ function ChatHandler:retry(params)
   if self.history.last_line1 == nil and self.history.last_line2 == nil then
     return logger.error("No history available to retry", { history = self.history })
   end
+  local template = self:template_for_last_target()
+  if not template then
+    return
+  end
   vim.api.nvim_command("normal! u")
   logger.debug("ChatHandler:retry", { history = self.history })
   params.line1 = self.history.last_line1
   params.line2 = self.history.last_line2
   params.range = 2
   local model_obj = self:get_model("command")
-  local template = ""
-  if self.history.last_target == ui.Target.rewrite then
-    template = self.options.template_rewrite
-  elseif self.history.last_target == ui.Target.append then
-    template = self.options.template_append
-  elseif self.history.last_target == ui.Target.prepend then
-    template = self.options.template_prepend
-  else
-    logger.error("Invalid last target", { last_target = self.history.last_target })
-  end
   self:prompt(params, self.history.last_target, model_obj, nil, utils.trim(template), false)
 end
 
@@ -1340,22 +1248,16 @@ function ChatHandler:edit(params)
   if self.history.last_line1 == nil and self.history.last_line2 == nil then
     return logger.error("No history available to retry", { history = self.history })
   end
+  local template = self:template_for_last_target()
+  if not template then
+    return
+  end
   vim.api.nvim_command("normal! u")
-  logger.debug("ChatHandler:retry", { history = self.history })
+  logger.debug("ChatHandler:edit", { history = self.history })
   params.line1 = self.history.last_line1
   params.line2 = self.history.last_line2
   params.range = 2
   local model_obj = self:get_model("command")
-  local template = ""
-  if self.history.last_target == ui.Target.rewrite then
-    template = self.options.template_rewrite
-  elseif self.history.last_target == ui.Target.append then
-    template = self.options.template_append
-  elseif self.history.last_target == ui.Target.prepend then
-    template = self.options.template_prepend
-  else
-    logger.error("Invalid last target", { last_target = self.history.last_target })
-  end
 
   local input_function = self.options.user_input_ui == "buffer" and ui.input
     or self.options.user_input_ui == "native" and vim.ui.input
@@ -1416,35 +1318,10 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   if params.range == 2 then
     start_line = params.line1
     end_line = params.line2
-    local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
 
-    local min_indent = nil
-    local use_tabs = false
-    -- measure minimal common indentation for lines with content
-    for i, line in ipairs(lines) do
-      lines[i] = line
-      -- skip whitespace only lines
-      if not line:match("^%s*$") then
-        local indent = line:match("^%s*")
-        -- contains tabs
-        if indent:match("\t") then
-          use_tabs = true
-        end
-        if min_indent == nil or #indent < min_indent then
-          min_indent = #indent
-        end
-      end
-    end
-    if min_indent == nil then
-      min_indent = 0
-    end
-    prefix = string.rep(use_tabs and "\t" or " ", min_indent)
-
-    for i, line in ipairs(lines) do
-      lines[i] = line:sub(min_indent + 1)
-    end
-
-    selection = table.concat(lines, "\n")
+    local details = utils.get_selection_details(buf, start_line, end_line)
+    prefix = details.indent
+    selection = details.text
 
     if selection == "" then
       logger.warning("Please select some text to rewrite")
@@ -1477,52 +1354,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
         return
       end
 
-      local flc, llc
-      local fl = qt.first_line
-      local ll = qt.last_line
-      -- remove empty lines from the start and end of the response
-      while true do
-        -- get content of first_line and last_line
-        flc = vim.api.nvim_buf_get_lines(buf, fl, fl + 1, false)[1]
-        llc = vim.api.nvim_buf_get_lines(buf, ll, ll + 1, false)[1]
-
-        if not flc or not llc then
-          break
-        end
-
-        local flm = flc:match("%S")
-        local llm = llc:match("%S")
-
-        -- break loop if both lines contain non-whitespace characters
-        if flm and llm then
-          break
-        end
-
-        -- break loop lines are equal
-        if fl >= ll then
-          break
-        end
-
-        if not flm then
-          utils.undojoin(buf)
-          vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
-        else
-          utils.undojoin(buf)
-          vim.api.nvim_buf_set_lines(buf, ll, ll + 1, false, {})
-        end
-        ll = ll - 1
-      end
-
-      -- if fl and ll starts with triple backticks, remove these lines
-      if flc and llc and flc:match("^%s*```") and llc:match("^%s*```") then
-        -- remove first line with undojoin
-        utils.undojoin(buf)
-        vim.api.nvim_buf_set_lines(buf, fl, fl + 1, false, {})
-        -- remove last line
-        utils.undojoin(buf)
-        vim.api.nvim_buf_set_lines(buf, ll - 1, ll, false, {})
-        ll = ll - 2
-      end
+      local fl, ll = trim_response(buf, qt.first_line, qt.last_line)
       qt.first_line = fl
       qt.last_line = ll
 
@@ -1550,15 +1382,15 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
       end
 
       -- select from first_line to last_line
-      if vim.api.nvim_win_is_valid then
-        vim.api.nvim_win_set_cursor(0, { start + 1, 0 })
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_set_cursor(win, { start + 1, 0 })
         vim.api.nvim_command("normal! V")
-        vim.api.nvim_win_set_cursor(0, { finish + 1, 0 })
+        vim.api.nvim_win_set_cursor(win, { finish + 1, 0 })
       end
     end
 
     -- prepare messages
-    local messages = {}
+    local conversation = Conversation:new()
     local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
     local filename = vim.api.nvim_buf_get_name(buf)
     local prov = model_obj.provider
@@ -1577,7 +1409,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
           sys_prompt = sys_prompt,
         })
       end
-      table.insert(messages, { role = "system", content = sys_prompt })
+      conversation:add_system_message(sys_prompt)
     end
 
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
@@ -1585,7 +1417,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     local user_placeholders =
       Placeholders:new(template, command, selection, filetype, filename, filecontent, multifilecontent)
     local user_prompt = user_placeholders:return_render()
-    table.insert(messages, { role = "user", content = user_prompt })
+    conversation:add_user_message(user_prompt)
     logger.debug("ChatHandler:prompt - `user_prompt`: " .. user_prompt)
 
     -- cancel possible visual mode before calling the model
@@ -1604,14 +1436,14 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     end
 
     -- mode specific logic
-    if target == ui.Target.rewrite then
+    local inline_mode = ui.inline_target_names[target]
+    if inline_mode then
       if self.options.enable_preview_mode then
-        -- Use preview handler for rewrite operations
         local preview_handler = PreviewResponseHandler:new(
           self.queries,
           buf,
           win,
-          "rewrite",
+          inline_mode,
           start_line,
           end_line,
           prefix,
@@ -1626,71 +1458,23 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
         -- Custom on_exit to show preview
         on_exit = preview_handler:create_completion_handler()
       else
-        -- Traditional immediate application
-        vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
-        handler =
-          ResponseHandler
-            :new(self.queries, buf, win, start_line - 1, true, prefix, cursor and not self.options.chat_free_cursor)
-            :create_handler()
-      end
-    elseif target == ui.Target.append then
-      if self.options.enable_preview_mode then
-        -- Use preview handler for append operations
-        local preview_handler = PreviewResponseHandler:new(
-          self.queries,
-          buf,
-          win,
-          "append",
-          start_line,
-          end_line,
-          prefix,
-          self.options,
-          spinner,
-          self,
-          params,
-          model_obj,
-          template
-        )
-        handler = preview_handler:create_handler()
-        -- Custom on_exit to show preview
-        on_exit = preview_handler:create_completion_handler()
-      else
-        -- Traditional immediate application
-        vim.api.nvim_win_set_cursor(0, { end_line, 0 })
-        vim.api.nvim_put({ "" }, "l", true, true)
+        -- Traditional immediate application: make room and write at insert_line
+        local insert_line
+        if inline_mode == "rewrite" then
+          vim.api.nvim_buf_set_lines(buf, start_line - 1, end_line - 1, false, {})
+          insert_line = start_line - 1
+        elseif inline_mode == "append" then
+          vim.api.nvim_win_set_cursor(0, { end_line, 0 })
+          vim.api.nvim_put({ "" }, "l", true, true)
+          insert_line = end_line
+        else
+          vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+          vim.api.nvim_put({ "" }, "l", false, true)
+          insert_line = start_line - 1
+        end
         handler = ResponseHandler
-          :new(self.queries, buf, win, end_line, true, prefix, cursor and not self.options.chat_free_cursor)
+          :new(self.queries, buf, win, insert_line, true, prefix, cursor and not self.options.chat_free_cursor)
           :create_handler()
-      end
-    elseif target == ui.Target.prepend then
-      if self.options.enable_preview_mode then
-        -- Use preview handler for prepend operations
-        local preview_handler = PreviewResponseHandler:new(
-          self.queries,
-          buf,
-          win,
-          "prepend",
-          start_line,
-          end_line,
-          prefix,
-          self.options,
-          spinner,
-          self,
-          params,
-          model_obj,
-          template
-        )
-        handler = preview_handler:create_handler()
-        -- Custom on_exit to show preview
-        on_exit = preview_handler:create_completion_handler()
-      else
-        -- Traditional immediate application
-        vim.api.nvim_win_set_cursor(0, { start_line, 0 })
-        vim.api.nvim_put({ "" }, "l", false, true)
-        handler =
-          ResponseHandler
-            :new(self.queries, buf, win, start_line - 1, true, prefix, cursor and not self.options.chat_free_cursor)
-            :create_handler()
       end
     elseif target == ui.Target.popup then
       self:toggle_close(self._toggle_kind.popup)
@@ -1759,8 +1543,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     prov:set_model(model_obj.name)
 
     -- add completion context
-    for _, message in ipairs(messages) do
-      message.content = self.has_completion and insert_contexts(message.content) or message.content
+    if self.has_completion then
+      conversation:map_content(insert_contexts)
     end
 
     -- determine command params or fallback to {}
@@ -1769,7 +1553,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     self:query(
       nil,
       prov,
-      utils.prepare_payload(messages, model_obj.name, cmd_params),
+      utils.prepare_payload(conversation:get_messages(), model_obj.name, cmd_params),
       handler,
       vim.schedule_wrap(function(qid)
         local qt = self.queries:get(qid)
@@ -1821,6 +1605,71 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   end)
 end
 
+--- Running token totals of a chat file, accumulated over its requests.
+---@param file_name string Path of the chat file.
+---@return table # { requests = number, tokens = number, context = number }
+function ChatHandler:get_chat_usage(file_name)
+  local key = utils.resolve_path(file_name)
+  local acc = self._chat_usage[key]
+  if not acc then
+    acc = { requests = 0, tokens = 0, context = 0 }
+    self._chat_usage[key] = acc
+  end
+  return acc
+end
+
+--- Sums token fields from a finished query into per-chat totals when applicable.
+--- A chat re-sends its whole history every turn, so prompt tokens are not summed:
+--- `context` is the latest prompt size, `tokens` the cumulative billed total.
+---@param qid string Query id.
+---@param buf number|nil Buffer the query wrote into.
+---@return table|nil usage, number|nil total, table|nil chat_total
+function ChatHandler:accumulate_usage(qid, buf)
+  local qt = self.queries:get(qid)
+  local usage = qt and qt.usage
+  if not usage or next(usage) == nil then
+    return nil
+  end
+
+  local total = usage.total_tokens
+  if not total and usage.prompt_tokens and usage.completion_tokens then
+    total = usage.prompt_tokens + usage.completion_tokens
+  end
+
+  local chat_total = nil
+  local file_name = buf and vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf)
+  if file_name and utils.is_chat(buf, file_name, self.options.chat_dir) then
+    local acc = self:get_chat_usage(file_name)
+    acc.requests = acc.requests + 1
+    acc.tokens = acc.tokens + (total or 0)
+    acc.context = usage.prompt_tokens or acc.context
+    chat_total = acc
+  end
+
+  return usage, total, chat_total
+end
+
+--- Accumulates usage, then notifies when `report_usage` is enabled.
+---@param qid string Query id.
+---@param buf number|nil Buffer the query wrote into.
+function ChatHandler:report_usage(qid, buf)
+  local usage, total, chat_total = self:accumulate_usage(qid, buf)
+  if not usage or not self.options.report_usage then
+    return
+  end
+
+  local msg = string.format(
+    "Token usage: %s prompt, %s completion, %s total",
+    usage.prompt_tokens or "?",
+    usage.completion_tokens or "?",
+    total or "?"
+  )
+  if chat_total then
+    msg = msg .. string.format(" | chat: %d requests, %d tokens", chat_total.requests, chat_total.tokens)
+  end
+  logger.info(msg)
+end
+
 function ChatHandler:query(buf, provider, payload, handler, on_exit)
   -- make sure handler is a function
   if type(handler) ~= "function" then
@@ -1854,7 +1703,23 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     ns_id = nil,
     ex_id = nil,
     error_occurred = false,
+    usage = {},
   })
+
+  -- Merge the token counts a chunk reports; APIs may send them in several pieces.
+  local collect_usage = function(raw)
+    local qt = self.queries:get(qid)
+    if not qt or not provider.extract_usage then
+      return
+    end
+    local usage = provider:extract_usage(raw)
+    if not usage then
+      return
+    end
+    for key, value in pairs(usage) do
+      qt.usage[key] = value
+    end
+  end
 
   self.queries:cleanup(8, 60)
 
@@ -1906,6 +1771,9 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       local result = response:result()
       result = utils.parse_raw_response(result)
 
+      collect_usage(result)
+      self:report_usage(qid, buf)
+
       local exit_content = provider:process_onexit(result)
       if exit_content then
         local qt = self.queries:get(qid)
@@ -1943,6 +1811,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       local lines = vim.split(data, "\n")
       for _, line in ipairs(lines) do
         local raw_json = string.gsub(line, "^data:", "")
+        collect_usage(raw_json)
         local content = provider:process_stdout(raw_json)
         if type(content) == "string" and #content > 0 then
           qt.response = qt.response .. content

@@ -136,6 +136,16 @@ M.starts_with = function(str, start)
   return str:sub(1, #start) == start
 end
 
+-- Expand a path to its absolute form with symlinks resolved.
+---@param path string
+---@return string
+M.resolve_path = function(path)
+  if type(path) ~= "string" or path == "" then
+    return ""
+  end
+  return vim.fn.resolve(vim.fn.fnamemodify(path, ":p"))
+end
+
 -- Check if a string ends with a given substring.
 ---@param str string # string to check
 ---@param ending string # string to check for
@@ -183,6 +193,39 @@ M.undojoin = function(buf)
     return false
   end
   return true
+end
+
+-- Extract a line range as dedented text plus the common indentation that was stripped.
+---@param buf number # buffer number
+---@param line1 number # 1-based first line of the range
+---@param line2 number # 1-based last line of the range
+---@return table # { text = string, indent = string }
+M.get_selection_details = function(buf, line1, line2)
+  local lines = vim.api.nvim_buf_get_lines(buf, line1 - 1, line2, false)
+
+  -- measure minimal common indentation of lines with content
+  local min_indent, use_tabs = nil, false
+  for _, line in ipairs(lines) do
+    if not line:match("^%s*$") then
+      local indent = line:match("^%s*")
+      if indent:match("\t") then
+        use_tabs = true
+      end
+      if min_indent == nil or #indent < min_indent then
+        min_indent = #indent
+      end
+    end
+  end
+  min_indent = min_indent or 0
+
+  for i, line in ipairs(lines) do
+    lines[i] = line:sub(min_indent + 1)
+  end
+
+  return {
+    text = table.concat(lines, "\n"),
+    indent = string.rep(use_tabs and "\t" or " ", min_indent),
+  }
 end
 
 -- Prepare the payload for a model request.
@@ -267,7 +310,9 @@ M.is_chat = function(buf, file_name, chat_dir)
     return false
   end
 
-  if not M.starts_with(file_name, chat_dir) then
+  -- Compare resolved paths: a buffer name is the real path, so a chat_dir behind a
+  -- symlink (e.g. /tmp on macOS) would never match a plain prefix comparison.
+  if not M.starts_with(M.resolve_path(file_name), M.resolve_path(chat_dir)) then
     return false
   end
 

@@ -37,6 +37,28 @@ M.Target = {
   end,
 }
 
+-- Targets that write into the current buffer around the selection, by the name
+-- the response handlers use for them.
+M.inline_targets = {
+  rewrite = M.Target.rewrite,
+  append = M.Target.append,
+  prepend = M.Target.prepend,
+}
+
+-- The reverse lookup of `M.inline_targets`.
+M.inline_target_names = {}
+for name, target in pairs(M.inline_targets) do
+  M.inline_target_names[target] = name
+end
+
+--- Template option key for an inline target (rewrite/append/prepend), or nil.
+---@param target number
+---@return string|nil
+function M.template_key_for_target(target)
+  local mode = M.inline_target_names[target]
+  return mode and ("template_" .. mode) or nil
+end
+
 M.BufTarget = {
   current = 0, -- current window
   popup = 1, -- popup window

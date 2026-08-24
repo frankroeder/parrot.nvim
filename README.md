@@ -385,6 +385,12 @@ to consider a visual selection within an API request.
     -- Set to 0 to deactive model caching
     model_cache_expiry_hours = 48,
 
+    -- Notify about the token usage of each request, when the provider reports it.
+    -- OpenAI-compatible APIs only send usage while streaming if the request asks
+    -- for it, so also set `params.chat.stream_options = { include_usage = true }`
+    -- for those providers. Anthropic and Gemini report usage by default.
+    report_usage = false,
+
     -- fzf_lua options for PrtModel and PrtChatFinder when plugin is installed
     fzf_lua_opts = {
         ["--ansi"] = true,
@@ -1025,6 +1031,19 @@ or have suggestions for improving provider support.
         local success, decoded = pcall(vim.json.decode, response)
         if success and decoded.content then
           return decoded.content
+        end
+      end,
+      -- Custom token usage extraction (used when `report_usage = true`).
+      -- Called for every streamed chunk and the final response; return any
+      -- subset of the fields, they get merged across chunks.
+      extract_usage = function(response)
+        local success, decoded = pcall(vim.json.decode, response)
+        if success and decoded.tokens then
+          return {
+            prompt_tokens = decoded.tokens.input,
+            completion_tokens = decoded.tokens.output,
+            total_tokens = decoded.tokens.total,
+          }
         end
       end,
     },
