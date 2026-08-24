@@ -227,7 +227,14 @@ describe("parrot.acp.client", function()
       end
       local models = acp_client.fetch_models_from_cli({ "grok" })
       assert.is_true(#models > 0)
-      assert.is_true(vim.tbl_contains(models, "grok-build") or vim.tbl_contains(models, "grok-composer-2.5-fast"))
+      local has_grok = false
+      for _, id in ipairs(models) do
+        if id:match("^grok%-") then
+          has_grok = true
+          break
+        end
+      end
+      assert.is_true(has_grok, "expected grok-* model ids, got: " .. vim.inspect(models))
     end)
   end)
 end)

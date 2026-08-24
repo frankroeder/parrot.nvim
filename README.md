@@ -386,6 +386,12 @@ to consider a visual selection within an API request.
     -- Set to 0 to deactive model caching
     model_cache_expiry_hours = 48,
 
+    -- Notify about the token usage of each request, when the provider reports it.
+    -- OpenAI-compatible APIs only send usage while streaming if the request asks
+    -- for it, so also set `params.chat.stream_options = { include_usage = true }`
+    -- for those providers. Anthropic and Gemini report usage by default.
+    report_usage = false,
+
     -- fzf_lua options for PrtModel and PrtChatFinder when plugin is installed
     fzf_lua_opts = {
         ["--ansi"] = true,
@@ -596,7 +602,7 @@ providers = {
 providers = {
   xai = {
     name = "xai",
-    endpoint = "https://api.x.ai/v1/chat/completions",
+    endpoint = "https://api.x.ai/v1/responses",
     model_endpoint = "https://api.x.ai/v1/language-models",
     api_key = os.getenv "XAI_API_KEY",
     params = {
@@ -604,12 +610,13 @@ providers = {
       command = { temperature = 1.1, top_p = 1 },
     },
     topic = {
-      model = "grok-3-mini-beta",
-      params = { max_completion_tokens = 64 },
+      model = "grok-4.3",
+      params = { max_output_tokens = 64 },
     },
     models = {
-      "grok-3-beta",
-      "grok-3-mini-beta",
+      "grok-4.3",
+      "grok-4.5",
+      "grok-4.20",
     },
   },
 }
@@ -622,8 +629,9 @@ providers = {
 Use the [Grok Build CLI](https://docs.x.ai/build/overview) as a provider through the
 [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction).
 This routes chat, inline edits (`PrtRewrite`, etc.), and slash commands through
-`grok agent stdio` instead of direct HTTP API calls. Models are listed via
-`grok models` and `:PrtModel`.
+`grok agent stdio` instead of direct HTTP API calls. `:PrtModel` uses `grok models`
+when online. `grok-build` stays valid for `grok agent -m grok-build stdio` even
+when it is not in that CLI list.
 
 Install the CLI from https://x.ai/cli, then authenticate with `grok login` or
 `XAI_API_KEY`.
@@ -635,7 +643,7 @@ providers = {
     name = "grok",
     command = { "grok", "agent", "stdio" },
     cli_command = { "grok" },
-    models = { "grok-composer-2.5-fast", "grok-build" },
+    models = { "grok-4.6", "grok-build" },
     always_approve = false, -- set true to skip ACP permission prompts
     resume_session = true,  -- resume the last Grok ACP session for this git repo (default)
   },
@@ -1104,6 +1112,19 @@ or have suggestions for improving provider support.
         local success, decoded = pcall(vim.json.decode, response)
         if success and decoded.content then
           return decoded.content
+        end
+      end,
+      -- Custom token usage extraction (used when `report_usage = true`).
+      -- Called for every streamed chunk and the final response; return any
+      -- subset of the fields, they get merged across chunks.
+      extract_usage = function(response)
+        local success, decoded = pcall(vim.json.decode, response)
+        if success and decoded.tokens then
+          return {
+            prompt_tokens = decoded.tokens.input,
+            completion_tokens = decoded.tokens.output,
+            total_tokens = decoded.tokens.total,
+          }
         end
       end,
     },

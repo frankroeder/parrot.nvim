@@ -281,6 +281,62 @@ describe("MultiProvider", function()
 
       assert.is_nil(result)
     end)
+
+    it("should extract content from Responses API output_text delta", function()
+      local input =
+        'data: {"type":"response.output_text.delta","item_id":"msg_123","output_index":0,"content_index":0,"delta":" Hello"}'
+
+      local result = provider:process_stdout(input)
+
+      assert.equals(" Hello", result)
+    end)
+  end)
+
+  describe("extract_usage", function()
+    it("should extract OpenAI-style usage", function()
+      local input = 'data: {"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}'
+
+      assert.are.same({ prompt_tokens = 10, completion_tokens = 5, total_tokens = 15 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Anthropic input tokens from message_start", function()
+      local input = 'data: {"type":"message_start","message":{"usage":{"input_tokens":42}}}'
+
+      assert.are.same({ prompt_tokens = 42 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Anthropic output tokens from message_delta", function()
+      local input = 'data: {"type":"message_delta","usage":{"output_tokens":7}}'
+
+      assert.are.same({ completion_tokens = 7 }, provider:extract_usage(input))
+    end)
+
+    it("should extract Gemini usageMetadata", function()
+      local input = '{"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":4,"totalTokenCount":7}}'
+
+      assert.are.same({ prompt_tokens = 3, completion_tokens = 4, total_tokens = 7 }, provider:extract_usage(input))
+    end)
+
+    it("should return nil for chunks without usage", function()
+      assert.is_nil(provider:extract_usage('data: {"choices":[{"delta":{"content":"hi"}}]}'))
+      assert.is_nil(provider:extract_usage("data: [DONE]"))
+      assert.is_nil(provider:extract_usage("not json"))
+      assert.is_nil(provider:extract_usage(""))
+      assert.is_nil(provider:extract_usage(nil))
+    end)
+
+    it("should be overridable per provider", function()
+      local custom = MultiProvider:new({
+        name = "custom",
+        endpoint = "https://api.test.com",
+        api_key = "key",
+        model = { "m" },
+        extract_usage = function(_)
+          return { total_tokens = 99 }
+        end,
+      })
+      assert.are.same({ total_tokens = 99 }, custom:extract_usage("anything"))
+    end)
   end)
 
   describe("preprocess_payload", function()
@@ -335,6 +391,56 @@ describe("MultiProvider", function()
 
       local result = provider:preprocess_payload(input)
       assert.are.same(result, expected)
+    end)
+
+    it("should use input for /responses endpoints", function()
+      local responses_provider = MultiProvider:new({
+        name = "xai",
+        endpoint = "https://api.x.ai/v1/responses",
+        api_key = "test_api_key",
+        model = { "grok-4.5" },
+      })
+
+      local result = responses_provider:preprocess_payload({
+        messages = {
+          { role = "system", content = "  You are Grok.  " },
+          { role = "user", content = " Hi " },
+        },
+        model = "grok-4.5",
+        stream = true,
+        temperature = 1.1,
+        top_p = 1,
+        max_output_tokens = 64,
+      })
+
+      assert.is_nil(result.messages)
+      assert.equals(64, result.max_output_tokens)
+      assert.equals("You are Grok.", result.input[1].content)
+      assert.equals("Hi", result.input[2].content)
+      assert.equals("grok-4.5", result.model)
+    end)
+  end)
+
+  describe("process_onexit responses", function()
+    it("should extract text from Responses API output", function()
+      local input = vim.json.encode({
+        id = "resp_123",
+        object = "response",
+        status = "completed",
+        output = {
+          {
+            type = "message",
+            role = "assistant",
+            content = {
+              { type = "output_text", text = "Hello from responses" },
+            },
+          },
+        },
+      })
+
+      local result = provider:process_onexit(input)
+
+      assert.equals("Hello from responses", result)
     end)
   end)
 

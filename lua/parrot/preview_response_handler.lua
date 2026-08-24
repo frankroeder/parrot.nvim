@@ -78,16 +78,20 @@ end
 --- Captures the original content that will be modified
 function PreviewResponseHandler:capture_original_content()
   if self.target_type == "rewrite" then
-    -- For rewrite, capture the selected lines
     local lines = vim.api.nvim_buf_get_lines(self.buffer, self.start_line - 1, self.end_line, false)
     self.original_content = table.concat(lines, "\n")
-  elseif self.target_type == "append" then
-    -- For append, original content is empty (we're adding after)
-    self.original_content = ""
-  elseif self.target_type == "prepend" then
-    -- For prepend, original content is empty (we're adding before)
+  else
+    -- append and prepend only add lines, so nothing is being replaced
     self.original_content = ""
   end
+end
+
+--- The response split into lines, each carrying the selection's indentation
+---@return table
+function PreviewResponseHandler:prefixed_lines()
+  return vim.tbl_map(function(line)
+    return self.prefix .. line
+  end, vim.split(self.response, "\n"))
 end
 
 --- Handles a chunk of response
@@ -153,22 +157,7 @@ end
 --- Prepares the new content based on target type
 ---@return string
 function PreviewResponseHandler:prepare_new_content()
-  local response_lines = vim.split(self.response, "\n")
-  local prefixed_lines = vim.tbl_map(function(line)
-    return self.prefix .. line
-  end, response_lines)
-
-  if self.target_type == "rewrite" then
-    return table.concat(prefixed_lines, "\n")
-  elseif self.target_type == "append" then
-    -- For append, show what will be added
-    return table.concat(prefixed_lines, "\n")
-  elseif self.target_type == "prepend" then
-    -- For prepend, show what will be added
-    return table.concat(prefixed_lines, "\n")
-  end
-
-  return self.response
+  return table.concat(self:prefixed_lines(), "\n")
 end
 
 --- Applies the changes to the buffer
@@ -180,31 +169,26 @@ function PreviewResponseHandler:apply_changes()
     response_length = #self.response,
   })
 
-  local response_lines = vim.split(self.response, "\n")
-  local prefixed_lines = vim.tbl_map(function(line)
-    return self.prefix .. line
-  end, response_lines)
+  local lines = self:prefixed_lines()
 
-  -- Apply changes based on target type
+  -- rewrite replaces the selection; append/prepend insert at an edge
+  local from, to, cursor
   if self.target_type == "rewrite" then
-    -- Replace the selected lines
-    vim.api.nvim_buf_set_lines(self.buffer, self.start_line - 1, self.end_line, false, prefixed_lines)
+    from, to = self.start_line - 1, self.end_line
+    cursor = self.start_line + #lines - 1
   elseif self.target_type == "append" then
-    -- Insert lines after the selection
-    vim.api.nvim_buf_set_lines(self.buffer, self.end_line, self.end_line, false, prefixed_lines)
+    from, to = self.end_line, self.end_line
+    cursor = self.end_line + #lines
   elseif self.target_type == "prepend" then
-    -- Insert lines before the selection
-    vim.api.nvim_buf_set_lines(self.buffer, self.start_line - 1, self.start_line - 1, false, prefixed_lines)
+    from, to = self.start_line - 1, self.start_line - 1
+    cursor = self.start_line + #lines - 1
+  else
+    logger.error("PreviewResponseHandler: unknown target_type", { target_type = self.target_type })
+    return
   end
 
-  -- Position cursor appropriately
-  if self.target_type == "rewrite" then
-    utils.cursor_to_line(self.start_line + #prefixed_lines - 1, self.buffer, self.window)
-  elseif self.target_type == "append" then
-    utils.cursor_to_line(self.end_line + #prefixed_lines, self.buffer, self.window)
-  elseif self.target_type == "prepend" then
-    utils.cursor_to_line(self.start_line + #prefixed_lines - 1, self.buffer, self.window)
-  end
+  vim.api.nvim_buf_set_lines(self.buffer, from, to, false, lines)
+  utils.cursor_to_line(cursor, self.buffer, self.window)
 
   -- Fire completion event
   vim.cmd("doautocmd User PrtPreviewApplied")
@@ -224,12 +208,7 @@ function PreviewResponseHandler:reject_changes()
 
     -- Get the target from the target_type
     local ui = require("parrot.ui")
-    local target = ui.Target.rewrite
-    if self.target_type == "append" then
-      target = ui.Target.append
-    elseif self.target_type == "prepend" then
-      target = ui.Target.prepend
-    end
+    local target = ui.inline_targets[self.target_type] or ui.Target.rewrite
 
     -- Get the last command from history
     local last_command = self.chat_handler.history.last_command or ""

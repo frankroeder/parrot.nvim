@@ -15,7 +15,7 @@ AcpProvider.__index = AcpProvider
 local defaults = {
   command = { "grok", "agent", "stdio" },
   cli_command = { "grok" },
-  models = { "grok-composer-2.5-fast" },
+  models = { "grok-4.6", "grok-build" },
   always_approve = false,
   show_thoughts = false,
   no_auto_update = false,
@@ -133,7 +133,9 @@ end
 function AcpProvider:get_available_models(callback)
   local runtime = self._config._runtime_models
   if runtime and #runtime > 0 then
-    if callback then callback(runtime) end
+    if callback then
+      callback(runtime)
+    end
     return runtime
   end
   if callback then
@@ -170,20 +172,28 @@ function AcpProvider:get_available_models_cached(state, cache_expiry_hours, spin
   local cached_models = state:get_cached_models(self.name, cache_expiry_hours, endpoint_hash)
   if cached_models then
     refresh_slash_async(callback)
-    if callback then callback(cached_models) end
+    if callback then
+      callback(cached_models)
+    end
     return cached_models
   end
 
   local function finish(fresh)
-    if spinner then spinner:stop() end
-    if not fresh or #fresh == 0 then fresh = self.models end
+    if spinner then
+      spinner:stop()
+    end
+    if not fresh or #fresh == 0 then
+      fresh = self.models
+    end
     if #fresh > 0 and not vim.deep_equal(fresh, self.models) then
       state:set_cached_models(self.name, fresh, endpoint_hash)
       state:save()
     end
     refresh_slash_async(callback)
     local out = fresh
-    if callback then callback(out) end
+    if callback then
+      callback(out)
+    end
     return out
   end
 
@@ -194,8 +204,12 @@ function AcpProvider:get_available_models_cached(state, cache_expiry_hours, spin
         refresh_slash_async(callback)
         return finish(self.models)
       end
-      if spinner then spinner:start("Fetching models for " .. self.name .. "...") end
-      self:get_available_models(function(mods) finish(mods) end)
+      if spinner then
+        spinner:start("Fetching models for " .. self.name .. "...")
+      end
+      self:get_available_models(function(mods)
+        finish(mods)
+      end)
     end)
     return {}
   end
@@ -212,10 +226,13 @@ end
 
 ---@param opts table
 function AcpProvider:prompt(opts)
-  acp_client.prompt(self._config, vim.tbl_extend("force", opts, {
-    model = self._model,
-    state = opts.state,
-  }))
+  acp_client.prompt(
+    self._config,
+    vim.tbl_extend("force", opts, {
+      model = self._model,
+      state = opts.state,
+    })
+  )
 end
 
 ---@param qid string

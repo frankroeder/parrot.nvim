@@ -68,15 +68,14 @@ describe("context", function()
     end)
 
     it("should correctly handle buffers", function()
-      local buf_id = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, {
-        "local test_buffer_content = 'this is a buffer'",
-        "print(test_buffer_content)",
-      })
-      local buf_name = vim.fn.fnamemodify("test/buffer.lua", ":p")
-      vim.api.nvim_buf_set_name(buf_id, buf_name)
-      vim.api.nvim_set_current_buf(buf_id)
-      -- Note: avoid vim.cmd("edit *.lua") to prevent nvim treesitter ftplugin query error on lua FileType
+      local lines = { "local test_buffer_content = 'this is a buffer'", "print(test_buffer_content)" }
+      local path = vim.fn.fnamemodify("test/buffer.lua", ":p")
+      vim.fn.writefile(lines, path)
+      -- Create buffer without :edit to avoid FileType/treesitter ftplugin errors on nvim 0.12+
+      local buf_id = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(buf_id, path)
+      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+      local buf_name = vim.api.nvim_buf_get_name(buf_id)
       local result_current_buffer = context.insert_contexts("@buffer:" .. buf_name)
       local buf_content = table.concat(vim.api.nvim_buf_get_lines(buf_id, 0, -1, false), "\n")
       local expected = "\n\n" .. buf_name .. "\n```lua\n" .. buf_content .. "\n```"

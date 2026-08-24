@@ -46,6 +46,22 @@ describe("ui", function()
     end)
   end)
 
+  describe("inline targets", function()
+    it("should map rewrite/append/prepend both ways", function()
+      assert.are.equal(ui.Target.rewrite, ui.inline_targets.rewrite)
+      assert.are.equal("rewrite", ui.inline_target_names[ui.Target.rewrite])
+      assert.are.equal("append", ui.inline_target_names[ui.Target.append])
+      assert.are.equal("prepend", ui.inline_target_names[ui.Target.prepend])
+    end)
+
+    it("should resolve template option keys", function()
+      assert.are.equal("template_rewrite", ui.template_key_for_target(ui.Target.rewrite))
+      assert.are.equal("template_append", ui.template_key_for_target(ui.Target.append))
+      assert.are.equal("template_prepend", ui.template_key_for_target(ui.Target.prepend))
+      assert.is_nil(ui.template_key_for_target(ui.Target.popup))
+    end)
+  end)
+
   -- describe("input", function()
   --   it("should call on_confirm with the input text", function()
   --     local on_confirm_called = false
