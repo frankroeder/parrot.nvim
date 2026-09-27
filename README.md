@@ -782,6 +782,38 @@ Create the API key at https://app.everyapi.ai. The same key works for every
 upstream model EveryAPI proxies — no per-provider rotation.
 </details>
 
+<details>
+<summary>Tsubasa (preview configuration)</summary>
+
+[Tsubasa](https://tsubasa.sh) uses the OpenAI Chat Completions format. Its public
+service is currently website-only: this configuration requires an enabled
+inference endpoint and a valid `TSUBASA_API_KEY`. Live inference has not been
+qualified for this example.
+
+Add this provider to your `setup` options. The static model list avoids a model
+discovery request during startup. Chat titles use the smaller output limit.
+
+```lua
+providers = {
+  tsubasa = {
+    name = "tsubasa",
+    endpoint = "https://api.tsubasa.sh/v1/chat/completions",
+    api_key = os.getenv("TSUBASA_API_KEY"),
+    models = { "tsubasa-pro", "tsubasa-fast" },
+    params = {
+      chat = { max_tokens = 4096 },
+      command = { max_tokens = 4096 },
+    },
+    topic = { model = "tsubasa-fast", params = { max_tokens = 64 } },
+  },
+},
+```
+
+Select `:PrtProvider tsubasa`, open `:PrtChatNew`, then choose
+`:PrtModel tsubasa-pro` or `:PrtModel tsubasa-fast` inside the chat buffer. The
+same model command outside a chat buffer selects the model for editing commands.
+</details>
+
 ### Adding a new command
 
 #### Ask a single-turn question and receive the answer in a popup window
