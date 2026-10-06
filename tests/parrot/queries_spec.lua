@@ -1,5 +1,4 @@
 local Queries = require("parrot.queries")
-local async = require("plenary.async")
 local logger = require("parrot.logger")
 
 describe("Queries", function()
@@ -11,75 +10,63 @@ describe("Queries", function()
 
   describe("add and get", function()
     it("should add and retrieve a query", function()
-      async.run(function()
-        local query_data = { content = "Test query", timestamp = os.time() }
-        queries:add(1, query_data)
-        assert.are.same(query_data, queries:get(1))
-      end)
+      local query_data = { content = "Test query", timestamp = os.time() }
+      queries:add(1, query_data)
+      assert.are.same(query_data, queries:get(1))
     end)
 
     it("should return nil for non-existent query", function()
-      async.run(function()
-        assert.is_nil(queries:get(999))
-      end)
+      assert.is_nil(queries:get(999))
     end)
   end)
 
   describe("delete", function()
     it("should delete a query", function()
-      async.run(function()
-        queries:add(1, { content = "Test query" })
-        queries:delete(1)
-        assert.is_nil(queries:get(1))
-      end)
+      queries:add(1, { content = "Test query" })
+      queries:delete(1)
+      assert.is_nil(queries:get(1))
     end)
   end)
 
   describe("pairs", function()
     it("should iterate over all queries", function()
-      async.run(function()
-        queries:add(1, { content = "Query 1" })
-        queries:add(2, { content = "Query 2" })
+      queries:add(1, { content = "Query 1" })
+      queries:add(2, { content = "Query 2" })
 
-        local count = 0
-        for _, query in queries:pairs() do
-          count = count + 1
-          assert.is_not_nil(query.content)
-        end
-        assert.equals(2, count)
-      end)
+      local count = 0
+      for _, query in queries:pairs() do
+        count = count + 1
+        assert.is_not_nil(query.content)
+      end
+      assert.equals(2, count)
     end)
   end)
 
   describe("cleanup", function()
     it("should remove old queries", function()
-      async.run(function()
-        local current_time = os.time()
-        queries:add(1, { content = "Old query", timestamp = current_time - 100 })
-        queries:add(2, { content = "New query", timestamp = current_time })
+      local current_time = os.time()
+      queries:add(1, { content = "Old query", timestamp = current_time - 100 })
+      queries:add(2, { content = "New query", timestamp = current_time })
 
-        queries:cleanup(1, 50)
+      queries:cleanup(1, 50)
 
-        assert.is_nil(queries:get(1))
-        assert.is_not_nil(queries:get(2))
-      end)
+      assert.is_nil(queries:get(1))
+      assert.is_not_nil(queries:get(2))
     end)
 
     it("should keep N most recent queries", function()
-      async.run(function()
-        local current_time = os.time()
-        for i = 1, 5 do
-          queries:add(i, { content = "Query " .. i, timestamp = current_time - i })
-        end
+      local current_time = os.time()
+      for i = 1, 5 do
+        queries:add(i, { content = "Query " .. i, timestamp = current_time - i })
+      end
 
-        queries:cleanup(3, 3)
+      queries:cleanup(3, 3)
 
-        local count = 0
-        for _ in queries:pairs() do
-          count = count + 1
-        end
-        assert.equals(3, count)
-      end)
+      local count = 0
+      for _ in queries:pairs() do
+        count = count + 1
+      end
+      assert.equals(3, count)
     end)
   end)
 end)

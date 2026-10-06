@@ -15,12 +15,6 @@ function M.check()
     vim.health.info("require('telescope') failed")
   end
 
-  if vim.F.npcall(require, "plenary") then
-    vim.health.ok("require('plenary') succeeded")
-  else
-    vim.health.info("require('plenary') failed")
-  end
-
   local ok, parrot = pcall(require, "parrot")
   if not ok then
     vim.health.error("require('parrot') failed")

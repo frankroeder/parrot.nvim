@@ -714,6 +714,16 @@ describe("MultiProvider", function()
       assert.equals("30", params[4])
     end)
 
+    it("should reject curl_params with holes or non-string entries", function()
+      for _, bad in ipairs({ { "--max-time", nil, "30" }, { "--insecure", true }, { x = "y" }, "--insecure" }) do
+        assert.has_error(function()
+          MultiProvider:new({ name = "bad", endpoint = "https://api.test.com/v1/chat", api_key = "k", model = "m", curl_params = bad })
+        end)
+      end
+      local ok = MultiProvider:new({ name = "ok", endpoint = "https://api.test.com/v1/chat", api_key = "k", model = "m", curl_params = { "--max-time", 30 } })
+      assert.equals(30, ok._curl_params[2])
+    end)
+
     it("should work without curl_params when not provided", function()
       local provider_without_params = MultiProvider:new({
         name = "test-no-curl-params",

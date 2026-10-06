@@ -177,7 +177,6 @@ describe("ChatHandler classic query path (MultiProvider)", function()
   local handler
   local chat_dir
   local MultiProvider = require("parrot.provider.multi_provider")
-  local Job = require("plenary.job")
 
   local function make_classic_handler()
     local providers = {
@@ -212,7 +211,7 @@ describe("ChatHandler classic query path (MultiProvider)", function()
     vim.fn.delete(chat_dir, "rf")
   end)
 
-  it("drives the post-guard curl/Job block for !acp MultiProvider", function()
+  it("drives the post-guard curl/vim.system block for !acp MultiProvider", function()
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_name(buf, chat_dir .. "/classic.md")
 
@@ -224,26 +223,21 @@ describe("ChatHandler classic query path (MultiProvider)", function()
     })
     function mp:verify() return true end
 
-    -- stub Job.new so no real net/curl hang, but still execute creation code
-    local real_new = Job.new
+    -- stub vim.system so no real net/curl hang, but still execute creation code
+    local real_system = vim.system
     local curl_block_hit = false
-    Job.new = function(t, opts)
-      if opts and opts.command == "curl" then
+    vim.system = function(cmd, opts, on_exit)
+      if cmd[1] == "curl" then
         curl_block_hit = true
-        return {
-          pid = 4242,
-          handle = { is_closing = function() return true end, close = function() end },
-          start = function(self)
-            -- drive on_exit path without real net
-            vim.schedule(function()
-              if opts.on_exit then
-                opts.on_exit({ result = function() return {} end }, 0)
-              end
-            end)
-          end,
-        }
+        -- drive stdout and on_exit paths without real net
+        vim.schedule(function()
+          opts.stdout(nil, 'data: {"choices":[{"delta":{"content":"hi"}}]}\n')
+          opts.stdout(nil, nil)
+          on_exit({ code = 0, signal = 0 })
+        end)
+        return { pid = 4242, is_closing = function() return true end, kill = function() end }
       end
-      return real_new(t, opts)
+      return real_system(cmd, opts, on_exit)
     end
 
     local added_qid = nil
@@ -259,7 +253,7 @@ describe("ChatHandler classic query path (MultiProvider)", function()
     }, function() end, function() end)
 
     -- restore
-    Job.new = real_new
+    vim.system = real_system
     handler.queries.add = orig_add
 
     assert.is_not_nil(added_qid)

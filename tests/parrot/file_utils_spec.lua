@@ -1,5 +1,4 @@
 local file_utils = require("parrot.file_utils")
-local async = require("plenary.async")
 
 describe("file_utils", function()
   local temp_dir = "/tmp/parrot_test_" .. os.time()

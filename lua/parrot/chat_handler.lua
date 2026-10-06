@@ -8,9 +8,6 @@ local chatutils = require("parrot.chat_utils")
 local ui = require("parrot.ui")
 local init_provider = require("parrot.provider").init_provider
 local Spinner = require("parrot.spinner")
-local Job = require("plenary.job")
-local pft = require("plenary.filetype")
-local scan = require("plenary.scandir")
 local ResponseHandler = require("parrot.response_handler")
 local PreviewResponseHandler = require("parrot.preview_response_handler")
 local insert_contexts = require("parrot.context").insert_contexts
@@ -492,8 +489,8 @@ function ChatHandler:stop(options)
           prov:cancel(process_info.qid)
         end
         stopped_count = stopped_count + 1
-      elseif process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
-        vim.uv.kill(process_info.job.pid, signal)
+      elseif not process_info.job:is_closing() then
+        process_info.job:kill(signal)
         stopped_count = stopped_count + 1
       end
 
@@ -708,7 +705,7 @@ function ChatHandler:_new_chat(params, toggle, chat_prompt)
   local filename = self.options.chat_dir .. "/" .. time .. ".md"
 
   if chat_prompt then
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(cbuf), {})
+    local filetype = vim.filetype.match({ buf = cbuf }) or ""
     local fname = vim.api.nvim_buf_get_name(cbuf)
     local filecontent = table.concat(vim.api.nvim_buf_get_lines(cbuf, 0, -1, false), "\n")
     local multifilecontent = utils.get_all_buffer_content()
@@ -1118,7 +1115,9 @@ function ChatHandler:chat_finder()
       cwd = self.options.chat_dir,
     })
   else
-    local chat_files = scan.scan_dir(self.options.chat_dir, { depth = 1, search_pattern = "%d+%.md$" })
+    local chat_files = vim.tbl_filter(function(f)
+      return f:match("%d+%.md$")
+    end, vim.fn.glob(self.options.chat_dir .. "/*.md", true, true))
     vim.ui.select(chat_files, {
       prompt = "Select your chat file:",
       format_item = function(item)
@@ -1443,7 +1442,7 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
 
     -- prepare messages
     local conversation = Conversation:new()
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(buf), {})
+    local filetype = vim.filetype.match({ buf = buf }) or ""
     local filename = vim.api.nvim_buf_get_name(buf)
     local prov = model_obj.provider
     self.history.last_command = command
@@ -1702,11 +1701,10 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
   local scope = self:buffer_session_scope(payload.acp_scope_buf or buf)
   local fake_job = {
     pid = qid,
-    handle = {
-      is_closing = function()
-        return false
-      end,
-    },
+    is_closing = function()
+      return false
+    end,
+    kill = function() end,
   }
 
   self.pool:add(fake_job, buf, qid, scope.kind)
@@ -1899,70 +1897,26 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     json_payload = json_payload,
   })
 
-  local job = Job:new({
-    command = "curl",
-    args = curl_params,
-    writer = json_payload,
-    on_exit = function(response, exit_code)
-      logger.debug("ChatHandler:query on_exit", {
-        response = response:result(),
-      })
-      if exit_code ~= 0 then
-        logger.error("ChatHandler:query curl failed", {
-          exit_code = exit_code,
-          response = response:result(),
-        })
-        -- Mark query as having an error
-        local qt = self.queries:get(qid)
-        if qt then
-          qt.error_occurred = true
-        end
-        if on_exit then
-          on_exit(qid)
-        end
-        return
-      end
-      local result = response:result()
-      result = utils.parse_raw_response(result)
-
-      collect_usage(result)
-      self:report_usage(qid, buf)
-
-      local exit_content = provider:process_onexit(result)
-      if exit_content then
-        local qt = self.queries:get(qid)
-        if not qt then
-          return
-        end
-        qt.response = qt.response .. exit_content
-        handler(qid, exit_content)
-      end
-
-      if response.handle and not response.handle:is_closing() then
-        response.handle:close()
-      end
-
-      if on_exit then
-        on_exit(qid)
-      end
-      local qt = self.queries:get(qid)
-      if qt and qt.ns_id and qt.buf then
-        vim.schedule(function()
-          pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
-        end)
-      end
-      self.pool:remove(response.pid)
-    end,
-    on_stdout = function(_, data)
+  -- vim.system delivers raw chunks, so collect the full output and split it into lines ourselves
+  local stdout_chunks = {}
+  local pending = ""
+  local job
+  job = vim.system({ "curl", unpack(curl_params) }, {
+    stdin = json_payload,
+    stdout = function(_, data)
       logger.debug("ChatHandler:query on_stdout", {
         data = data,
       })
+      data = data and data:gsub("\r", "") -- plenary stripped carriage returns
+      table.insert(stdout_chunks, data or "")
+      -- keep the trailing partial line until the next chunk; flush it at EOF (data == nil)
+      local lines = vim.split(pending .. (data or ""), "\n")
+      pending = data and table.remove(lines) or ""
       local qt = self.queries:get(qid)
       if not qt then
         return
       end
 
-      local lines = vim.split(data, "\n")
       for _, line in ipairs(lines) do
         local raw_json = string.gsub(line, "^data:", "")
         collect_usage(raw_json)
@@ -1973,8 +1927,56 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
         end
       end
     end,
-  })
-  job:start()
+  }, function(res)
+    -- the process is gone; drop it before any early return below
+    self.pool:remove(job.pid)
+    local result = table.concat(stdout_chunks)
+    logger.debug("ChatHandler:query on_exit", {
+      response = result,
+    })
+    if res.code ~= 0 then
+      logger.error("ChatHandler:query curl failed", {
+        exit_code = res.code,
+        response = result,
+        stderr = res.stderr,
+      })
+      -- Mark query as having an error
+      local qt = self.queries:get(qid)
+      if qt then
+        qt.error_occurred = true
+      end
+      if on_exit then
+        on_exit(qid)
+      end
+      return
+    end
+
+    collect_usage(result)
+    -- on_exit runs in a fast event; report_usage touches the buffer API
+    vim.schedule(function()
+      self:report_usage(qid, buf)
+    end)
+
+    local exit_content = provider:process_onexit(result)
+    if exit_content then
+      local qt = self.queries:get(qid)
+      if not qt then
+        return
+      end
+      qt.response = qt.response .. exit_content
+      handler(qid, exit_content)
+    end
+
+    if on_exit then
+      on_exit(qid)
+    end
+    local qt = self.queries:get(qid)
+    if qt and qt.ns_id and qt.buf then
+      vim.schedule(function()
+        pcall(vim.api.nvim_buf_clear_namespace, qt.buf, qt.ns_id, 0, -1)
+      end)
+    end
+  end)
 
   -- Determine target type for better tracking
   local target_type = "unknown"

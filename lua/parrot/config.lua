@@ -332,6 +332,9 @@ function M.setup(opts)
   math.randomseed(os.time())
 
   M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
+  if not utils.is_curl_args(M.options.curl_params) then
+    return M.logger.notify("parrot.nvim: curl_params must be a list of strings or numbers", vim.log.levels.ERROR)
+  end
   M.providers = opts.providers -- M.merge_providers(defaults.providers, opts.providers)
   -- Ensure each provider has params for chat and command, defaulting to OpenAI-style params or empty
   -- local default_params = (defaults.providers.openai and defaults.providers.openai.params) or { chat = {}, command = {} }

@@ -1,4 +1,3 @@
-local pft = require("plenary.filetype")
 local logger = require("parrot.logger")
 local Placeholders = require("parrot.placeholders")
 
@@ -390,7 +389,7 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
 
   local selection = table.concat(lines, "\n")
   if selection ~= "" then
-    local filetype = pft.detect(vim.api.nvim_buf_get_name(origin_buf), {})
+    local filetype = vim.filetype.match({ buf = origin_buf }) or ""
     local fname = vim.api.nvim_buf_get_name(origin_buf)
     local filecontent_success, filecontent_lines = pcall(vim.api.nvim_buf_get_lines, origin_buf, 0, -1, false)
     local filecontent = filecontent_success and table.concat(filecontent_lines, "\n") or ""
@@ -516,6 +515,21 @@ end
 -- Parse a raw response, converting it to a string if necessary.
 ---@param response string|table|nil # The raw response to parse
 ---@return string|nil
+-- curl arguments go straight to vim.system: a list without holes of strings or numbers.
+---@param args any
+---@return boolean
+M.is_curl_args = function(args)
+  if type(args) ~= "table" or not vim.islist(args) then
+    return false
+  end
+  for _, arg in ipairs(args) do
+    if type(arg) ~= "string" and type(arg) ~= "number" then
+      return false
+    end
+  end
+  return true
+end
+
 M.parse_raw_response = function(response)
   if response == nil then
     return nil

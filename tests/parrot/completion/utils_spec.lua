@@ -1,6 +1,5 @@
 local comp_utils = require("parrot.completion.utils")
 local mock = require("luassert.mock")
-local async = require("plenary.async")
 
 describe("completion.utils", function()
   describe("resolve_path", function()

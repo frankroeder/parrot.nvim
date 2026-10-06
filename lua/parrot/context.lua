@@ -1,6 +1,5 @@
 local utils = require("parrot.utils")
 local futils = require("parrot.file_utils")
-local pft = require("plenary.filetype")
 local logger = require("parrot.logger")
 local M = {}
 
@@ -55,7 +54,7 @@ function M.insert_contexts(msg)
     if vim.fn.filereadable(filepath) == 1 then
       local ok, content = pcall(futils.read_file, filepath)
       if ok and content and content:match("%S") then
-        local ft = pft.detect(filepath, {})
+        local ft = vim.filetype.match({ filename = filepath, contents = vim.split(content, "\n") }) or ""
         if filepath:match("%.txt$") then
           ft = ""
         end
@@ -119,7 +118,7 @@ function M.insert_contexts(msg)
 
         if buf_nr and buf_nr ~= -1 and vim.api.nvim_buf_is_valid(buf_nr) and vim.api.nvim_buf_is_loaded(buf_nr) then
           local ok, result = pcall(function()
-            local ft = pft.detect(vim.api.nvim_buf_get_name(buf_nr), {})
+            local ft = vim.filetype.match({ buf = buf_nr }) or ""
             local buf_lines = vim.api.nvim_buf_get_lines(buf_nr, 0, -1, false)
             local name = vim.api.nvim_buf_get_name(buf_nr)
             if show_hints then
@@ -159,7 +158,7 @@ function M.insert_contexts(msg)
                 if vim.fn.filereadable(file) == 1 then
                   local ok, content = pcall(futils.read_file, file)
                   if ok and content and content:match("%S") then
-                    local ft = pft.detect(file, {})
+                    local ft = vim.filetype.match({ filename = file, contents = vim.split(content, "\n") }) or ""
                     if file:match("%.txt$") then
                       ft = ""
                     end

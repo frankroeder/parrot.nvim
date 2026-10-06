@@ -8,7 +8,7 @@ function Pool:new()
 end
 
 --- Adds a process to the pool.
---- @param job table # A plenary job.
+--- @param job vim.SystemObj # A vim.system process.
 --- @param buf number|nil # The buffer number (optional)
 --- @param qid string|nil # The query ID (optional)
 --- @param target_type string|nil # The target type (optional) - "chat", "rewrite", "popup", etc.
@@ -99,8 +99,8 @@ function Pool:stop_buffer(buf, signal)
   for i = #self._processes, 1, -1 do
     local process_info = self._processes[i]
     if process_info.buf == buf then
-      if process_info.job.handle ~= nil and not process_info.job.handle:is_closing() then
-        vim.uv.kill(process_info.job.pid, signal)
+      if not process_info.job:is_closing() then
+        process_info.job:kill(signal)
         stopped_count = stopped_count + 1
       end
       table.remove(self._processes, i)

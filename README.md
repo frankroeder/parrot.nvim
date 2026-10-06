@@ -103,7 +103,6 @@ Let the parrot fix your bugs.
 This plugin requires the latest version of Neovim and relies on a carefully selected set of established plugins.
 
 - [`neovim 0.10+`](https://github.com/neovim/neovim/releases)
-- [`plenary`](https://github.com/nvim-lua/plenary.nvim)
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) (optional)
 - [`fzf`](https://github.com/junegunn/fzf) (optional, requires ripgrep)
 - [`telescope`](https://github.com/nvim-telescope/telescope.nvim) (optional)
@@ -117,7 +116,7 @@ This plugin requires the latest version of Neovim and relies on a carefully sele
 ```lua
 {
   "frankroeder/parrot.nvim",
-  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim" },
+  dependencies = { "ibhagwan/fzf-lua" },
   opts = {}
 }
 ```
@@ -131,7 +130,7 @@ This plugin requires the latest version of Neovim and relies on a carefully sele
 require("packer").startup(function()
   use({
     "frankroeder/parrot.nvim",
-    requires = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim'},
+    requires = { 'ibhagwan/fzf-lua' },
     config = function()
       require("parrot").setup()
     end,
@@ -158,7 +157,7 @@ The minimal requirement is to at least set up one provider, such as the one prov
 ```lua
 {
   "frankroeder/parrot.nvim",
-  dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
+  dependencies = { 'ibhagwan/fzf-lua' },
   -- optionally include "folke/noice.nvim" or "rcarriga/nvim-notify" for beautiful notifications
   config = function()
     require("parrot").setup {
@@ -731,14 +730,11 @@ providers = {
     get_available_models = function(self)
       local url = self.endpoint:gsub("chat", "")
       local logger = require "parrot.logger"
-      local job = Job:new({
-        command = "curl",
-        args = { "-H", "Content-Type: application/json", url .. "tags" },
-      }):sync()
-      local parsed_response = require("parrot.utils").parse_raw_response(job)
+      local res = vim.system({ "curl", "-H", "Content-Type: application/json", url .. "tags" }, { text = true }):wait(5000)
+      local parsed_response = res.stdout or ""
       self:process_onexit(parsed_response)
       if parsed_response == "" then
-        logger.debug("Ollama server not running on " .. endpoint_api)
+        logger.debug("Ollama server not running on " .. url)
         return {}
       end
 

@@ -1,6 +1,5 @@
 local logger = require("parrot.logger")
 local utils = require("parrot.utils")
-local Job = require("plenary.job")
 
 -- MultiProvider class - A universal provider based on OpenAI's API format
 -- This provider is designed to work with OpenAI and other OpenAI-compatible APIs
@@ -237,39 +236,37 @@ local defaults = {
   end,
 
   get_available_models = function(self, args, callback)
-    local ids = {}
-    local job = Job:new({
-      command = "curl",
-      args = args,
-      on_exit = function(job)
-        local parsed_response = utils.parse_raw_response(job:result())
-        self:process_onexit(parsed_response)
-        local success, decoded = pcall(vim.json.decode, parsed_response)
-        if success and decoded.models then
-          for _, item in ipairs(decoded.models) do
-            if item.name then
-              table.insert(ids, string.sub(item.name, 8))
-            else
-              table.insert(ids, item.id)
-            end
-          end
-        elseif success and decoded.data then
-          for _, item in ipairs(decoded.data) do
+    local parse = function(response)
+      local ids = {}
+      response = response or ""
+      self:process_onexit(response)
+      local success, decoded = pcall(vim.json.decode, response)
+      if success and decoded.models then
+        for _, item in ipairs(decoded.models) do
+          if item.name then
+            table.insert(ids, string.sub(item.name, 8))
+          else
             table.insert(ids, item.id)
           end
         end
-        -- Job on_exit runs in a fast event; deliver on the main loop so
-        -- callers can touch state/vim.fn safely.
-        if callback then
-          vim.schedule(function() callback(ids) end)
+      elseif success and decoded.data then
+        for _, item in ipairs(decoded.data) do
+          table.insert(ids, item.id)
         end
-      end,
-    })
-    job:start()
-    if not callback then
-      job:wait()
+      end
       return ids
     end
+
+    local cmd = { "curl", unpack(args) }
+    if not callback then
+      return parse(vim.system(cmd, { text = true }):wait(5000).stdout)
+    end
+    vim.system(cmd, { text = true }, function(res)
+      local ids = parse(res.stdout)
+      -- vim.system on_exit runs in a fast event; deliver on the main loop so
+      -- callers can touch state/vim.fn safely.
+      vim.schedule(function() callback(ids) end)
+    end)
     -- async path, return placeholder; caller uses cb
     return {}
   end,
@@ -397,14 +394,14 @@ function MultiProvider:validate_config()
   end
 
   -- Validate curl_params if provided
-  if type(self._curl_params) ~= "table" then
-    logger.error("Invalid curl_params type for provider", {
+  if not utils.is_curl_args(self._curl_params) then
+    logger.error("Invalid curl_params for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
-      curl_params_type = type(self._curl_params),
-      expected = "curl_params must be a table",
+      curl_params = self._curl_params,
+      expected = "curl_params must be a list of strings or numbers",
     })
-    error("curl_params must be a table for provider " .. self.name)
+    error("curl_params must be a list of strings or numbers for provider " .. self.name)
   end
 end
 
