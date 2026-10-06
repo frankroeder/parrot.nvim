@@ -21,6 +21,7 @@ local defaults = {
   no_auto_update = false,
   headless = false,
   resume_session = true,
+  command_reasoning_effort = "low",
   model_flag = "-m",
   api_key = "acp",
   endpoint = "acp://local",
@@ -72,6 +73,9 @@ function AcpProvider:new(config)
     no_auto_update = self.no_auto_update,
     headless = self.headless,
     resume_session = self.resume_session,
+    -- false keeps the agent's own default effort
+    command_reasoning_effort = config.command_reasoning_effort == nil and defaults.command_reasoning_effort
+      or config.command_reasoning_effort,
     auth_method = self.auth_method,
     model_flag = self.model_flag,
     mcp_servers = self.mcp_servers,
@@ -158,20 +162,10 @@ end
 ---@param callback? fun(models: string[])
 ---@return string[]
 function AcpProvider:get_available_models_cached(state, cache_expiry_hours, spinner, callback)
-  local acp_ui = require("parrot.acp.ui")
   local endpoint_hash = utils.generate_endpoint_hash(self)
-
-  local function refresh_slash_async(cb)
-    vim.schedule(function()
-      acp_ui.refresh_slash_commands_cache(state, self._config, self.name, cache_expiry_hours, cb or function() end)
-    end)
-  end
-
-  acp_ui.preload_slash_cache_from_state(state, self._config, self.name, cache_expiry_hours)
 
   local cached_models = state:get_cached_models(self.name, cache_expiry_hours, endpoint_hash)
   if cached_models then
-    refresh_slash_async(callback)
     if callback then
       callback(cached_models)
     end
@@ -189,19 +183,16 @@ function AcpProvider:get_available_models_cached(state, cache_expiry_hours, spin
       state:set_cached_models(self.name, fresh, endpoint_hash)
       state:save()
     end
-    refresh_slash_async(callback)
-    local out = fresh
     if callback then
-      callback(out)
+      callback(fresh)
     end
-    return out
+    return fresh
   end
 
   -- Gate: in cb/async path use check_internet (no sync has/wait); sync has only for !cb on-demand.
   if callback then
     utils.check_internet(function(online)
       if not online then
-        refresh_slash_async(callback)
         return finish(self.models)
       end
       if spinner then
@@ -214,7 +205,6 @@ function AcpProvider:get_available_models_cached(state, cache_expiry_hours, spin
     return {}
   end
   if not utils.has_internet(1500) then
-    refresh_slash_async(callback)
     return self.models
   end
   if spinner then

@@ -645,50 +645,34 @@ providers = {
     cli_command = { "grok" },
     models = { "grok-4.6", "grok-build" },
     always_approve = false, -- set true to skip ACP permission prompts
-    resume_session = true,  -- resume the last Grok ACP session for this git repo (default)
+    resume_session = true, -- resume a chat's Grok session after restarting Neovim (default)
+    command_reasoning_effort = "low", -- inline edits and popups (default); false keeps Grok's default
+    -- command_rules = "...", -- replace the rules of command sessions ("" disables)
+    -- args = { "--reasoning-effort", "medium" }, -- extra `grok agent` flags, apply to every session
   },
 }
 ```
 
 #### How sessions fit into the parrot workflow
 
-Parrot and Grok maintain **two different kinds of state**:
+The markdown buffer stays the source of truth; Grok sessions follow it.
 
-| Layer | What it stores | Where |
-|-------|----------------|-------|
-| **Parrot transcript** | Markdown chat/command buffers you see in Neovim | `chat_dir` (e.g. `~/.local/share/nvim/parrot/chats`) |
-| **Grok agent state** | Tool history, goals, slash-command context, permission mode | `~/.grok/sessions` on disk; session IDs in parrot `state.json` |
+| Buffer | Grok session |
+|--------|--------------|
+| **Chat file** (any file under `chat_dir`) | One session per chat file. Each prompt only sends the messages Grok has not seen yet. If the transcript diverges (you edit or delete earlier messages, change the system prompt, or respond to a range), parrot starts a new session and replays the whole transcript. The session id is stored in `state.json` (`acp_sessions`) and resumed via `session/load` after restarting Neovim (`resume_session = false` starts a new session instead). |
+| **Everything else** (`PrtRewrite`, `PrtAppend`, `PrtPrepend`, `PrtEdit`, `PrtAsk` popups, `PrtCmd`, topic generation) | A one-shot session per prompt with an **empty toolset** (grok agent profile), rules that the reply is inserted verbatim (no preamble or narration), and `command_reasoning_effort`. The session is closed and deleted from `~/.grok/sessions` right after the prompt. Slash commands outside chats also run in a one-shot, deleted session, but with the full agent. |
 
-They are related but not identical. Editing or deleting a parrot `.md` chat file does **not** reset the Grok session, and resuming a Grok session does **not** replay old turns into the buffer.
+System prompts (`system_prompt`, chat `system` headers) are passed as session rules, not as prompt text.
 
-**Scope:** Session IDs are keyed by **git repository root** (fallback: Neovim `cwd`). Any file under `chat_dir` is an ACP **chat** session (path-based); parrot chat keymaps (`PrtChatRespond`, etc.) still require the full markdown template (`utils.is_chat`). Command sessions use the buffer file's directory / git root at prompt time.
-
-**Chat project binding** (`chat_project_cwd` in `state.json`): set at `:PrtChatNew` / first `BufEnter` on a chat file. Legacy chats created before this feature bind on the **first ACP prompt** after upgrade, using whatever Neovim `cwd` is then — `:cd` to the intended repo before that prompt. Once bound, prompts, slash commands, and mode changes keep that project even if you `:cd` elsewhere mid-chat.
-
-**Kinds:** `chat` and `command` use **separate session IDs** per repo (`PrtChatNew` / chat buffers vs `PrtAsk`, `PrtRewrite`, popups, etc.).
+**Chat project binding** (`chat_project_cwd` in `state.json`): set at `:PrtChatNew` / first `BufEnter` on a chat file. Legacy chats bind on the **first ACP prompt**, using whatever Neovim `cwd` is then — `:cd` to the intended repo before that prompt. Once bound, the chat's agent works in that project even if you `:cd` elsewhere. Command sessions use the git root of the current file (fallback: Neovim `cwd`).
 
 **Lifecycle:**
 
-1. Neovim starts → parrot spawns `grok agent stdio` (one process per model/connection).
-2. First prompt for a kind → `initialize` → `authenticate` → `session/load` (if `resume_session = true` and a stored ID exists) or `session/new`.
-3. Prompts stream via `session/prompt` / `session/update` (`agent_message_chunk`).
-4. Neovim exits → parrot terminates ACP processes (`VimLeavePre`).
+1. The first prompt spawns `grok agent stdio` (one process per model) → `initialize` → `authenticate`. Nothing is spawned at startup.
+2. Each prompt → `session/new` (or reuse / `session/load` for chats) → `session/prompt`, streamed via `session/update` (`agent_message_chunk`).
+3. Neovim exits → parrot terminates ACP processes (`VimLeavePre`).
 
-Set `resume_session = false` to always call `session/new` (fresh Grok context; parrot still keeps markdown transcripts).
-
-**Recommended workflows**
-
-- **Long-running agent work in a repo:** `resume_session = true`, chat with `grok-build`, set a goal via `:PrtAcpSlashCommand goal`, continue across Neovim restarts. Parrot markdown is your readable log; Grok session is the agent's working memory.
-- **One-off edits / popups:** Command sessions (`PrtRewrite`, `PrtAsk`) stay isolated from chat. Same repo, different session kind.
-- **Switch repos:** `:cd` to the other project before starting a **new** chat or command prompt. Existing chat files keep their original project binding; reopening an old chat resumes that project's Grok session.
-- **Reset agent context without losing transcripts:** `resume_session = false` temporarily, or delete the repo's entries under `state.json` → `acp_sessions`, or start a new Grok session from the CLI and update the stored ID.
-- **After `grok` CLI upgrade:** `:PrtReloadCache grok` refreshes models and slash-command cache (keyed by `grok --version`).
-
-**Background agent:** Plugin setup, Tab completion on incomplete slash caches, and `:PrtReloadCache` may spawn `grok agent stdio` in the background (with a 15s warm timeout). Use `make test-acp` / `make test-acp-smoke` for offline verification without a live agent.
-
-**Slash commands:** The full list arrives after `session/new` or `session/load` via `available_commands_update` (not from `initialize` alone). Parrot caches commands in `state.json` for instant Tab completion; incomplete caches refresh in the background. `:PrtAcpSlashCommand` with no args opens a picker (with descriptions); Tab completes command names.
-
-**Transcript vs agent desync:** If you `:PrtChatNew` (new markdown file) but `resume_session = true`, Grok still remembers prior tool runs. For a clean agent slate, use `resume_session = false` or clear the repo's `acp_sessions` entry. Conversely, an old markdown chat file can be reopened while Grok resumes — the buffer shows history Grok may not re-ingest unless you paste or summarize it in a new prompt.
+**Slash commands:** The full list arrives after `session/new` via `available_commands_update`. Parrot loads it lazily (first `:PrtAcpSlashCommand` or Tab completion) and caches it in `state.json`, keyed by `grok --version`. Output is shown in a popup; in a chat buffer the command runs in that chat's session (e.g. `/compact`). Some commands such as `/compact` and `/context` only act on the session and print nothing over ACP.
 
 **ACP-specific commands** (registered automatically):
 

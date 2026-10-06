@@ -2,18 +2,6 @@ local acp_sessions = require("parrot.acp.sessions")
 local State = require("parrot.state")
 
 describe("parrot.acp.sessions", function()
-  it("repo_key uses git root from cwd argument", function()
-    local temp_dir = vim.fn.tempname() .. "_parrot_git"
-    local nested = temp_dir .. "/nested"
-    vim.fn.mkdir(nested, "p")
-    os.execute("mkdir -p " .. vim.fn.shellescape(temp_dir .. "/.git"))
-
-    local key = acp_sessions.repo_key(nested)
-    assert.equals(vim.fn.resolve(temp_dir), vim.fn.resolve(key))
-
-    vim.fn.delete(temp_dir, "rf")
-  end)
-
   it("project_cwd keeps chat bound to project at create time after :cd", function()
     local chat_dir = "/tmp/parrot_chats_test"
     local chat_file = chat_dir .. "/12345.md"
@@ -54,6 +42,7 @@ describe("parrot.acp.sessions", function()
     local scope = acp_sessions.session_scope(buf, chat_dir, nil)
     assert.equals("chat", scope.kind)
     assert.is_true(scope.is_chat_buf)
+    assert.equals(vim.fn.resolve(chat_dir .. "/short.md"), scope.key)
 
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
@@ -85,16 +74,27 @@ describe("parrot.acp.sessions", function()
     vim.fn.delete(dir, "rf")
   end)
 
-  it("persists session ids per repo and kind", function()
+  it("persists chat session entries per chat file", function()
     local dir = vim.fn.tempname() .. "_parrot_state"
     vim.fn.mkdir(dir, "p")
     local state = State:new(dir)
     state:init_file_state({ "grok" })
     state:init_state({ "grok" }, { grok = { "grok-build" } })
 
-    acp_sessions.save_id(state, "grok", "command", "/repo/a", "sess-123")
-    assert.equals("sess-123", acp_sessions.get_id(state, "grok", "command", "/repo/a"))
-    assert.is_nil(acp_sessions.get_id(state, "grok", "chat", "/repo/a"))
+    local entry = { id = "sess-123", n = 3, hash = "abc" }
+    state:set_acp_session("grok", "/chats/a.md", entry)
+    assert.same(entry, state:get_acp_session("grok", "/chats/a.md"))
+    assert.is_nil(state:get_acp_session("grok", "/chats/b.md"))
+
+    -- survives a refresh and a reload from disk
+    state:refresh({ "grok" }, { grok = { "grok-build" } })
+    assert.same(entry, state:get_acp_session("grok", "/chats/a.md"))
+    local reloaded = State:new(dir)
+    reloaded:refresh({ "grok" }, { grok = { "grok-build" } })
+    assert.same(entry, reloaded:get_acp_session("grok", "/chats/a.md"))
+
+    state:set_acp_session("grok", "/chats/a.md", nil)
+    assert.is_nil(state:get_acp_session("grok", "/chats/a.md"))
 
     vim.fn.delete(dir, "rf")
   end)

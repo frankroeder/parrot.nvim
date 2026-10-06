@@ -1,6 +1,5 @@
 -- Fast offline smoke: get_context → run_slash_command → acp_query dispatch (no grok stdio).
 local ChatHandler = require("parrot.chat_handler")
-local acp_client = require("parrot.acp.client")
 local acp_sessions = require("parrot.acp.sessions")
 local acp_ui = require("parrot.acp.ui")
 local init_provider = require("parrot.provider").init_provider
@@ -73,10 +72,11 @@ vim.cmd("cd " .. vim.fn.fnameescape(other))
 local captured = {}
 function handler:acp_query(target_buf, prov, payload, _response_handler, on_exit)
   captured.buf = target_buf
-  local scope = acp_sessions.session_scope(target_buf, chat_dir, self.state)
+  captured.raw = payload.acp_raw
+  local scope = acp_sessions.session_scope(payload.acp_scope_buf, chat_dir, self.state)
   captured.session_kind = scope.kind
   captured.cwd = scope.cwd
-  captured.cache_key = acp_client.session_cache_key(scope.kind, scope.cwd)
+  captured.session_key = scope.key
   if on_exit then
     on_exit()
   end
@@ -84,10 +84,11 @@ end
 
 acp_ui.run_slash_command(parrot, "/compact")
 
-assert(captured.buf == buf, "slash uses chat buf not popup")
+assert(captured.buf ~= buf, "slash output goes to a popup")
+assert(captured.raw == true, "slash prompt is sent raw")
 assert(captured.session_kind == "chat", "session_kind")
 assert(vim.fn.resolve(project) == vim.fn.resolve(captured.cwd), "cwd vs bound project")
-assert(captured.cache_key == "chat:" .. vim.fn.resolve(project), "cache key")
+assert(captured.session_key == vim.fn.resolve(chat_file), "session key is the chat file")
 
 vim.cmd("cd " .. vim.fn.fnameescape(original_cwd))
 vim.api.nvim_buf_delete(buf, { force = true })
@@ -95,9 +96,9 @@ vim.fn.delete(project, "rf")
 vim.fn.delete(other, "rf")
 
 print(string.format(
-  "acp smoke ok: is_chat=%s kind=%s cwd=%s cache_key=%s",
+  "acp smoke ok: is_chat=%s kind=%s cwd=%s session_key=%s",
   tostring(ctx.is_chat),
   ctx.scope.kind,
   vim.fn.resolve(project),
-  captured.cache_key
+  captured.session_key
 ))

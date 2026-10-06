@@ -8,11 +8,6 @@ local M = {}
 M.select = function(items, opts, on_select)
   local has_fzf, fzf_lua = pcall(require, "fzf-lua")
   if has_fzf then
-    -- Empty scratch buffers (popups, new chats) make fzf-lua's close() hit E749.
-    local curbuf = vim.api.nvim_get_current_buf()
-    if vim.api.nvim_buf_line_count(curbuf) == 0 then
-      vim.api.nvim_buf_set_lines(curbuf, 0, -1, false, { "" })
-    end
     fzf_lua.fzf_exec(items, {
       prompt = opts.prompt .. " ❯",
       no_hide = true,

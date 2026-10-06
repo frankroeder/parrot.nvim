@@ -50,7 +50,6 @@ function M.get_context(parrot)
   end
 
   local config = prov:get_runtime_config()
-  config._acp_cwd = scope.cwd
   config._slash_cache_state = parrot.chat_handler.state
 
   return {
@@ -85,26 +84,16 @@ function M.resolve_cli_version(state, config, provider_name, callback)
     if callback then callback(version) end
     return version
   end
+  -- `grok --version` is local; no connectivity probe needed
   if callback then
-    local u = require("parrot.utils")
-    u.check_internet(function(online)
-      if not online then
-        callback("")
-        return
+    M.cli_version_hash(config, function(v)
+      if v and v ~= "" then
+        state:set_cli_version_hash(provider_name, v)
+        state:save()
       end
-      M.cli_version_hash(config, function(v)
-        if v and v ~= "" then
-          state:set_cli_version_hash(provider_name, v)
-          state:save()
-        end
-        callback(v or "")
-      end)
+      callback(v or "")
     end)
     return nil
-  end
-  local u = require("parrot.utils")
-  if not u.has_internet(1200) then
-    return ""
   end
   version = M.cli_version_hash(config)
   if version ~= "" then
@@ -398,45 +387,42 @@ function M.run_slash_command(parrot, text)
     text = "/" .. text
   end
 
-  local utils = require("parrot.utils")
   local ResponseHandler = require("parrot.response_handler")
-  local target_buf, target_win = ctx.buf, ctx.win
 
-  if ctx.scope.kind == "command" then
-    target_buf, target_win = parrot.ui.create_popup(
-      nil,
-      "ACP slash command (close with <esc>)",
-      function(w, h)
-        return math.min(w - 4, 120), math.min(h - 4, 30), 2, 2
-      end,
-      { on_leave = true, escape = true },
-      { border = parrot.options.style_popup_border or "single" }
-    )
-    vim.api.nvim_set_option_value("filetype", "markdown", { buf = target_buf })
-  end
+  -- Output goes to a popup; in chat buffers the command still runs in the chat's session
+  -- (acp_scope_buf) without altering the markdown transcript.
+  local target_buf, target_win = parrot.ui.create_popup(
+    nil,
+    "ACP slash command (close with <esc>)",
+    function(w, h)
+      return math.min(w - 4, 120), math.min(h - 4, 30), 2, 2
+    end,
+    { on_leave = true, escape = true },
+    { border = parrot.options.style_popup_border or "single" }
+  )
+  vim.api.nvim_set_option_value("filetype", "markdown", { buf = target_buf })
 
   local spinner = parrot.options.enable_spinner and require("parrot.spinner"):new(parrot.options.spinner_type)
   if spinner then
     spinner:start("ACP command...", false)
   end
 
-  local handler = ResponseHandler:new(
-    parrot.chat_handler.queries,
-    target_buf,
-    target_win,
-    ctx.scope.is_chat_buf and utils.last_content_line(target_buf) or 0,
-    true,
-    "",
-    false,
-    spinner
-  ):create_handler()
+  local handler = ResponseHandler:new(parrot.chat_handler.queries, target_buf, target_win, 0, true, "", false, spinner)
+    :create_handler()
 
   parrot.chat_handler:acp_query(target_buf, ctx.prov, {
     model = ctx.model_obj.name,
     messages = { { role = "user", content = text } },
-  }, handler, vim.schedule_wrap(function()
+    acp_raw = true,
+    acp_scope_buf = ctx.buf,
+  }, handler, vim.schedule_wrap(function(qid)
     if spinner then
       spinner:stop()
+    end
+    -- several commands (e.g. /compact, /context) only act on the session and print nothing over ACP
+    local qt = qid and parrot.chat_handler.queries:get(qid)
+    if qt and qt.response == "" and vim.api.nvim_buf_is_valid(target_buf) then
+      vim.api.nvim_buf_set_lines(target_buf, 0, -1, false, { text .. " done (the agent sent no output)" })
     end
   end))
 end
@@ -604,14 +590,24 @@ end
 ---@param callback fun(err: string?)
 local function apply_mode(parrot, mode, ctx, callback)
   if mode.slash then
+    -- permission prompts are answered by the client handler; the chat's own session is toggled too
     ctx.config._current_mode_id = mode.id
-    M.run_slash_command(parrot, mode.slash)
+    ctx.config.always_approve = mode.id == "always-approve-on"
+    if ctx.scope.kind == "chat" then
+      M.run_slash_command(parrot, mode.slash)
+    end
+    logger.info("ACP mode set to: " .. mode.name)
     callback(nil)
     return
   end
 
-  local kind = ctx.scope.kind
-  acp_client.set_mode(ctx.config, ctx.model_obj.name, kind, mode.id, function(err)
+  -- agent-advertised modes apply to a chat buffer's session
+  local entry = ctx.scope.key and parrot.chat_handler.state:get_acp_session(ctx.prov.name, ctx.scope.key)
+  if not entry then
+    callback("ACP modes apply to an active chat session; send a chat prompt first")
+    return
+  end
+  acp_client.set_mode(ctx.config, ctx.model_obj.name, entry.id, mode.id, function(err)
     if not err then
       ctx.config._current_mode_id = mode.id
       logger.info("ACP mode set to: " .. mode.name)

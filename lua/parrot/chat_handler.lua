@@ -113,14 +113,15 @@ end
 ---@return table { is_chat = boolean, prov = table | nil, model = string, usage = table | nil }
 function ChatHandler:get_status_info()
   local buf = vim.api.nvim_get_current_buf()
-  local scope = self:buffer_session_scope(buf)
-  local model_obj = self:get_model(scope.kind)
   local file_name = vim.api.nvim_buf_get_name(buf)
+  -- path check only: statuslines call this on every redraw, so no cwd/git root lookup here
+  local is_chat = require("parrot.acp.sessions").is_chat_dir_file(file_name, self.options.chat_dir)
+  local model_obj = self:get_model(is_chat and "chat" or "command")
   return {
-    is_chat = scope.is_chat_buf,
+    is_chat = is_chat,
     prov = self.current_provider,
     model = (model_obj and model_obj.name) or "",
-    usage = scope.is_chat_buf and self:get_chat_usage(file_name) or nil,
+    usage = is_chat and self:get_chat_usage(file_name) or nil,
   }
 end
 
@@ -131,33 +132,18 @@ function ChatHandler:set_provider(selected_prov, is_chat)
   -- Ensure params table exists for this provider
   local provider_config = vim.tbl_deep_extend("force", { name = selected_prov }, self.providers[selected_prov] or {})
   local _prov = init_provider(provider_config)
-  local slot = is_chat and "chat" or "command"
-  local old = self.current_provider[slot]
-  if old and old.is_acp and old:is_acp() and old.name ~= _prov.name then
-    old:terminate()
-  end
-  self.current_provider[slot] = _prov
+  -- ACP agent processes of the old provider are kept: the other slot may still use them
+  -- (all are terminated on VimLeavePre). Slash commands load lazily on first use.
+  self.current_provider[is_chat and "chat" or "command"] = _prov
   self.state:set_provider(_prov.name, is_chat)
 
   if _prov.is_acp and _prov:is_acp() then
-    local acp_ui = require("parrot.acp.ui")
-    local runtime = _prov:get_runtime_config()
-    acp_ui.preload_slash_cache_from_state(self.state, runtime, _prov.name, self.options.model_cache_expiry_hours)
-    vim.schedule(function()
-      utils.check_internet(function(online)
-        if online then
-          vim.schedule(function()
-            acp_ui.refresh_slash_commands_cache(
-              self.state,
-              runtime,
-              _prov.name,
-              self.options.model_cache_expiry_hours,
-              function() end
-            )
-          end)
-        end
-      end)
-    end)
+    require("parrot.acp.ui").preload_slash_cache_from_state(
+      self.state,
+      _prov:get_runtime_config(),
+      _prov.name,
+      self.options.model_cache_expiry_hours
+    )
   end
 
   self.state:refresh(self.available_providers, self.available_models)
@@ -1192,8 +1178,8 @@ end
 ---@param params table Parameters for provider selection.
 function ChatHandler:provider(params)
   local prov_arg = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
-  local buf = vim.api.nvim_get_current_buf()
-  local is_chat = self:buffer_session_scope(buf).is_chat_buf
+  local file_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
+  local is_chat = require("parrot.acp.sessions").is_chat_dir_file(file_name, self.options.chat_dir)
 
   if prov_arg ~= "" then
     self:switch_provider(prov_arg, is_chat)
@@ -1232,9 +1218,6 @@ function ChatHandler:switch_model(is_chat, selected_model, prov)
   end
 
   if prov.is_acp and prov:is_acp() then
-    if prov._model and prov._model ~= selected_model and prov.terminate_connection then
-      prov:terminate_connection(prov._model)
-    end
     prov:set_model(selected_model)
   end
 
@@ -1245,13 +1228,11 @@ end
 --- Handles model selection via fzf-lua or vim.ui.select
 ---@param params table Parameters for model selection.
 function ChatHandler:model(params)
-  local buf = vim.api.nvim_get_current_buf()
-  local scope = self:buffer_session_scope(buf)
-  local is_chat = scope.is_chat_buf
+  local file_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
+  local is_chat = require("parrot.acp.sessions").is_chat_dir_file(file_name, self.options.chat_dir)
   local prov = self:get_provider(is_chat)
   local model_name = string.gsub(params.args, "^%s*(.-)%s*$", "%1")
 
-  -- Get models with caching support. Gate net behind conn probe; use cb form so inner never sync-waits on async path.
   if model_name ~= "" then
     self:switch_model(is_chat, model_name, prov)
     return
@@ -1272,29 +1253,14 @@ function ChatHandler:model(params)
     end)
   end
 
+  -- Get models with caching support; only a cache miss probes connectivity and fetches (async).
+  -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
   if prov:online_model_fetching() and self.options.model_cache_expiry_hours >= 0 then
-    utils.check_internet(function(online)
-      if online then
-        local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
-        prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner, function(mods)
-          vim.schedule(function()
-            open_picker(mods)
-          end)
-        end)
-      else
-        local eh = utils.generate_endpoint_hash(prov)
-        local mods = self.state:get_cached_models(prov.name, self.options.model_cache_expiry_hours, eh)
-          or (prov and prov.models)
-          or {}
-        vim.schedule(function()
-          open_picker(mods)
-        end)
-      end
-    end)
+    local spinner = self.options.enable_spinner and Spinner:new(self.options.spinner_type) or nil
+    prov:get_available_models_cached(self.state, self.options.model_cache_expiry_hours, spinner, open_picker)
     return
   end
-  -- non-online case: static list, no network, no get_available_models call
-  open_picker((prov and (prov.models or prov:get_available_models())) or {})
+  open_picker(prov:get_available_models())
 end
 
 --- Template string for the last inline target (rewrite/append/prepend).
@@ -1431,7 +1397,8 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
     -- default on_exit strips trailing backticks if response was markdown snippet
     local on_exit = function(qid)
       local qt = self.queries:get(qid)
-      if not qt then
+      -- nothing was written, e.g. stopped before any output arrived
+      if not qt or qt.first_line < 0 then
         return
       end
       -- if buf is not valid, return
@@ -1731,15 +1698,10 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
 
   provider:set_model(payload.model)
 
-  local acp_sessions = require("parrot.acp.sessions")
-  local scope = acp_sessions.session_scope(buf, self.options.chat_dir, self.state)
-  local session_kind = scope.kind
-  local acp_cwd = scope.cwd
-  local is_chat = scope.is_chat_buf
-
-  local target_type = is_chat and "chat" or "command"
+  -- payload.acp_scope_buf: slash commands write into a popup but target the chat's session
+  local scope = self:buffer_session_scope(payload.acp_scope_buf or buf)
   local fake_job = {
-    pid = os.time() + math.random(1000, 9999),
+    pid = qid,
     handle = {
       is_closing = function()
         return false
@@ -1747,14 +1709,16 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
     },
   }
 
-  self.pool:add(fake_job, buf, qid, target_type)
+  self.pool:add(fake_job, buf, qid, scope.kind)
 
   provider:prompt({
     qid = qid,
     state = self.state,
     messages = payload.messages,
-    session_kind = session_kind,
-    cwd = acp_cwd,
+    raw = payload.acp_raw,
+    session_kind = scope.kind,
+    session_key = scope.key,
+    cwd = scope.cwd,
     on_chunk = function(chunk)
       local qt = self.queries:get(qid)
       if not qt or qt.cancelled then
@@ -1772,7 +1736,17 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
         qt.error_occurred = true
       end
     end,
-    on_done = function()
+    on_done = function(result)
+      local qt = self.queries:get(qid)
+      local meta = result and result._meta
+      if qt and meta and (meta.totalTokens or 0) > 0 then
+        qt.usage = {
+          prompt_tokens = meta.inputTokens,
+          completion_tokens = meta.outputTokens,
+          total_tokens = meta.totalTokens,
+        }
+        self:report_usage(qid, buf)
+      end
       if on_exit then
         on_exit(qid)
       end

@@ -75,7 +75,7 @@ describe("parrot.acp.ui context", function()
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
 
-  it("run_slash_command keeps marginal chat on original buf with chat session kind", function()
+  it("run_slash_command shows output in a popup but targets the chat session", function()
     local chat_file = chat_dir .. "/slash.md"
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_name(buf, chat_file)
@@ -94,7 +94,8 @@ describe("parrot.acp.ui context", function()
     function handler:acp_query(target_buf, prov, payload, response_handler, on_exit)
       captured.buf = target_buf
       captured.model = payload.model
-      local scope = require("parrot.acp.sessions").session_scope(target_buf, chat_dir, self.state)
+      captured.raw = payload.acp_raw
+      local scope = require("parrot.acp.sessions").session_scope(payload.acp_scope_buf, chat_dir, self.state)
       captured.session_kind = scope.kind
       if on_exit then
         on_exit()
@@ -106,8 +107,9 @@ describe("parrot.acp.ui context", function()
     handler.acp_query = orig_acp_query
     parrot.ui.create_popup = orig_create_popup
 
-    assert.is_false(popup_created)
-    assert.equals(buf, captured.buf)
+    assert.is_true(popup_created)
+    assert.not_equals(buf, captured.buf)
+    assert.is_true(captured.raw)
     assert.equals("chat", captured.session_kind)
     assert.equals("grok-build", captured.model)
 

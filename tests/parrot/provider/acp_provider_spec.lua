@@ -102,5 +102,21 @@ describe("AcpProvider", function()
       assert.are.same({ "grok-composer-2.5-fast", "grok-build" }, models)
       assert.is_false(fetch_called)
     end)
+
+    it("invokes the callback exactly once for cached models", function()
+      local cached_state = vim.tbl_extend("force", state_mock, {
+        get_cached_models = function()
+          return { "grok-4.7" }
+        end,
+      })
+      local calls = {}
+      provider:get_available_models_cached(cached_state, 48, nil, function(models)
+        table.insert(calls, models)
+      end)
+      vim.wait(200, function()
+        return false
+      end)
+      assert.same({ { "grok-4.7" } }, calls)
+    end)
   end)
 end)

@@ -85,10 +85,11 @@ function M.is_acp_chat_buf(buf, chat_dir)
 end
 
 ---Single source for ACP session kind + cwd (used by acp_query and slash/mode UI).
+---Chat buffers map 1:1 to an ACP session, keyed by the resolved chat file path.
 ---@param buf number|nil
 ---@param chat_dir string|nil
 ---@param state table|nil
----@return { kind: string, cwd: string, is_chat_buf: boolean }
+---@return { kind: string, cwd: string, is_chat_buf: boolean, key: string|nil }
 function M.session_scope(buf, chat_dir, state)
   local file_name = buf and vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) or ""
   local is_chat_buf = M.is_chat_dir_file(file_name, chat_dir)
@@ -96,43 +97,8 @@ function M.session_scope(buf, chat_dir, state)
     kind = is_chat_buf and "chat" or "command",
     cwd = M.project_cwd(buf, chat_dir, state, is_chat_buf),
     is_chat_buf = is_chat_buf,
+    key = is_chat_buf and vim.fn.resolve(file_name) or nil,
   }
-end
-
----@param cwd string|nil
----@return string
-function M.repo_key(cwd)
-  cwd = cwd or vim.fn.getcwd()
-  local git_root = futils.find_git_root(cwd)
-  if git_root ~= "" then
-    return vim.fn.resolve(git_root)
-  end
-  return vim.fn.resolve(cwd)
-end
-
----@param state table|nil
----@param provider string
----@param kind string
----@param cwd string|nil
----@return string|nil
-function M.get_id(state, provider, kind, cwd)
-  if not state then
-    return nil
-  end
-  local key = M.repo_key(cwd)
-  return state:get_acp_session(provider, key, kind)
-end
-
----@param state table|nil
----@param provider string
----@param kind string
----@param cwd string|nil
----@param session_id string
-function M.save_id(state, provider, kind, cwd, session_id)
-  if not state or not session_id then
-    return
-  end
-  state:set_acp_session(provider, M.repo_key(cwd), kind, session_id)
 end
 
 return M

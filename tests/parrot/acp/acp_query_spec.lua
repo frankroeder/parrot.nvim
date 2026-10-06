@@ -1,5 +1,4 @@
 local ChatHandler = require("parrot.chat_handler")
-local acp_client = require("parrot.acp.client")
 local acp_sessions = require("parrot.acp.sessions")
 local init_provider = require("parrot.provider").init_provider
 
@@ -49,7 +48,7 @@ describe("ChatHandler acp_query session scope", function()
     function stub_provider:prompt(opts)
       captured.cwd = opts.cwd
       captured.session_kind = opts.session_kind
-      captured.cache_key = acp_client.session_cache_key(opts.session_kind, opts.cwd)
+      captured.session_key = opts.session_key
       if opts.on_done then
         opts.on_done()
       end
@@ -81,7 +80,7 @@ describe("ChatHandler acp_query session scope", function()
 
     assert.equals("chat", captured.session_kind)
     assert.equals(vim.fn.resolve(project_a), vim.fn.resolve(captured.cwd))
-    assert.equals("chat:" .. vim.fn.resolve(project_a), captured.cache_key)
+    assert.equals(vim.fn.resolve(chat_file), captured.session_key)
 
     vim.cmd("cd " .. vim.fn.fnameescape(original_cwd))
     vim.api.nvim_buf_delete(buf, { force = true })
@@ -166,7 +165,7 @@ describe("ChatHandler acp_query session scope", function()
 
     assert.equals("command", captured.session_kind)
     assert.equals(vim.fn.resolve(nested), vim.fn.resolve(captured.cwd))
-    assert.equals("command:" .. vim.fn.resolve(nested), captured.cache_key)
+    assert.is_nil(captured.session_key)
 
     vim.cmd("cd " .. vim.fn.fnameescape(original_cwd))
     vim.api.nvim_buf_delete(buf, { force = true })

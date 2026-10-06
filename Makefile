@@ -4,7 +4,6 @@ TEST_INIT := tests/minimal_init.lua
 TEST_DIR := tests/
 PLUGIN_DIR := lua/
 
-# Full suite. For classic-only evidence we filter acp lines in the verify script.
 test:
 	nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 

@@ -7,6 +7,9 @@ local M = {
     authenticate = "authenticate",
     session_new = "session/new",
     session_load = "session/load",
+    session_close = "session/close",
+    -- grok extension: removes a session from ~/.grok/sessions
+    xai_session_delete = "_x.ai/session/delete",
     session_prompt = "session/prompt",
     session_cancel = "session/cancel",
     session_set_mode = "session/set_mode",

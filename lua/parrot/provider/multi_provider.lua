@@ -577,6 +577,14 @@ function MultiProvider:get_available_models(callback)
       table.insert(args, k .. ": " .. header_value)
     end
 
+    -- user-provided functions (README examples) are synchronous and ignore the callback
+    if self.get_available_models_func ~= defaults.get_available_models then
+      local ids = self.get_available_models_func(self, args)
+      if callback then
+        callback(ids)
+      end
+      return ids
+    end
     return self.get_available_models_func(self, args, callback)
   end
   if callback then callback(self.models) end

@@ -52,7 +52,7 @@ function M.start(cmd, dispatchers, opts)
     if error then
       response.error = error
     else
-      response.result = result or {}
+      response.result = result or vim.empty_dict()
     end
 
     system_obj:write(vim.json.encode(response) .. "\n")

@@ -51,23 +51,19 @@ end
 function State:init_state(available_providers, available_models)
   self._state.current_provider = self._state.current_provider or { chat = nil, command = nil }
   for _, provider in ipairs(available_providers) do
+    -- Persisted ACP data is taken over once; afterwards _state is the source of truth.
     self._state[provider] = self._state[provider]
       or {
         chat_model = nil,
         command_model = nil,
         cached_models = {},
-        acp_sessions = {},
+        acp_sessions = vim.deepcopy(vim.tbl_get(self.file_state, provider, "acp_sessions") or {}),
+        cli_version_hash = vim.tbl_get(self.file_state, provider, "cli_version_hash"),
       }
 
     -- Copy cached_models from file_state if they exist
     if self.file_state[provider] and self.file_state[provider].cached_models then
       self._state[provider].cached_models = self.file_state[provider].cached_models
-    end
-
-    if self.file_state[provider] and self.file_state[provider].acp_sessions then
-      self._state[provider].acp_sessions = vim.deepcopy(self.file_state[provider].acp_sessions)
-    else
-      self._state[provider].acp_sessions = self._state[provider].acp_sessions or {}
     end
 
     if self.file_state[provider] and self.file_state[provider].cached_slash_commands then
@@ -186,18 +182,14 @@ end
 --- @return table|nil
 function State:get_model(provider, model_type)
   local key = model_type .. "_model"
-  local data = self._state[provider] or self.file_state[provider]
-  if not data then
-    return nil
-  end
-  return data[key]
+  return vim.tbl_get(self._state, provider, key) or vim.tbl_get(self.file_state, provider, key)
 end
 
 ---@param provider string
 ---@return string|nil
 function State:get_cli_version_hash(provider)
-  local data = self._state[provider] or self.file_state[provider]
-  return data and data.cli_version_hash
+  return vim.tbl_get(self._state, provider, "cli_version_hash")
+    or vim.tbl_get(self.file_state, provider, "cli_version_hash")
 end
 
 ---@param provider string
@@ -222,30 +214,25 @@ function State:set_cli_version_hash(provider, version_hash)
   end
 end
 
+--- Returns the ACP session entry of a chat file.
 ---@param provider string
----@param repo_key string
----@param kind string "chat" or "command"
----@return string|nil
-function State:get_acp_session(provider, repo_key, kind)
-  local data = self._state[provider] or self.file_state[provider]
-  if not data or not data.acp_sessions then
-    return nil
-  end
-  local repo = data.acp_sessions[repo_key]
-  return repo and repo[kind]
+---@param chat_file string
+---@return table|nil # { id: string, n: number, hash: string }
+function State:get_acp_session(provider, chat_file)
+  local entry = vim.tbl_get(self._state, provider, "acp_sessions", chat_file)
+  return type(entry) == "table" and entry.id and entry or nil
 end
 
+--- Stores (or clears with nil) the ACP session entry of a chat file.
 ---@param provider string
----@param repo_key string
----@param kind string
----@param session_id string
-function State:set_acp_session(provider, repo_key, kind, session_id)
+---@param chat_file string
+---@param entry table|nil
+function State:set_acp_session(provider, chat_file, entry)
   if not self._state[provider] then
     return
   end
   self._state[provider].acp_sessions = self._state[provider].acp_sessions or {}
-  self._state[provider].acp_sessions[repo_key] = self._state[provider].acp_sessions[repo_key] or {}
-  self._state[provider].acp_sessions[repo_key][kind] = session_id
+  self._state[provider].acp_sessions[chat_file] = entry
   self:save()
 end
 

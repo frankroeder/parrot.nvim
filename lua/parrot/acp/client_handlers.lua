@@ -57,7 +57,7 @@ local function read_file(path, params)
 end
 
 ---Create client-side ACP method handlers.
----@param opts { always_approve?: boolean }
+---@param opts { always_approve?: boolean } Provider runtime config (read on each request)
 ---@return fun(method: string, params: table, respond: fun(result: any?, err: table?))
 function M.create(opts)
   opts = opts or {}
@@ -104,7 +104,7 @@ function M.create(opts)
         f:close()
       end
 
-      respond({})
+      respond(vim.empty_dict())
       return
     end
 
@@ -159,19 +159,23 @@ function M.create(opts)
       }
       terminals[term_id] = terminal
 
+      local function collect(_, data)
+        if not data then
+          return
+        end
+        terminal.output = terminal.output .. data
+        if terminal.outputByteLimit and #terminal.output > terminal.outputByteLimit then
+          terminal.output = terminal.output:sub(-terminal.outputByteLimit)
+          terminal.truncated = true
+        end
+      end
+
       terminal.instance = vim.system(cmd, {
         text = true,
+        cwd = params.cwd,
         env = env_to_table(params.env),
-        stdout = function(_, data)
-          if not data then
-            return
-          end
-          terminal.output = terminal.output .. data
-          if terminal.outputByteLimit and #terminal.output > terminal.outputByteLimit then
-            terminal.output = terminal.output:sub(-terminal.outputByteLimit)
-            terminal.truncated = true
-          end
-        end,
+        stdout = collect,
+        stderr = collect,
       }, function(exit)
         terminal.exitStatus = {
           exitCode = exit.code,
@@ -223,7 +227,7 @@ function M.create(opts)
           terminal.instance:kill(15)
         end
         terminals[params.terminalId] = nil
-        respond({})
+        respond(vim.empty_dict())
         return
       end
       respond(nil, { code = rpc.code.method_not_found, message = "Terminal not found" })

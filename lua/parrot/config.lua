@@ -257,26 +257,24 @@ local defaults = {
       -- Determine providers to reload (only available ones)
       local providers_to_reload = provider and { provider } or parrot.available_providers
 
-      -- Refetch models; get_cached now gates net behind connectivity probe and falls back offline.
-      -- Spinner/log only when we may actually fetch (probe first for Reload user cmd).
+      -- Drop slash commands of live ACP providers; they reload on next picker/completion use
+      for _, prov in pairs(parrot.chat_handler.current_provider) do
+        if prov.is_acp and prov:is_acp() and vim.tbl_contains(providers_to_reload, prov.name) then
+          local runtime = prov:get_runtime_config()
+          runtime._slash_commands_cache = nil
+          runtime._slash_commands_complete = nil
+        end
+      end
+
+      -- Refetch models; get_available_models_cached falls back to static models when offline
       for _, prov_name in ipairs(providers_to_reload) do
         local _prov = require("parrot.provider").init_provider(
           vim.tbl_deep_extend("force", { name = prov_name }, parrot.providers[prov_name])
         )
         if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours >= 0 then
-          local endpoint_hash = utils.generate_endpoint_hash(_prov)
-          if utils.has_internet(1500) then
-            if spinner then
-              parrot.logger.info("Reloading model cache for " .. prov_name)
-            end
-            local fresh_models =
-              _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
-            parrot.available_models[prov_name] = fresh_models
-          else
-            parrot.logger.info("Offline: using cached/static models for " .. prov_name)
-            local cached = state:get_cached_models(prov_name, parrot.options.model_cache_expiry_hours, endpoint_hash)
-            parrot.available_models[prov_name] = cached or _prov.models
-          end
+          parrot.logger.info("Reloading model cache for " .. prov_name)
+          parrot.available_models[prov_name] =
+            _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
         end
       end
 
@@ -423,50 +421,9 @@ function M.setup(opts)
   vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("ParrotAcpCleanup", { clear = true }),
     callback = function()
-      local acp_client = require("parrot.acp.client")
-      if M.chat_handler then
-        local seen = {}
-        for _, slot in ipairs({ "chat", "command" }) do
-          local prov = M.chat_handler.current_provider[slot]
-          if prov and prov.is_acp and prov:is_acp() and not seen[prov.name] then
-            seen[prov.name] = true
-            prov:terminate()
-          end
-        end
-      end
-      acp_client.terminate_all()
+      require("parrot.acp.client").terminate_all()
     end,
   })
-
-  -- Load ACP slash-command caches from live handler state (not setup-time temp_state)
-  local acp_ui = require("parrot.acp.ui")
-  for _, prov_name in ipairs(M.available_providers) do
-    local name = prov_name
-    local provider_config = vim.tbl_deep_extend("force", { name = name }, M.providers[name])
-    if provider_config.type == "acp" or (provider_config.command and not provider_config.endpoint) then
-      local _prov = init_provider(provider_config)
-      local runtime = _prov:get_runtime_config()
-      acp_ui.preload_slash_cache_from_state(M.chat_handler.state, runtime, name, M.options.model_cache_expiry_hours)
-      vim.schedule(function()
-        if not M.chat_handler then
-          return
-        end
-        utils.check_internet(function(online)
-          if online and M.chat_handler then
-            vim.schedule(function()
-              acp_ui.refresh_slash_commands_cache(
-                M.chat_handler.state,
-                runtime,
-                name,
-                M.options.model_cache_expiry_hours,
-                function() end
-              )
-            end)
-          end
-        end)
-      end)
-    end
-  end
 
   M.loaded = true
 
@@ -487,24 +444,10 @@ function M.setup(opts)
       if _prov:online_model_fetching() and M.options.model_cache_expiry_hours >= 0 then
         local eh = utils.generate_endpoint_hash(_prov)
         if not state:is_cache_valid(name, M.options.model_cache_expiry_hours, eh) then
-          utils.check_internet(function(online)
-            if not online or not M.loaded or not M.chat_handler then
-              return
-            end
-            vim.schedule(function()
-              local sp = M.options.enable_spinner and require("parrot.spinner"):new(M.options.spinner_type) or nil
-              if sp then
-                M.logger.info("Updating model cache for " .. name)
-              end
-              _prov:get_available_models_cached(state, M.options.model_cache_expiry_hours, sp, function(fresh)
-                if M.available_models then
-                  M.available_models[name] = fresh
-                end
-                if M.loaded and M.chat_handler and M.chat_handler.state then
-                  M.chat_handler.state:refresh(M.available_providers, M.available_models or available_models)
-                end
-              end)
-            end)
+          -- the callback path probes connectivity itself and falls back to static models when offline
+          _prov:get_available_models_cached(state, M.options.model_cache_expiry_hours, nil, function(fresh)
+            M.available_models[name] = fresh
+            state:refresh(M.available_providers, M.available_models)
           end)
         end
       end

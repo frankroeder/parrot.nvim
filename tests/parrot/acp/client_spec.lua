@@ -2,16 +2,22 @@ local acp_client = require("parrot.acp.client")
 
 describe("parrot.acp.client", function()
   describe("messages_to_prompt", function()
-    it("converts chat messages to ACP text blocks", function()
+    it("converts chat messages to ACP text blocks, skipping system prompts", function()
       local blocks = acp_client.messages_to_prompt({
         { role = "system", content = "Be helpful" },
         { role = "user", content = "Hello" },
       })
 
-      assert.equals(2, #blocks)
-      assert.equals("text", blocks[1].type)
-      assert.matches("Be helpful", blocks[1].text)
-      assert.equals("Hello", blocks[2].text)
+      assert.same({ { type = "text", text = "Hello" } }, blocks)
+    end)
+
+    it("labels turns when replaying a transcript", function()
+      local blocks = acp_client.messages_to_prompt({
+        { role = "user", content = "Hi" },
+        { role = "assistant", content = "Hello" },
+      })
+      assert.equals("user:\nHi", blocks[1].text)
+      assert.equals("assistant:\nHello", blocks[2].text)
     end)
 
     it("skips empty messages", function()
@@ -114,7 +120,6 @@ describe("parrot.acp.client", function()
   end)
 
   describe("warm_session_cache", function()
-    local acp_sessions = require("parrot.acp.sessions")
     local orig_get_connection
 
     before_each(function()
@@ -125,16 +130,15 @@ describe("parrot.acp.client", function()
       acp_client.get_connection = orig_get_connection
     end)
 
-    it("finishes when slash_commands_complete becomes true after session ensure", function()
+    it("finishes when slash_commands_complete becomes true after session creation", function()
       local cwd = vim.fn.tempname() .. "_warm"
       vim.fn.mkdir(cwd, "p")
-      local cache_key = "command:" .. acp_sessions.repo_key(cwd)
       local connection = {
         config = {},
         slash_commands = {},
         slash_commands_complete = false,
-        sessions = { [cache_key] = "sess-1" },
-        rpc = {},
+        sessions = {},
+        rpc = { request = function() end },
       }
 
       local get_calls = 0
@@ -173,13 +177,12 @@ describe("parrot.acp.client", function()
     it("coalesces concurrent warm requests for the same connection", function()
       local cwd = vim.fn.tempname() .. "_coalesce"
       vim.fn.mkdir(cwd, "p")
-      local cache_key = "command:" .. acp_sessions.repo_key(cwd)
       local connection = {
         config = {},
         slash_commands = {},
         slash_commands_complete = false,
-        sessions = { [cache_key] = "sess-1" },
-        rpc = {},
+        sessions = {},
+        rpc = { request = function() end },
       }
 
       local get_calls = 0
