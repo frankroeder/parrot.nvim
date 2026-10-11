@@ -96,7 +96,9 @@ M.delete_file = function(file, target_dir)
   end
 
   -- Checks if the file is actually located in the specified directory
-  if file:find(target_dir, 1, true) == nil then
+  -- (resolved paths, so `..`, symlinks and sibling dirs like `chats_old` cannot slip through)
+  local dir = utils.resolve_path(target_dir):gsub("/$", "") .. "/"
+  if not utils.starts_with(utils.resolve_path(file), dir) then
     logger.error("File '" .. file .. "' not in target directory.")
     return
   end

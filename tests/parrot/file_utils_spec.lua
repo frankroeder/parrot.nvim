@@ -148,6 +148,47 @@ describe("file_utils", function()
       -- Should not crash
       file_utils.delete_file(temp_dir .. "/non_existent.txt", temp_dir)
     end)
+
+    describe("outside the target directory", function()
+      local write = function(path)
+        vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+        local f = io.open(path, "w")
+        f:write("keep")
+        f:close()
+      end
+      local chats = temp_dir .. "/chats"
+
+      it("keeps a file in a sibling dir sharing the prefix", function()
+        local sibling = temp_dir .. "/chats_old/a.md"
+        write(sibling)
+        file_utils.delete_file(sibling, chats)
+        assert.equal(1, vim.fn.filereadable(sibling))
+      end)
+
+      it("keeps a file reached via ..", function()
+        local outside = temp_dir .. "/outside.md"
+        write(outside)
+        vim.fn.mkdir(chats, "p")
+        file_utils.delete_file(chats .. "/../outside.md", chats)
+        assert.equal(1, vim.fn.filereadable(outside))
+      end)
+
+      it("keeps the target of a symlink pointing outside", function()
+        local outside = temp_dir .. "/outside.md"
+        write(outside)
+        vim.fn.mkdir(chats, "p")
+        vim.uv.fs_symlink(outside, chats .. "/link.md")
+        file_utils.delete_file(chats .. "/link.md", chats)
+        assert.equal(1, vim.fn.filereadable(outside))
+      end)
+
+      it("deletes a file when target_dir has a trailing slash", function()
+        local inside = chats .. "/b.md"
+        write(inside)
+        file_utils.delete_file(inside, chats .. "/")
+        assert.equal(0, vim.fn.filereadable(inside))
+      end)
+    end)
   end)
 
   describe("read_file", function()
