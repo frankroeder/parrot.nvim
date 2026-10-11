@@ -36,7 +36,7 @@ A substantial part of the code is based on an early fork of the brilliant work b
     + Bash commands
     + Password manager CLIs (lazy evaluation)
 - Repository-specific instructions via `.parrot.md` file using the `PrtContext` command
-- **No** autocompletion and **no** hidden requests in the background to analyze your files
+- **No** automatic inline (ghost-text) completions and **no** hidden requests in the background to analyze your files
 
 
 ## Demo
