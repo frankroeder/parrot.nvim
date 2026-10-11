@@ -812,6 +812,17 @@ describe("MultiProvider", function()
         assert.are.same({ "-k", "--noproxy", "*" }, { cmd[3], cmd[4], cmd[5] })
         assert.is_true(vim.tbl_contains(cmd, "Authorization: Bearer secret"))
       end)
+
+      it("does not grow a model_endpoint table across fetches", function()
+        local endpoint_args = { "https://api.test.com/v1/models" }
+        local p = new_provider(function()
+          return endpoint_args
+        end)
+        p:get_available_models()
+        p:get_available_models()
+        assert.are.same({ "https://api.test.com/v1/models" }, endpoint_args)
+        assert.are.same(calls[1], calls[2])
+      end)
     end)
   end)
 

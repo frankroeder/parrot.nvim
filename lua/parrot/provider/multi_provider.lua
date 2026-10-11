@@ -553,7 +553,8 @@ function MultiProvider:get_available_models(callback)
       args = type(self.model_endpoint) == "table" and self.model_endpoint or { self.model_endpoint }
     end
 
-    args = vim.list_extend(args, self:header_args())
+    -- copy: a static model_endpoint table must not grow with every fetch
+    args = vim.list_extend(vim.list_extend({}, args), self:header_args())
 
     -- user-provided functions (README examples) are synchronous and ignore the callback
     if self.get_available_models_func ~= defaults.get_available_models then
