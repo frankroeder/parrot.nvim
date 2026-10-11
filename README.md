@@ -800,6 +800,54 @@ check the [migration notes](https://docs.perplexity.ai/docs/agent-api/migrate-fr
 </details>
 
 <details>
+<summary>Mistral</summary>
+
+```lua
+providers = {
+  mistral = {
+    name = "mistral",
+    endpoint = "https://api.mistral.ai/v1/chat/completions",
+    model_endpoint = "https://api.mistral.ai/v1/models",
+    api_key = os.getenv("MISTRAL_API_KEY"),
+    topic = {
+      model = "mistral-small-latest",
+      params = { max_tokens = 32 },
+    },
+    -- fallback when the model list cannot be fetched
+    models = {
+      "mistral-large-latest",
+      "mistral-small-latest",
+    },
+  },
+}
+```
+</details>
+
+<details>
+<summary>DeepSeek</summary>
+
+```lua
+providers = {
+  deepseek = {
+    name = "deepseek",
+    endpoint = "https://api.deepseek.com/chat/completions",
+    model_endpoint = "https://api.deepseek.com/models",
+    api_key = os.getenv("DEEPSEEK_API_KEY"),
+    topic = {
+      model = "deepseek-flash",
+      params = { max_tokens = 32 },
+    },
+    -- fallback when the model list cannot be fetched
+    models = {
+      "deepseek-flash",
+      "deepseek-v4-pro",
+    },
+  },
+}
+```
+</details>
+
+<details>
 <summary>EveryAPI</summary>
 
 ```lua
