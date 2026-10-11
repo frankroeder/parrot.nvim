@@ -11,12 +11,11 @@ function M.is_completion_available(bufnr)
     local buf = bufnr or vim.api.nvim_get_current_buf()
     local file_name = vim.api.nvim_buf_get_name(buf)
 
-    -- Check if in a parrot chat file (path-based, matches ACP session kind)
+    -- Check if in a parrot chat file
     local loaded_config = require("parrot.config")
     if loaded_config.loaded then
       local chat_dir = loaded_config.options.chat_dir
-      local acp_sessions = require("parrot.acp.sessions")
-      if acp_sessions.is_chat_dir_file(file_name, chat_dir) then
+      if utils.is_chat(buf, file_name, chat_dir) then
         return true
       end
     end

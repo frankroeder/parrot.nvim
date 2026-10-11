@@ -1,22 +1,26 @@
 local client_handlers = require("parrot.acp.client_handlers")
 local logger = require("parrot.logger")
-local protocol = require("parrot.acp.protocol")
 local rpc = require("parrot.acp.rpc")
 
 local M = {}
 
 ---@class parrot.acp.Connection
 ---@field rpc parrot.acp.RpcClient
----@field model string
+---@field config table Provider runtime config the agent process was spawned with
 ---@field sessions table<string, boolean> Session ids created or loaded by this agent process
 ---@field slash_commands table[]
----@field config_options table[]
----@field modes table|nil
----@field active_prompts table<string, { session_id: string, req_id: number? }>
+---@field slash_commands_complete boolean|nil
+---@field active_prompts table<string, { session_id: string }>
 ---@field _streams table<string, fun(text: string)> Per-session streaming callbacks
 ---@field initialized boolean
+---@field load_session boolean Agent supports session/load
+---@field can_close boolean Agent supports session/close
 
 local connections = {}
+-- qids cancelled before their session/prompt was sent
+local cancelled_qids = {}
+
+M.INIT_TIMEOUT_MS = 60000
 local warm_inflight = {}
 
 -- Command prompts (inline edits, popups, ...) run in one-shot sessions without any tools: their
@@ -64,172 +68,49 @@ function M.continued_entry(entry, messages)
   return entry
 end
 
-local function parse_models_from_init(result)
-  local models = {}
-  local available = vim.tbl_get(result, "_meta", "modelState", "availableModels")
-      or vim.tbl_get(result, "models", "availableModels")
-  if available then
-    for _, item in ipairs(available) do
-      local id = item.modelId or item.id or item.value
-      if id then
-        table.insert(models, id)
-      end
-    end
-  end
-  return models
-end
-
-local function parse_models_from_session(result)
-  local models = {}
-  local available = vim.tbl_get(result, "models", "availableModels")
-  if available then
-    for _, item in ipairs(available) do
-      local id = item.modelId or item.id
-      if id then
-        table.insert(models, id)
-      end
-    end
-  end
-  return models
-end
-
----Normalize ACP slash commands (vim.json decodes JSON null as vim.NIL userdata).
----@param commands table[]|table|nil
+---Normalize ACP slash commands (AvailableCommand[]) to { name, description, hint }.
+---@param commands table[]|nil
 ---@return table[]
-function M.normalize_slash_commands(commands)
-  if not commands then
-    return {}
-  end
-
-  local normalized = {}
-  local seen = {}
-
-  local function add(cmd)
-    if type(cmd) ~= "table" or not cmd.name or seen[cmd.name] then
-      return
-    end
-    seen[cmd.name] = true
-    local hint = nil
-    if type(cmd.input) == "table" and cmd.input.hint and cmd.input.hint ~= vim.NIL then
-      hint = tostring(cmd.input.hint)
-    end
-    table.insert(normalized, {
-      name = tostring(cmd.name),
-      description = cmd.description and tostring(cmd.description) or nil,
-      hint = hint,
-    })
-  end
-
-  if type(commands) == "table" then
-    for _, cmd in ipairs(commands) do
-      add(cmd)
-    end
-    if #normalized == 0 then
-      for _, cmd in pairs(commands) do
-        add(cmd)
-      end
-    end
-  end
-
-  return normalized
+local function normalize_slash_commands(commands)
+  return vim.tbl_map(function(cmd)
+    return { name = cmd.name, description = cmd.description, hint = cmd.input and cmd.input.hint }
+  end, commands or {})
 end
 
-local normalize_slash_commands = M.normalize_slash_commands
-
-local function parse_slash_commands(result)
-  return normalize_slash_commands(vim.tbl_get(result, "_meta", "availableCommands"))
-end
-
-local function parse_config_options(result)
-  local options = vim.tbl_get(result, "configOptions")
-  if options then
-    return options
-  end
-  local xai = vim.tbl_get(result, "_meta", "x.ai/sessionConfig", "options")
-  if xai then
-    local mapped = {}
-    for _, item in ipairs(xai) do
-      table.insert(mapped, {
-        id = item.id,
-        name = item.label or item.name or item.id,
-        category = item.category,
-        currentValue = item.selected and item.id or nil,
-        type = "select",
-        options = { { value = item.id, name = item.label or item.id } },
-      })
-    end
-    return mapped
-  end
-  return {}
-end
-
----Fetch CLI version string used to invalidate cached slash commands.
--- If callback provided, runs async and invokes callback(result); never waits.
--- Otherwise sync (for on-demand post-startup use).
----@param cli_command string[]
----@param callback? fun(version: string)
----@return string|nil
-function M.fetch_cli_version(cli_command, callback)
-  local cmd = vim.deepcopy(cli_command or { "grok" })
-  table.insert(cmd, "--version")
-  if vim.fn.executable(cmd[1]) ~= 1 then
-    if callback then callback("") end
-    return ""
-  end
-  if callback then
-    vim.system(cmd, { text = true }, function(res)
-      local output = (res and res.stdout) or ""
-      local line = output:match("[^\r\n]+")
-      local version = line and vim.trim(line) or ""
-      -- Deliver on the main loop; downstream callers use vim.fn.
-      vim.schedule(function()
-        callback(version)
-      end)
-    end)
-    return nil
-  end
-  local proc = vim.system(cmd, { text = true })
-  local result = proc:wait()
-  local output = (result and result.stdout) or ""
-  local line = output:match("[^\r\n]+")
-  return line and vim.trim(line) or ""
-end
-
----Fetch models via `grok models` (or equivalent CLI subcommand).
--- If callback provided, async + cb(models); else sync return.
+---Fetch models via `grok models` (or equivalent CLI subcommand): async with callback, otherwise sync.
 ---@param cli_command string[]
 ---@param callback? fun(models: string[])
 ---@return string[]
 function M.fetch_models_from_cli(cli_command, callback)
-  local cmd = vim.deepcopy(cli_command)
-  table.insert(cmd, "models")
-  if vim.fn.executable(cmd[1]) ~= 1 then
-    if callback then callback({}) end
-    return {}
-  end
-  if callback then
-    vim.system(cmd, { text = true }, function(res)
-      local output = (res and res.stdout) or ""
-      local models = {}
-      for line in output:gmatch("[^\r\n]+") do
-        local id = line:match("^%s*[%*%-]%s+([%w%.%-]+)")
-        if id then table.insert(models, id) end
+  local cmd = vim.list_extend(vim.deepcopy(cli_command), { "models" })
+  local function parse(res)
+    local models = {}
+    for line in (res.stdout or ""):gmatch("[^\r\n]+") do
+      local id = line:match("^%s*[%*%-]%s+([%w%.%-]+)")
+      if id then
+        table.insert(models, id)
       end
-      vim.schedule(function()
-        callback(models)
-      end)
-    end)
+    end
+    return models
+  end
+
+  if vim.fn.executable(cmd[1]) ~= 1 then
+    if callback then
+      callback({})
+    end
     return {}
   end
-  local proc = vim.system(cmd, { text = true })
-  local result = proc:wait()
-  local output = (result and result.stdout) or ""
-  local models = {}
-  for line in output:gmatch("[^\r\n]+") do
-    local id = line:match("^%s*[%*%-]%s+([%w%.%-]+)")
-    if id then table.insert(models, id) end
+  -- same 5s cap as the curl model fetch
+  if not callback then
+    return parse(vim.system(cmd, { text = true }):wait(5000))
   end
-  return models
+  vim.system(cmd, { text = true, timeout = 5000 }, function(res)
+    local models = parse(res)
+    vim.schedule(function()
+      callback(models)
+    end)
+  end)
+  return {}
 end
 
 ---Convert OpenAI-style chat messages to ACP prompt blocks.
@@ -249,6 +130,7 @@ function M.messages_to_prompt(messages)
   return blocks
 end
 
+---One agent process per provider, command and model.
 ---@param config table Provider config
 ---@param model string|nil
 ---@return string
@@ -256,7 +138,7 @@ local function connection_key(config, model)
   local cmd = config.command or { "grok", "agent", "stdio" }
   local extras = config.args or {}
   local model_id = model or config.model or (config.models and config.models[1]) or "default"
-  return table.concat(cmd, " ") .. "|" .. table.concat(extras, " ") .. "|" .. model_id
+  return (config.name or "") .. "|" .. table.concat(cmd, " ") .. "|" .. table.concat(extras, " ") .. "|" .. model_id
 end
 
 local SUBCOMMANDS = { stdio = true, headless = true, serve = true, leader = true }
@@ -311,7 +193,7 @@ function M.resolve_auth_method_id(init_result, config)
     return "cached_token"
   end
 
-  local api_key = vim.tbl_get(config, "env", "XAI_API_KEY") or os.getenv("XAI_API_KEY")
+  local api_key = os.getenv("XAI_API_KEY")
   if api_key and api_key ~= "" and advertised["xai.api_key"] then
     return "xai.api_key"
   end
@@ -351,7 +233,7 @@ local function build_command(config, model)
   end
 
   if model then
-    table.insert(flags, config.model_flag or "-m")
+    table.insert(flags, "-m")
     table.insert(flags, model)
   end
 
@@ -366,34 +248,6 @@ local function build_command(config, model)
 
   insert_before_subcommand(cmd, flags)
   return cmd
-end
-
----@param connection parrot.acp.Connection
----@param config table
----@param result table
-local function apply_session_result(connection, config, result)
-  local session_models = parse_models_from_session(result)
-  if #session_models > 0 then
-    config._runtime_models = session_models
-  end
-
-  local options = parse_config_options(result)
-  if #options > 0 then
-    connection.config_options = options
-  end
-
-  if result.modes then
-    connection.modes = result.modes
-  end
-
-  local session_commands = result.availableCommands or vim.tbl_get(result, "_meta", "availableCommands")
-  if session_commands then
-    local commands = normalize_slash_commands(session_commands)
-    if #commands > 0 then
-      connection.slash_commands = commands
-      connection.slash_commands_complete = true
-    end
-  end
 end
 
 ---Create a session. One-shot command sessions get an empty toolset and lower reasoning effort.
@@ -420,11 +274,11 @@ local function create_session(config, connection, tool_free, cwd, system, callba
   if tool_free then
     meta.agentProfile = M.COMMAND_PROFILE
   end
-  local params = { cwd = cwd, mcpServers = config.mcp_servers or {} }
+  local params = { cwd = cwd, mcpServers = {} }
   if next(meta) then
     params._meta = meta
   end
-  connection.rpc.request(protocol.agent.session_new, params, function(err, result)
+  connection.rpc.request("session/new", params, function(err, result)
     if err then
       callback(M.format_rpc_error(err))
       return
@@ -435,7 +289,6 @@ local function create_session(config, connection, tool_free, cwd, system, callba
     end
 
     connection.sessions[result.sessionId] = true
-    apply_session_result(connection, config, result)
 
     -- inline edits are simple tasks; a lower reasoning effort roughly halves their latency
     local effort = config.command_reasoning_effort
@@ -443,7 +296,7 @@ local function create_session(config, connection, tool_free, cwd, system, callba
       callback(nil, result.sessionId)
       return
     end
-    connection.rpc.request(protocol.agent.session_set_config_option, {
+    connection.rpc.request("session/set_config_option", {
       sessionId = result.sessionId,
       configId = "reasoning_effort",
       value = effort,
@@ -464,10 +317,10 @@ local function discard_session(connection, session_id)
   connection.sessions[session_id] = nil
   local function delete()
     -- grok extension; other agents answer "method not found", which is ignored
-    connection.rpc.request(protocol.agent.xai_session_delete, { sessionId = session_id }, function() end)
+    connection.rpc.request("_x.ai/session/delete", { sessionId = session_id }, function() end)
   end
   if live and connection.can_close then
-    connection.rpc.request(protocol.agent.session_close, { sessionId = session_id }, delete)
+    connection.rpc.request("session/close", { sessionId = session_id }, delete)
   else
     delete()
   end
@@ -495,60 +348,48 @@ local function open_session(config, connection, tool_free, cwd, entry, system, c
     return
   end
 
-  connection.rpc.request(protocol.agent.session_load, {
-    sessionId = entry.id,
-    cwd = cwd,
-    mcpServers = config.mcp_servers or {},
-  }, function(err, result)
-    if err or not result then
-      logger.info("ACP session/load failed, creating new session: " .. M.format_rpc_error(err))
-      create_session(config, connection, tool_free, cwd, system, callback)
-      return
+  local function load()
+    connection.rpc.request("session/load", {
+      sessionId = entry.id,
+      cwd = cwd,
+      mcpServers = {},
+    }, function(err, result)
+      if err or not result then
+        logger.info("ACP session/load failed, creating new session: " .. M.format_rpc_error(err))
+        create_session(config, connection, tool_free, cwd, system, callback)
+        return
+      end
+      connection.sessions[entry.id] = true
+      callback(nil, entry.id)
+    end)
+  end
+
+  -- The agent process of another model may hold this session; it would keep its turns without
+  -- the ones sent here, even on a later session/load (grok does). Close it there first.
+  for _, other in pairs(connections) do
+    if other ~= connection and other.sessions[entry.id] then
+      other.sessions[entry.id] = nil
+      if other.can_close then
+        other.rpc.request("session/close", { sessionId = entry.id }, load)
+        return
+      end
     end
-    connection.sessions[entry.id] = true
-    apply_session_result(connection, config, result)
-    callback(nil, entry.id)
-  end)
+  end
+  load()
 end
 
----Cache slash commands and modes on the provider runtime config.
+---Persist the complete slash command list (read by the slash command picker and completion).
 ---@param config table
 ---@param connection parrot.acp.Connection
-local function cache_session_state(config, connection)
-  config._slash_commands_cache = connection.slash_commands
-  config._slash_commands_complete = connection.slash_commands_complete == true
-  if connection.modes and connection.modes.availableModes then
-    config._session_modes_cache = connection.modes.availableModes
-    config._current_mode_id = connection.modes.currentModeId
+local function persist_slash_commands(config, connection)
+  if config._slash_cache_state and connection.slash_commands_complete and #connection.slash_commands > 0 then
+    config._slash_cache_state:set_cached_slash_commands(config.name, connection.slash_commands)
+    config._slash_cache_state:save()
   end
 end
 
----@param config table
 ---@param connection parrot.acp.Connection
-local function persist_slash_commands_cache(config, connection)
-  if not config._slash_cache_state or not config.name then
-    return
-  end
-  if not connection.slash_commands_complete or #connection.slash_commands == 0 then
-    return
-  end
-  if not config._cli_version_hash or config._cli_version_hash == "" then
-    return
-  end
-
-  config._slash_cache_state:set_cached_slash_commands(
-    config.name,
-    connection.slash_commands,
-    config._cli_version_hash,
-    true
-  )
-  config._slash_cache_state:save()
-end
-
----Get or create an initialized ACP connection.
----@param config table
----@param model string
----@param callback fun(err: string?, connection: parrot.acp.Connection?)
+---@param err string|nil
 local function finish_connection_callbacks(connection, err)
   local callbacks = connection._pending_callbacks or {}
   connection._pending_callbacks = nil
@@ -557,34 +398,42 @@ local function finish_connection_callbacks(connection, err)
   end
 end
 
+---Apply the always-approve toggle to every live connection of a provider: a connection keeps the
+---config table of the provider instance that spawned it, which may not be the caller's.
+---@param name string Provider name
+---@param value boolean
+function M.set_always_approve(name, value)
+  for _, connection in pairs(connections) do
+    if connection.config.name == name then
+      connection.config.always_approve = value
+    end
+  end
+end
+
+---Get or create an initialized ACP connection.
+---@param config table
+---@param model string
+---@param callback fun(err: string?, connection: parrot.acp.Connection?)
 function M.get_connection(config, model, callback)
   local key = connection_key(config, model)
   local existing = connections[key]
   if existing then
     if existing.initialized then
       callback(nil, existing)
-      return
+    else
+      table.insert(existing._pending_callbacks, callback)
     end
-    existing._pending_callbacks = existing._pending_callbacks or {}
-    table.insert(existing._pending_callbacks, callback)
     return
   end
 
-  local cmd = build_command(config, model)
-  if vim.fn.executable(cmd[1]) ~= 1 then
-    callback("ACP command not executable: " .. cmd[1])
-    return
-  end
-
-  local handler = client_handlers.create(config)
+  local handler, kill_terminals, cancel_permission = client_handlers.create(config)
 
   local connection = {
-    model = model,
     config = config,
     sessions = {},
     slash_commands = {},
-    config_options = {},
-    modes = nil,
+    kill_terminals = kill_terminals,
+    cancel_permission = cancel_permission,
     active_prompts = {},
     _streams = {},
     initialized = false,
@@ -593,14 +442,22 @@ function M.get_connection(config, model, callback)
 
   connections[key] = connection
 
-  connection.rpc = rpc.start(cmd, {
-    on_error = function(_, err)
-      logger.error("ACP connection error: " .. tostring(err))
-    end,
+  -- callbacks first: terminating fails the pending requests, whose callbacks end up here again
+  local function fail(err)
+    finish_connection_callbacks(connection, err)
+    if connections[key] == connection then
+      connections[key] = nil
+    end
+    if connection.rpc then
+      connection.rpc.terminate()
+    end
+  end
+
+  -- vim.system throws on spawn failure (e.g. missing binary or cwd)
+  local ok_start, rpc_client = pcall(rpc.start, build_command(config, model), {
     on_exit = function(code)
       logger.info("ACP agent exited (" .. tostring(code) .. ") for " .. key)
-      connection._streams = {}
-      connection.active_prompts = {}
+      kill_terminals()
       -- Only clear the registry slot if it still points at this connection;
       -- a replacement may already have been created after terminate().
       if connections[key] == connection then
@@ -608,53 +465,44 @@ function M.get_connection(config, model, callback)
       end
     end,
     notification = function(method, params)
-      if method ~= protocol.client.session_update then
+      if method ~= "session/update" then
         return
       end
 
       local update = params.update or {}
-      local stream = params.sessionId and connection._streams[params.sessionId]
+      local kind = update.sessionUpdate
+      local stream = connection._streams[params.sessionId]
 
-      if update.sessionUpdate == "agent_message_chunk" and stream then
+      if stream and (kind == "agent_message_chunk" or (kind == "agent_thought_chunk" and config.show_thoughts)) then
         local text = vim.tbl_get(update, "content", "text")
         if text then
           stream(text)
         end
-      elseif update.sessionUpdate == "agent_thought_chunk" and stream then
-        if connection.config and connection.config.show_thoughts then
-          local text = vim.tbl_get(update, "content", "text")
-          if text then
-            stream(text)
-          end
-        end
-      elseif update.sessionUpdate == "available_commands_update" then
+      elseif kind == "available_commands_update" then
         connection.slash_commands = normalize_slash_commands(update.availableCommands)
         connection.slash_commands_complete = true
-        if connection.config then
-          cache_session_state(connection.config, connection)
-          persist_slash_commands_cache(connection.config, connection)
-        end
         if connection._slash_warm_cb then
           connection._slash_warm_cb()
         end
-      elseif update.sessionUpdate == "config_option_update" then
-        connection.config_options = update.configOptions or connection.config_options
-      elseif update.sessionUpdate == "current_mode_update" and connection.modes then
-        connection.modes.currentModeId = update.modeId or update.currentModeId
       end
     end,
-    server_request = function(id, method, params, respond)
-      handler(method, params, function(result, error)
-        connection.rpc.response(id, result, error)
-      end)
-    end,
-  }, {
-    cwd = config.cwd,
-    env = config.env,
+    server_request = handler,
   })
+  if not ok_start then
+    fail("Could not start ACP agent: " .. tostring(rpc_client))
+    return
+  end
+  connection.rpc = rpc_client
 
-  connection.rpc.request(protocol.agent.initialize, {
-    protocolVersion = protocol.PROTOCOL_VERSION,
+  -- a hung initialize/authenticate (e.g. login prompt) would otherwise queue every prompt forever
+  vim.defer_fn(function()
+    if not connection.initialized and connection._pending_callbacks then
+      fail("ACP agent did not initialize in time (check `grok login`)")
+    end
+  end, M.INIT_TIMEOUT_MS)
+
+  connection.rpc.request("initialize", {
+    protocolVersion = 1,
     clientCapabilities = {
       fs = { readTextFile = true, writeTextFile = true },
       terminal = true,
@@ -666,44 +514,24 @@ function M.get_connection(config, model, callback)
     },
   }, function(err, result)
     if err then
-      connection.rpc.terminate()
-      connections[key] = nil
-      finish_connection_callbacks(connection, M.format_rpc_error(err))
+      fail(M.format_rpc_error(err))
       return
     end
 
     local method_id, auth_err = M.resolve_auth_method_id(result, config)
     if not method_id then
-      connection.rpc.terminate()
-      connections[key] = nil
-      finish_connection_callbacks(connection, auth_err)
+      fail(auth_err)
       return
     end
 
-    local auth_params = { methodId = method_id }
-    if config.headless then
-      auth_params._meta = { headless = true }
-    end
-
-    connection.rpc.request(protocol.agent.authenticate, auth_params, function(auth_rpc_err)
+    connection.rpc.request("authenticate", { methodId = method_id }, function(auth_rpc_err)
       if auth_rpc_err then
-        connection.rpc.terminate()
-        connections[key] = nil
-        finish_connection_callbacks(connection, M.format_rpc_error(auth_rpc_err))
+        fail(M.format_rpc_error(auth_rpc_err))
         return
       end
-
       connection.initialized = true
       connection.load_session = vim.tbl_get(result, "agentCapabilities", "loadSession") == true
       connection.can_close = vim.tbl_get(result, "agentCapabilities", "sessionCapabilities", "close") ~= nil
-      connection.slash_commands = parse_slash_commands(result)
-      connection.config_options = parse_config_options(result)
-
-      local init_models = parse_models_from_init(result)
-      if #init_models > 0 then
-        config._runtime_models = init_models
-      end
-
       finish_connection_callbacks(connection, nil)
     end)
   end)
@@ -722,19 +550,16 @@ function M.prompt(config, opts)
   local cwd = opts.cwd or vim.fn.getcwd()
   local qid = opts.qid
   local state = opts.state
-  local chat_key = kind == "chat" and state and config.name and opts.session_key or nil
+  local chat_key = kind == "chat" and state and opts.session_key
 
   if state then
     config._slash_cache_state = state
-    if config.name then
-      local cached_version = state:get_cli_version_hash(config.name)
-      if cached_version and cached_version ~= "" then
-        config._cli_version_hash = cached_version
-      end
-    end
   end
 
   local function done(err, result)
+    if qid then
+      cancelled_qids[qid] = nil
+    end
     if err and opts.on_error then
       opts.on_error(err)
     end
@@ -744,8 +569,8 @@ function M.prompt(config, opts)
   end
 
   M.get_connection(config, model, function(err, connection)
-    if err or not connection then
-      done(err or "connection failed")
+    if err then
+      done(err)
       return
     end
 
@@ -754,14 +579,18 @@ function M.prompt(config, opts)
     local entry = stored
     if not opts.raw then
       entry = M.continued_entry(stored, messages)
+      -- a stopped turn may still be finishing in that session: continue the chat in a new one
+      if entry and connection._streams[entry.id] then
+        entry = nil
+      end
     end
 
     local system = messages[1] and messages[1].role == "system" and messages[1].content or nil
     -- slash commands (raw) need the full agent even outside chats
     local tool_free = kind == "command" and not opts.raw
     open_session(config, connection, tool_free, cwd, entry, system, function(session_err, session_id)
-      if session_err or not session_id then
-        done(session_err or "session failed")
+      if session_err then
+        done(session_err)
         return
       end
 
@@ -776,11 +605,22 @@ function M.prompt(config, opts)
         to_send = vim.list_slice(messages, entry.n + 1)
       end
       local prompt_blocks = M.messages_to_prompt(to_send)
-      if #prompt_blocks == 0 then
-        if one_shot then
+      local cancelled_early = qid and cancelled_qids[qid]
+      if #prompt_blocks == 0 or cancelled_early then
+        -- a new session that never got its prompt is useless; the chat's old one was discarded above
+        if not resumed then
           discard_session(connection, session_id)
+          if chat_key and not opts.raw then
+            state:set_acp_session(config.name, chat_key, nil)
+          end
         end
-        done()
+        done(nil, cancelled_early and { stopReason = "cancelled" } or nil)
+        return
+      end
+
+      -- e.g. a slash command while the chat's turn still runs would take over its stream
+      if connection._streams[session_id] then
+        done("ACP session is busy, wait for the running prompt to finish")
         return
       end
 
@@ -797,7 +637,7 @@ function M.prompt(config, opts)
       end
       connection._streams[session_id] = stream
 
-      connection.rpc.request(protocol.agent.session_prompt, {
+      connection.rpc.request("session/prompt", {
         sessionId = session_id,
         prompt = prompt_blocks,
       }, function(prompt_err, result)
@@ -823,6 +663,9 @@ function M.prompt(config, opts)
             new_entry = { id = session_id, n = #seen, hash = M.history_hash(seen, #seen) }
           end
           state:set_acp_session(config.name, chat_key, new_entry)
+          if not new_entry then
+            discard_session(connection, session_id) -- the next prompt starts a new one
+          end
         end
 
         if one_shot then
@@ -834,60 +677,47 @@ function M.prompt(config, opts)
   end)
 end
 
----Cancel an active prompt.
----@param config table
----@param model string
----@param qid string
-function M.cancel(config, model, qid)
-  local key = connection_key(config, model)
-  local connection = connections[key]
-  if not connection then
+---Delete a stored session of a deleted chat from the agent's history (`grok sessions delete <id>`).
+---Runs without an agent connection; other agents have no such CLI command and keep theirs.
+---@param config table Provider config
+---@param session_id string
+function M.delete_stored_session(config, session_id)
+  local cli = vim.deepcopy(config.cli_command or { (config.command or { "grok" })[1] })
+  if vim.fs.basename(cli[1]) ~= "grok" or vim.fn.executable(cli[1]) ~= 1 then
     return
   end
-
-  local active = connection.active_prompts[qid]
-  if not active then
-    return
-  end
-
-  connection.rpc.notify(protocol.agent.session_cancel, {
-    sessionId = active.session_id,
-  })
-  connection.active_prompts[qid] = nil
+  vim.list_extend(cli, { "sessions", "delete", session_id })
+  vim.system(cli, { text = true })
 end
 
----Terminate all connections for a provider.
----@param config table
-function M.terminate_provider(config)
-  for key, connection in pairs(connections) do
-    if vim.startswith(key, table.concat(config.command or { "grok" }, " ")) then
-      connection.rpc.terminate()
-      connections[key] = nil
+---Cancel a prompt. If it has not been sent yet (still connecting or opening its session),
+---it is remembered and M.prompt skips sending it.
+---@param qid string
+function M.cancel(qid)
+  for _, connection in pairs(connections) do
+    local active = connection.active_prompts[qid]
+    if active then
+      connection.rpc.notify("session/cancel", {
+        sessionId = active.session_id,
+      })
+      connection.cancel_permission(active.session_id)
+      connection.active_prompts[qid] = nil
+      return
     end
   end
+  cancelled_qids[qid] = true
 end
 
 ---Terminate every active ACP connection (e.g. on Neovim exit).
 function M.terminate_all()
   for key, connection in pairs(connections) do
+    connection.kill_terminals() -- on_exit may not get to run while Neovim exits
     connection.rpc.terminate()
     connections[key] = nil
   end
 end
 
----Terminate a single model-specific connection.
----@param config table
----@param model string|nil
-function M.terminate_connection(config, model)
-  local key = connection_key(config, model)
-  local connection = connections[key]
-  if connection then
-    connection.rpc.terminate()
-    connections[key] = nil
-  end
-end
-
----Warm slash-command and mode caches (for tab completion and pickers).
+---Learn the slash commands and persist them in state.json (for tab completion and the picker).
 ---ACP advertises the full command list after session creation via available_commands_update.
 ---@param config table
 ---@param callback? fun(err: string?)
@@ -911,15 +741,14 @@ function M.warm_session_cache(config, callback)
   end
 
   M.get_connection(config, model, function(err, connection)
-    if err or not connection then
+    if err then
       complete_all(err)
       return
     end
 
-    connection.config = config
     local settled = false
     local warm_session = nil
-    local cwd = config.cwd or vim.fn.getcwd()
+    local cwd = vim.fn.getcwd()
 
     local function finish(warm_err)
       if settled then
@@ -930,8 +759,7 @@ function M.warm_session_cache(config, callback)
         discard_session(connection, warm_session)
       end
       connection._slash_warm_cb = nil
-      cache_session_state(config, connection)
-      persist_slash_commands_cache(config, connection)
+      persist_slash_commands(config, connection)
       complete_all(warm_err)
     end
 
@@ -956,8 +784,6 @@ function M.warm_session_cache(config, callback)
         return
       end
       warm_session = session_id
-
-      cache_session_state(config, connection)
       if connection.slash_commands_complete then
         finish(nil)
         return
@@ -968,32 +794,6 @@ function M.warm_session_cache(config, callback)
           finish("slash command warm timed out")
         end
       end, 15000)
-    end)
-  end)
-end
-
----Set the mode of a session (when the agent advertises modes).
----@param config table
----@param model string
----@param session_id string
----@param mode_id string
----@param callback fun(err: string?)
-function M.set_mode(config, model, session_id, mode_id, callback)
-  M.get_connection(config, model, function(err, connection)
-    if err or not connection then
-      callback(err)
-      return
-    end
-    connection.rpc.request(protocol.agent.session_set_mode, {
-      sessionId = session_id,
-      modeId = mode_id,
-    }, function(mode_err)
-      if mode_err then
-        callback(M.format_rpc_error(mode_err))
-        return
-      end
-      config._current_mode_id = mode_id
-      callback(nil)
     end)
   end)
 end

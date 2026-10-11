@@ -515,21 +515,6 @@ end
 -- Parse a raw response, converting it to a string if necessary.
 ---@param response string|table|nil # The raw response to parse
 ---@return string|nil
--- curl arguments go straight to vim.system: a list without holes of strings or numbers.
----@param args any
----@return boolean
-M.is_curl_args = function(args)
-  if type(args) ~= "table" or not vim.islist(args) then
-    return false
-  end
-  for _, arg in ipairs(args) do
-    if type(arg) ~= "string" and type(arg) ~= "number" then
-      return false
-    end
-  end
-  return true
-end
-
 M.parse_raw_response = function(response)
   if response == nil then
     return nil
@@ -640,51 +625,6 @@ function M.generate_endpoint_hash(provider)
   end
 
   return string.format("%08x", hash)
-end
-
--- Short-timeout async internet connectivity probe.
--- callback(boolean): true if a HEAD to 1.1.1.1 succeeds within ~2s.
--- Never blocks the caller; safe to call from setup paths.
-function M.check_internet(callback)
-  callback = callback or function() end
-  if vim.in_fast_event() then
-    -- vim.fn is not allowed in fast events; re-enter on the main loop.
-    vim.schedule(function()
-      M.check_internet(callback)
-    end)
-    return
-  end
-  if vim.fn.executable("curl") == 0 then
-    return callback(false)
-  end
-  local cmd = { "curl", "-s", "-o", "/dev/null", "--max-time", "2", "--head", "https://1.1.1.1" }
-  vim.system(cmd, { text = true }, function(res)
-    local online = res and res.code == 0
-    -- Deliver on the main loop so callers can use vim.fn/vim.api directly.
-    vim.schedule(function()
-      callback(online)
-    end)
-  end)
-end
-
--- Sync short probe for on-demand paths after startup (rare).
--- Uses short max-time; prefer check_internet(async) when possible.
--- Never blocks in fast event contexts (e.g. vim.system on_exit callbacks).
-function M.has_internet(timeout_ms)
-  if vim.in_fast_event and vim.in_fast_event() then
-    -- Cannot safely wait in fast event. Return optimistic true so callers that
-    -- reach here can proceed to (async-preferring) fetch paths if any.
-    return true
-  end
-  timeout_ms = timeout_ms or 1500
-  if vim.fn.executable("curl") == 0 then
-    return false
-  end
-  local secs = math.max(1, math.floor((timeout_ms or 1500) / 1000))
-  local cmd = { "curl", "-s", "-o", "/dev/null", "--max-time", tostring(secs), "--head", "https://1.1.1.1" }
-  local proc = vim.system(cmd, { text = true })
-  local res = proc:wait(timeout_ms + 300)
-  return res and res.code == 0
 end
 
 return M

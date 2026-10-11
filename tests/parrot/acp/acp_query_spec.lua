@@ -2,6 +2,12 @@ local ChatHandler = require("parrot.chat_handler")
 local acp_sessions = require("parrot.acp.sessions")
 local init_provider = require("parrot.provider").init_provider
 
+local function temp_dir(suffix)
+  local dir = vim.fn.tempname() .. suffix
+  vim.fn.mkdir(dir, "p")
+  return dir
+end
+
 describe("ChatHandler acp_query session scope", function()
   local handler
   local chat_dir
@@ -19,7 +25,7 @@ describe("ChatHandler acp_query session scope", function()
       },
     }
     return ChatHandler:new({
-      state_dir = vim.fn.tempname() .. "_parrot_state",
+      state_dir = temp_dir("_parrot_state"),
       chat_dir = chat_dir,
       cmd_prefix = "Prt",
       enable_spinner = false,
@@ -31,8 +37,7 @@ describe("ChatHandler acp_query session scope", function()
   end
 
   before_each(function()
-    chat_dir = vim.fn.tempname() .. "_parrot_chats"
-    vim.fn.mkdir(chat_dir, "p")
+    chat_dir = temp_dir("_parrot_chats")
     captured = {}
     handler = make_handler()
 
@@ -59,10 +64,8 @@ describe("ChatHandler acp_query session scope", function()
 
   it("uses chat kind + bound cwd for marginal chat_dir buffers after :cd", function()
     local original_cwd = vim.fn.getcwd()
-    local project_a = vim.fn.tempname() .. "_proj_a"
-    local project_b = vim.fn.tempname() .. "_proj_b"
-    vim.fn.mkdir(project_a, "p")
-    vim.fn.mkdir(project_b, "p")
+    local project_a = temp_dir("_proj_a")
+    local project_b = temp_dir("_proj_b")
 
     local chat_file = chat_dir .. "/legacy-short.md"
     local buf = vim.api.nvim_create_buf(false, true)
@@ -88,10 +91,9 @@ describe("ChatHandler acp_query session scope", function()
     vim.fn.delete(project_b, "rf")
   end)
 
-  it("lazy-binds legacy chats on first prompt using then cwd", function()
+  it("lazy-binds unbound chats on first prompt using then cwd", function()
     local original_cwd = vim.fn.getcwd()
-    local project = vim.fn.tempname() .. "_legacy_proj"
-    vim.fn.mkdir(project, "p")
+    local project = temp_dir("_legacy_proj")
 
     local chat_file = chat_dir .. "/unbound.md"
     local buf = vim.api.nvim_create_buf(false, true)
@@ -133,27 +135,33 @@ describe("ChatHandler acp_query session scope", function()
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
 
-  it("calls on_exit when handler is invalid", function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(buf, chat_dir .. "/bad-handler.md")
+  it("stop() cancels a running ACP prompt", function()
+    local acp_client = require("parrot.acp.client")
+    local orig_cancel = acp_client.cancel
+    local cancelled
+    acp_client.cancel = function(qid)
+      cancelled = qid
+    end
+    function stub_provider:prompt(opts)
+      captured.qid = opts.qid -- never finishes
+    end
 
-    local exited = false
-    handler:acp_query(buf, stub_provider, {
+    handler:acp_query(nil, stub_provider, {
       model = "grok-build",
       messages = { { role = "user", content = "hello" } },
-    }, "not-a-function", function()
-      exited = true
-    end)
+    }, function() end)
+    handler:stop({ notify = false })
+    acp_client.cancel = orig_cancel
 
-    assert.is_true(exited)
-    vim.api.nvim_buf_delete(buf, { force = true })
+    assert.is_not_nil(captured.qid)
+    assert.equals(captured.qid, cancelled)
+    assert.is_true(handler.pool:is_empty())
   end)
 
   it("uses command kind and buffer-path cwd for non-chat buffers", function()
     local original_cwd = vim.fn.getcwd()
-    local nested = vim.fn.tempname() .. "_nested"
-    vim.fn.mkdir(nested, "p")
-    os.execute("mkdir -p " .. vim.fn.shellescape(nested .. "/.git"))
+    local nested = temp_dir("_nested")
+    vim.fn.mkdir(nested .. "/.git", "p")
 
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_name(buf, nested .. "/src/foo.lua")
@@ -171,26 +179,36 @@ describe("ChatHandler acp_query session scope", function()
     vim.api.nvim_buf_delete(buf, { force = true })
     vim.fn.delete(nested, "rf")
   end)
+
+  it("runs commands writing elsewhere (popup) in the edited file's repo", function()
+    local nested = temp_dir("_nested")
+    vim.fn.mkdir(nested .. "/.git", "p")
+    local src = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(src, nested .. "/src/foo.lua")
+
+    handler:acp_query(nil, stub_provider, {
+      model = "grok-build",
+      messages = { { role = "user", content = "explain" } },
+      acp_cwd_buf = src,
+    }, function() end)
+
+    assert.equals("command", captured.session_kind)
+    assert.equals(vim.fn.resolve(nested), vim.fn.resolve(captured.cwd))
+    vim.api.nvim_buf_delete(src, { force = true })
+    vim.fn.delete(nested, "rf")
+  end)
 end)
 
 describe("ChatHandler classic query path (MultiProvider)", function()
   local handler
   local chat_dir
+  local real_system = vim.system
   local MultiProvider = require("parrot.provider.multi_provider")
 
-  local function make_classic_handler()
-    local providers = {
-      test = {
-        name = "test",
-        endpoint = "http://127.0.0.1:1/v1",
-        api_key = "sk-test",
-        model = "m-test",
-      },
-    }
-    chat_dir = vim.fn.tempname() .. "_chats"
-    vim.fn.mkdir(chat_dir, "p")
-    return ChatHandler:new({
-      state_dir = vim.fn.tempname() .. "_state",
+  before_each(function()
+    chat_dir = temp_dir("_chats")
+    handler = ChatHandler:new({
+      state_dir = temp_dir("_state"),
       chat_dir = chat_dir,
       cmd_prefix = "Prt",
       enable_spinner = false,
@@ -200,88 +218,61 @@ describe("ChatHandler classic query path (MultiProvider)", function()
       toggle_target = "popup",
       system_prompt = { chat = "", command = "" },
       curl_params = {},
-    }, providers, { "test" }, { test = { "m-test" } }, {})
-  end
-
-  before_each(function()
-    handler = make_classic_handler()
+    }, { test = { name = "test", endpoint = "http://127.0.0.1:1/v1", api_key = "sk-test", model = "m-test" } }, {
+      "test",
+    }, { test = { "m-test", "m-2" } }, {})
   end)
 
   after_each(function()
+    vim.system = real_system
     vim.fn.delete(chat_dir, "rf")
   end)
 
-  it("drives the post-guard curl/vim.system block for !acp MultiProvider", function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(buf, chat_dir .. "/classic.md")
-
+  it("streams curl output split across chunks through vim.system", function()
     local mp = MultiProvider:new({
       name = "test",
       endpoint = "http://127.0.0.1:1/v1",
       api_key = "sk-test",
       model = "m-test",
     })
-    function mp:verify() return true end
 
-    -- stub vim.system so no real net/curl hang, but still execute creation code
-    local real_system = vim.system
-    local curl_block_hit = false
     vim.system = function(cmd, opts, on_exit)
-      if cmd[1] == "curl" then
-        curl_block_hit = true
-        -- drive stdout and on_exit paths without real net
-        vim.schedule(function()
-          opts.stdout(nil, 'data: {"choices":[{"delta":{"content":"hi"}}]}\n')
-          opts.stdout(nil, nil)
-          on_exit({ code = 0, signal = 0 })
-        end)
-        return { pid = 4242, is_closing = function() return true end, kill = function() end }
-      end
-      return real_system(cmd, opts, on_exit)
+      assert.equals("curl", cmd[1])
+      vim.schedule(function()
+        -- one SSE line split mid-way, the last line without a trailing newline
+        opts.stdout(nil, 'data: {"choices":[{"delta":{"con')
+        opts.stdout(nil, 'tent":"hi"}}]}\ndata: {"choices":[{"delta":{"content":" there"}}]}')
+        opts.stdout(nil, nil)
+        on_exit({ code = 0, signal = 0 })
+      end)
+      return {
+        pid = 4242,
+        is_closing = function()
+          return true
+        end,
+        kill = function() end,
+      }
     end
 
-    local added_qid = nil
-    local orig_add = handler.queries.add
-    handler.queries.add = function(self, qid, data)
-      added_qid = qid
-      return orig_add(self, qid, data)
-    end
-
-    handler:query(buf, mp, {
+    local chunks, exited = {}, false
+    handler:query(nil, mp, {
       model = "m-test",
       messages = { { role = "user", content = "hello classic" } },
-    }, function() end, function() end)
+    }, function(_, chunk)
+      table.insert(chunks, chunk)
+    end, function()
+      exited = true
+    end)
+    vim.wait(1000, function()
+      return exited
+    end)
 
-    -- restore
-    vim.system = real_system
-    handler.queries.add = orig_add
-
-    assert.is_not_nil(added_qid)
-    assert.is_true(curl_block_hit)
-    vim.api.nvim_buf_delete(buf, { force = true })
+    assert.same({ "hi", " there" }, chunks)
+    assert.is_true(handler.pool:is_empty())
   end)
-end)
 
-describe("classic picker/switch for MultiProvider (AC3/AC4)", function()
-  local handler
-  before_each(function()
-    local providers = { t = { name="t", endpoint="http://e", api_key="k", model="m1" } }
-    handler = ChatHandler:new({
-      state_dir = vim.fn.tempname().."_s",
-      chat_dir = vim.fn.tempname().."_c",
-      cmd_prefix="Prt", enable_spinner=false,
-      chat_template="#u\n\n", system_prompt={chat="",command=""},
-    }, providers, {"t"}, {t={"m1","m2"}}, {})
-  end)
-  it("exercises provider/model picker logic + switch for classic", function()
-    local chosen
-    vim.ui.select = function(items, o, cb) chosen=items[1]; cb(chosen) end
-    handler:provider({args=""})
-    handler:model({args=""})
-    handler:switch_provider("t", true)
-    handler:switch_model(true, "m2", handler:get_provider(true))
-    local m = handler:get_model("chat")
-    assert.is_true(chosen ~= nil or true)
-    assert.equals("m2", m and m.name)
+  it("switch_model updates the chat model of a classic provider", function()
+    handler:switch_model(true, "m-2", handler:get_provider(true))
+    assert.equals("m-2", handler:get_model("chat").name)
   end)
 end)

@@ -129,7 +129,11 @@ describe("parrot.acp.client sessions", function()
     local requests = {}
     local conn = fake_connection(requests)
     local history = { { role = "user", content = "q1" }, { role = "assistant", content = "a1" } }
-    state:set_acp_session("grok", "/chats/c.md", { id = "persisted", n = 2, hash = acp_client.history_hash(history, 2) })
+    state:set_acp_session(
+      "grok",
+      "/chats/c.md",
+      { id = "persisted", n = 2, hash = acp_client.history_hash(history, 2) }
+    )
     prompt(conn, {
       session_kind = "chat",
       session_key = "/chats/c.md",
@@ -166,10 +170,93 @@ describe("parrot.acp.client sessions", function()
     assert.equals("low", requests[2].params.value)
   end)
 
+  it("does not send a prompt that was cancelled while its session was opening", function()
+    local requests = {}
+    local conn = fake_connection(requests)
+    local done_result
+    acp_client.cancel("q-early")
+    prompt(conn, {
+      qid = "q-early",
+      session_kind = "command",
+      messages = { { role = "user", content = "rewrite" } },
+      on_done = function(result)
+        done_result = result
+      end,
+    })
+
+    assert.same({ "session/new", "_x.ai/session/delete" }, methods(requests))
+    assert.equals("cancelled", done_result.stopReason)
+  end)
+
+  it("refuses a second prompt into a session that is still streaming", function()
+    local requests = {}
+    local conn = fake_connection(requests)
+    local history = { { role = "user", content = "q1" }, { role = "assistant", content = "a1" } }
+    state:set_acp_session("grok", "/chats/d.md", { id = "busy", n = 2, hash = acp_client.history_hash(history, 2) })
+    conn.sessions.busy = true
+    conn._streams.busy = function() end
+    local err
+    prompt(conn, {
+      session_kind = "chat",
+      session_key = "/chats/d.md",
+      raw = true,
+      messages = { { role = "user", content = "/context" } },
+      on_error = function(e)
+        err = e
+      end,
+    })
+
+    assert.matches("busy", err)
+    assert.is_nil(vim.tbl_contains(methods(requests), "session/prompt") or nil)
+  end)
+
+  it("continues a chat in a new session while a stopped turn is still finishing", function()
+    local requests = {}
+    local conn = fake_connection(requests)
+    local history = { { role = "user", content = "q1" }, { role = "assistant", content = "a1" } }
+    state:set_acp_session("grok", "/chats/e.md", { id = "busy", n = 2, hash = acp_client.history_hash(history, 2) })
+    conn.sessions.busy = true
+    conn._streams.busy = function() end
+    local err
+    prompt(conn, {
+      session_kind = "chat",
+      session_key = "/chats/e.md",
+      messages = vim.list_extend(vim.deepcopy(history), { { role = "user", content = "q2" } }),
+      on_error = function(e)
+        err = e
+      end,
+    })
+
+    assert.is_nil(err)
+    assert.same({ "session/new", "_x.ai/session/delete", "session/prompt" }, methods(requests))
+    assert.equals(3, #requests[3].params.prompt) -- full transcript replayed
+    assert.not_equals("busy", state:get_acp_session("grok", "/chats/e.md").id)
+  end)
+
+  it("drops a chat's new session when its prompt is cancelled before it is sent", function()
+    local requests = {}
+    local conn = fake_connection(requests)
+    state:set_acp_session("grok", "/chats/f.md", { id = "old", n = 2, hash = "stale" })
+    acp_client.cancel("q-chat-early")
+    prompt(conn, {
+      qid = "q-chat-early",
+      session_kind = "chat",
+      session_key = "/chats/f.md",
+      messages = { { role = "user", content = "q1" } },
+    })
+
+    -- old (replaced) and new (never prompted) sessions are both deleted, nothing stale is stored
+    assert.same({ "session/new", "_x.ai/session/delete", "_x.ai/session/delete" }, methods(requests))
+    assert.is_nil(state:get_acp_session("grok", "/chats/f.md"))
+  end)
+
   it("runs slash commands outside chats with the full agent in a deleted one-shot session", function()
     local requests = {}
     local conn = fake_connection(requests)
-    prompt(conn, { session_kind = "command", raw = true, messages = { { role = "user", content = "/deep-research x" } } })
+    prompt(
+      conn,
+      { session_kind = "command", raw = true, messages = { { role = "user", content = "/deep-research x" } } }
+    )
 
     assert.same({ "session/new", "session/prompt", "_x.ai/session/delete" }, methods(requests))
     assert.is_nil(requests[1].params._meta)

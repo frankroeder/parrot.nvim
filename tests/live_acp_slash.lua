@@ -7,68 +7,62 @@ if vim.fn.executable("grok") ~= 1 then
 end
 
 local State = require("parrot.state")
-local acp_ui = require("parrot.acp.ui")
+local acp_client = require("parrot.acp.client")
 local init_provider = require("parrot.provider").init_provider
 
 local dir = vim.fn.tempname() .. "_parrot_live"
 vim.fn.mkdir(dir, "p")
 
 local state = State:new(dir)
-state:init_file_state({ "grok" })
-state:init_state({ "grok" }, { grok = { "grok-build" } })
+state:refresh({ "grok" }, { grok = { "grok-4.7" } })
 
 local provider = init_provider({
   type = "acp",
   name = "grok",
   command = { "grok", "agent", "stdio" },
   cli_command = { "grok" },
-  models = { "grok-build" },
+  models = { "grok-4.7" },
   resume_session = false,
+  no_auto_update = true,
 })
 
 local runtime = provider:get_runtime_config()
+runtime._slash_cache_state = state
 local done = false
 local min_expected = 5
 
-acp_ui.refresh_slash_commands_cache(state, runtime, "grok", 48, function(err, commands)
-  done = true
-  if err then
-    print("FAIL: warm cache error: " .. tostring(err))
-    os.exit(1)
-  end
-
-  local count = #(commands or {})
-  print("slash commands cached:", count)
-  for _, cmd in ipairs(commands or {}) do
-    print("  -", cmd.name, cmd.description or cmd.hint or "")
-  end
-
-  if count < min_expected then
-    print(string.format("FAIL: expected at least %d slash commands, got %d", min_expected, count))
-    os.exit(1)
-  end
-
-  if not state:is_slash_commands_cache_valid("grok", 48, state:get_cli_version_hash("grok")) then
-    print("FAIL: slash commands cache not marked complete in state")
-    os.exit(1)
-  end
-
-  local persisted = state:get_cached_slash_commands("grok", 48, state:get_cli_version_hash("grok"), true)
-  if not persisted or #persisted < min_expected then
-    print("FAIL: slash commands not persisted to state")
-    os.exit(1)
-  end
-
-  print("PASS: live ACP slash command cache")
+local function finish(code, msg)
+  print(msg)
+  acp_client.terminate_all()
   vim.fn.delete(dir, "rf")
-  os.exit(0)
-end)
-
-local ok = vim.wait(30000, function()
-  return done
-end)
-
-if not ok or not done then
-  print("FAIL: timed out after 30s waiting for slash command cache warm")
-  os.exit(1)
+  os.exit(code)
 end
+
+local warm_err
+acp_client.warm_session_cache(runtime, function(err)
+  done, warm_err = true, err
+end)
+
+if not vim.wait(30000, function()
+  return done
+end) then
+  finish(1, "FAIL: timed out after 30s waiting for slash command cache warm")
+end
+-- let the deletion of the warm-up session finish before the agent is terminated
+vim.wait(1000)
+
+if warm_err then
+  finish(1, "FAIL: warm cache error: " .. tostring(warm_err))
+end
+
+local commands = state:get_cached_slash_commands("grok", 48) or {}
+print("slash commands cached:", #commands)
+for _, cmd in ipairs(commands) do
+  print("  -", cmd.name, cmd.description or cmd.hint or "")
+end
+
+if #commands < min_expected then
+  finish(1, string.format("FAIL: expected at least %d slash commands in state.json, got %d", min_expected, #commands))
+end
+
+finish(0, "PASS: live ACP slash command cache")

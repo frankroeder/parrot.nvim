@@ -54,6 +54,18 @@ function Pool:is_empty()
   return next(self._processes) == nil
 end
 
+--- Whether a query is still running.
+--- @param qid string
+--- @return boolean
+function Pool:has_qid(qid)
+  for _, p in ipairs(self._processes) do
+    if p.qid == qid then
+      return true
+    end
+  end
+  return false
+end
+
 --- Returns an iterator function for the processes in the pool.
 function Pool:ipairs()
   return ipairs(self._processes)

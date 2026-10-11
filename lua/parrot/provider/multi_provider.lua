@@ -261,13 +261,12 @@ local defaults = {
     if not callback then
       return parse(vim.system(cmd, { text = true }):wait(5000).stdout)
     end
-    vim.system(cmd, { text = true }, function(res)
-      local ids = parse(res.stdout)
-      -- vim.system on_exit runs in a fast event; deliver on the main loop so
-      -- callers can touch state/vim.fn safely.
-      vim.schedule(function() callback(ids) end)
+    vim.system(cmd, { text = true, timeout = 5000 }, function(res)
+      -- on_exit runs in a fast event; parse (user process_onexit) and callback on the main loop
+      vim.schedule(function()
+        callback(parse(res.stdout))
+      end)
     end)
-    -- async path, return placeholder; caller uses cb
     return {}
   end,
 }
@@ -394,14 +393,14 @@ function MultiProvider:validate_config()
   end
 
   -- Validate curl_params if provided
-  if not utils.is_curl_args(self._curl_params) then
-    logger.error("Invalid curl_params for provider", {
+  if type(self._curl_params) ~= "table" then
+    logger.error("Invalid curl_params type for provider", {
       method = "MultiProvider:validate_config",
       provider = self.name,
-      curl_params = self._curl_params,
-      expected = "curl_params must be a list of strings or numbers",
+      curl_params_type = type(self._curl_params),
+      expected = "curl_params must be a table",
     })
-    error("curl_params must be a list of strings or numbers for provider " .. self.name)
+    error("curl_params must be a table for provider " .. self.name)
   end
 end
 
@@ -545,7 +544,9 @@ function MultiProvider:get_available_models(callback)
       local ok, result = pcall(self.model_endpoint, self)
       if not ok then
         logger.error("Error executing model_endpoint function for provider " .. self.name .. ": " .. tostring(result))
-        if callback then callback(self.models) end
+        if callback then
+          callback(self.models)
+        end
         return self.models
       end
       args = type(result) == "table" and result or { result }
@@ -560,6 +561,7 @@ function MultiProvider:get_available_models(callback)
     -- Add headers to args
     for k, v in pairs(hdrs) do
       table.insert(args, "-H")
+      -- HTTP headers should always be strings, but handle edge cases defensively
       local header_value
       if type(v) == "table" then
         logger.warning("Header value is a table, this is likely a configuration error", {
@@ -584,63 +586,69 @@ function MultiProvider:get_available_models(callback)
     end
     return self.get_available_models_func(self, args, callback)
   end
-  if callback then callback(self.models) end
+  if callback then
+    callback(self.models)
+  end
   return self.models
 end
 
 -- Returns the list of available models with caching support
--- Skips any net fetch (and does not call get_available_models) unless has_internet().
--- Supports optional callback for fully async path (uses check_internet + async curl).
----@param state table
----@param cache_expiry_hours number
----@param spinner table|nil
----@param callback? fun(models: string[])
----@return string[]
+---@param state table # State object for caching
+---@param cache_expiry_hours number # Cache expiry time in hours
+---@param spinner table|nil # Optional spinner for loading indication
+---@param callback? fun(models: string[]) # Fetch asynchronously and pass the models to callback
+---@return string[] # The models, or {} when fetching asynchronously
 function MultiProvider:get_available_models_cached(state, cache_expiry_hours, spinner, callback)
+  local async = callback ~= nil
+  callback = callback or function() end
+  -- Only use caching if model_endpoint is configured
+  -- otherwise return fallback models
   if not self:online_model_fetching() then
-    if callback then callback(self.models) end
+    callback(self.models)
     return self.models
   end
 
+  -- Generate endpoint hash for cache validation
   local endpoint_hash = utils.generate_endpoint_hash(self)
+
+  -- Try to get from cache first
+  -- Note: cache_expiry_hours = 0 means "never expire, use cached models forever"
   local cached_models = state:get_cached_models(self.name, cache_expiry_hours, endpoint_hash)
   if cached_models then
-    if callback then callback(cached_models) end
+    callback(cached_models)
     return cached_models
   end
 
-  local function finish(fresh)
-    if spinner then spinner:stop() end
-    if not fresh or #fresh == 0 then fresh = self.models end
-    if #fresh > 0 and not vim.deep_equal(fresh, self.models) then
-      state:set_cached_models(self.name, fresh, endpoint_hash)
-      state:save()
-    end
-    local out = (fresh and #fresh > 0) and fresh or self.models
-    if callback then callback(out) end
-    return out
-  end
-
-  -- Gate without sync wait when cb (async path): use check_internet.
-  -- Sync has_internet only for !cb (on-demand user paths, per plan allowance).
-  if callback then
-    utils.check_internet(function(online)
-      if not online then
-        return finish(self.models)
-      end
-      if spinner then spinner:start("Fetching models for " .. self.name .. "...") end
-      self:get_available_models(function(f) finish(f) end)
-    end)
-    return {}
-  end
-  if not utils.has_internet(1500) then
-    return self.models
-  end
+  -- Cache miss or expired - fetch fresh models only if expiry > 0
+  -- When cache_expiry_hours = 0, only fetch if no cache exists (first time setup)
   if spinner then
     spinner:start("Fetching models for " .. self.name .. "...")
   end
-  local fresh_models = self:get_available_models()
-  return finish(fresh_models)
+
+  local function finish(fresh_models)
+    if spinner then
+      spinner:stop()
+    end
+
+    -- Ensure we always have models - fallback to static if fresh fetch failed
+    if not fresh_models or #fresh_models == 0 then
+      fresh_models = self.models
+    end
+
+    -- Cache the fresh models if we successfully fetched from API and they differ from static
+    if #fresh_models > 0 and not vim.deep_equal(fresh_models, self.models) then
+      state:set_cached_models(self.name, fresh_models, endpoint_hash)
+      state:save()
+    end
+    callback(fresh_models)
+    return fresh_models
+  end
+
+  if async then
+    self:get_available_models(finish)
+    return {}
+  end
+  return finish(self:get_available_models())
 end
 
 return MultiProvider

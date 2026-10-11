@@ -1,5 +1,6 @@
 local chat_utils = require("parrot.chat_utils")
 local ui = require("parrot.ui")
+local async = require("plenary.async")
 
 describe("chat_utils", function()
   describe("resolve_buf_target", function()
@@ -15,30 +16,32 @@ describe("chat_utils", function()
 
   describe("prep_md", function()
     it("should set buffer and window options correctly", function()
-      local buf = vim.api.nvim_create_buf(false, true)
-      local win = vim.api.nvim_open_win(buf, true, {
-        relative = "editor",
-        width = 80,
-        height = 20,
-        row = 5,
-        col = 5,
-      })
+      async.run(function()
+        local buf = vim.api.nvim_create_buf(false, true)
+        local win = vim.api.nvim_open_win(buf, true, {
+          relative = "editor",
+          width = 80,
+          height = 20,
+          row = 5,
+          col = 5,
+        })
 
-      chat_utils.prep_md(buf)
+        chat_utils.prep_md(buf)
 
-      -- Check buffer option
-      assert.is_false(vim.api.nvim_buf_get_option(buf, "swapfile"))
+        -- Check buffer option
+        assert.is_false(vim.api.nvim_buf_get_option(buf, "swapfile"))
 
-      -- Check window options
-      assert.is_true(vim.api.nvim_win_get_option(win, "wrap"))
-      assert.is_true(vim.api.nvim_win_get_option(win, "linebreak"))
+        -- Check window options
+        assert.is_true(vim.api.nvim_win_get_option(win, "wrap"))
+        assert.is_true(vim.api.nvim_win_get_option(win, "linebreak"))
 
-      -- Check if autocmd is set (this is a simplified check)
-      local autocmds = vim.api.nvim_get_autocmds({ buffer = buf, event = { "TextChanged", "InsertLeave" } })
-      assert.is_true(#autocmds > 0)
+        -- Check if autocmd is set (this is a simplified check)
+        local autocmds = vim.api.nvim_get_autocmds({ buffer = buf, event = { "TextChanged", "InsertLeave" } })
+        assert.is_true(#autocmds > 0)
 
-      vim.api.nvim_win_close(win, true)
-      vim.api.nvim_buf_delete(buf, { force = true })
+        vim.api.nvim_win_close(win, true)
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end)
     end)
   end)
 end)

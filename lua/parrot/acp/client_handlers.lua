@@ -28,29 +28,49 @@ local function valid_path(path)
   return true
 end
 
+---Loaded buffer of exactly this path, symlinks resolved (vim.fn.bufnr would also match e.g. `a.lua.orig`).
+---An unmodified buffer is first reloaded from disk: the agent's shell may have changed the file.
 ---@param path string
----@param params table|nil
+---@return integer|nil
+local function loaded_buf(path)
+  path = vim.fn.resolve(vim.fs.normalize(path))
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    local name = vim.api.nvim_buf_get_name(b)
+    if name ~= "" and vim.api.nvim_buf_is_loaded(b) and vim.fn.resolve(vim.fs.normalize(name)) == path then
+      if not vim.bo[b].modified then
+        local autoread = vim.bo[b].autoread
+        vim.bo[b].autoread = true
+        vim.cmd.checktime(b)
+        vim.bo[b].autoread = autoread
+      end
+      return b
+    end
+  end
+end
+
+---@param path string
+---@param params table { line?: integer (1-based), limit?: integer }
 ---@return string|nil
 local function read_file(path, params)
-  local f = io.open(path, "r")
-  if not f then
-    return nil
-  end
-  local content = f:read("*a")
-  f:close()
-  if not content then
-    return nil
+  local content
+  local b = loaded_buf(path)
+  if b then
+    -- agent writes go into the buffer, so reads must see them too
+    content = table.concat(vim.api.nvim_buf_get_lines(b, 0, -1, false), "\n") .. (vim.bo[b].eol and "\n" or "")
+  else
+    local f = io.open(path, "r")
+    if not f then
+      return nil
+    end
+    content = f:read("*a")
+    f:close()
   end
 
-  if params and params.line and params.limit then
+  if params.line or params.limit then
     local lines = vim.split(content, "\n", { plain = true })
-    local start = params.line
-    local finish = math.min(#lines, start + params.limit - 1)
-    local slice = {}
-    for i = start, finish do
-      table.insert(slice, lines[i] or "")
-    end
-    content = table.concat(slice, "\n")
+    local start = params.line or 1
+    local finish = params.limit and start + params.limit - 1 or #lines
+    content = table.concat(vim.list_slice(lines, start, finish), "\n")
   end
 
   return content
@@ -58,10 +78,36 @@ end
 
 ---Create client-side ACP method handlers.
 ---@param opts { always_approve?: boolean } Provider runtime config (read on each request)
----@return fun(method: string, params: table, respond: fun(result: any?, err: table?))
+---@return fun(method: string, params: table, respond: fun(result: any?, err: table?)) handler
+---@return fun() kill_terminals Kills the agent's running terminals (when its connection goes away)
+---@return fun(session_id: string) cancel_permission Answers an open permission prompt with `cancelled`
 function M.create(opts)
   opts = opts or {}
   local terminals = {}
+  local next_terminal_id = 0
+  local pending_permissions = {} -- sessionId -> { [key] = fun() answering an open prompt with `cancelled` }
+
+  -- ACP: after session/cancel the client must answer pending permission requests with `cancelled`
+  local function cancel_permission(session_id)
+    for _, cancel in pairs(pending_permissions[session_id] or {}) do
+      cancel()
+    end
+  end
+
+  -- terminals run in their own process group (detach): killing only the shell would leave its
+  -- children running, and they keep the output pipes (and terminal/wait_for_exit) open
+  local function kill(terminal)
+    if not terminal.instance:is_closing() then
+      vim.uv.kill(-terminal.instance.pid, "sigterm")
+    end
+  end
+
+  local function kill_terminals()
+    for id, terminal in pairs(terminals) do
+      kill(terminal)
+      terminals[id] = nil
+    end
+  end
 
   return function(method, params, respond)
     if method == "fs/read_text_file" then
@@ -88,10 +134,29 @@ function M.create(opts)
         return
       end
 
-      local bufnr = vim.fn.bufnr(params.path)
-      if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
-        local lines = vim.split(params.content, "\n", { plain = true })
+      local bufnr = loaded_buf(params.path)
+      if bufnr then
+        -- the final newline is the buffer's eol, not an extra empty line
+        local lines = vim.split(params.content:gsub("\n$", ""), "\n", { plain = true })
+        local old_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        local was_modified, old_eol, old_fixeol = vim.bo[bufnr].modified, vim.bo[bufnr].eol, vim.bo[bufnr].fixeol
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+        -- write the agent's bytes exactly: a final newline only if its content has one
+        vim.bo[bufnr].eol = params.content:sub(-1) == "\n"
+        vim.bo[bufnr].fixeol = false
+        -- save like an unopened file would be written: the agent's shell commands read the disk
+        local saved, save_err = pcall(vim.api.nvim_buf_call, bufnr, function()
+          vim.cmd("silent noautocmd write")
+        end)
+        vim.bo[bufnr].fixeol = old_fixeol
+        if not saved then
+          -- the agent is told the write failed, so the buffer must not keep its text either
+          vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, old_lines)
+          vim.bo[bufnr].eol = old_eol
+          vim.bo[bufnr].modified = was_modified
+          respond(nil, { code = rpc.code.internal_error, message = "Could not save buffer: " .. tostring(save_err) })
+          return
+        end
       else
         local dir = vim.fn.fnamemodify(params.path, ":h")
         vim.fn.mkdir(dir, "p")
@@ -109,9 +174,13 @@ function M.create(opts)
     end
 
     if method == "session/request_permission" then
-      if opts.always_approve and params.options and params.options[1] then
-        respond({ outcome = { outcome = "selected", optionId = params.options[1].optionId } })
-        return
+      if opts.always_approve then
+        for _, option in ipairs(params.options or {}) do
+          if vim.startswith(option.kind or "", "allow") then
+            respond({ outcome = { outcome = "selected", optionId = option.optionId } })
+            return
+          end
+        end
       end
 
       local labels = {}
@@ -124,54 +193,61 @@ function M.create(opts)
         return
       end
 
-      vim.ui.select(labels, {
-        prompt = (params.toolCall and params.toolCall.title or "Permission required") .. " — choose:",
-      }, function(choice)
-        if not choice then
-          respond({ outcome = { outcome = "cancelled" } })
+      -- answer once: either the user's choice or `cancelled` when the prompt turn is cancelled first
+      local answered = false
+      local key = {} -- several prompts of one session may be open at once
+      local pending = pending_permissions[params.sessionId] or {}
+      pending_permissions[params.sessionId] = pending
+      local function answer(outcome)
+        if answered then
           return
         end
-        for i, label in ipairs(labels) do
-          if label == choice then
-            respond({
-              outcome = {
-                outcome = "selected",
-                optionId = params.options[i].optionId,
-              },
-            })
-            return
-          end
+        answered = true
+        pending[key] = nil
+        respond({ outcome = outcome })
+      end
+      pending[key] = function()
+        answer({ outcome = "cancelled" })
+      end
+
+      vim.ui.select(labels, {
+        prompt = (params.toolCall and params.toolCall.title or "Permission required") .. " — choose:",
+      }, function(_, idx)
+        if idx then
+          answer({ outcome = "selected", optionId = params.options[idx].optionId })
+        else
+          answer({ outcome = "cancelled" })
         end
-        respond({ outcome = { outcome = "cancelled" } })
       end)
       return
     end
 
     if method == "terminal/create" then
       local args = params.args or {}
-      local cmd = vim.list_extend({ params.command }, args)
-      local term_id = vim.fn.strftime("%Y%m%d%H%M%S") .. "_" .. tostring(math.random(1000, 9999))
+      -- grok sends a whole command line (`bash -lc '...'`) without args; run it through a shell
+      local cmd = #args == 0 and { "sh", "-c", params.command } or vim.list_extend({ params.command }, args)
       local terminal = {
-        id = term_id,
         output = "",
         truncated = false,
-        outputByteLimit = params.outputByteLimit,
+        waiters = {}, -- responders of terminal/wait_for_exit
       }
-      terminals[term_id] = terminal
 
       local function collect(_, data)
         if not data then
           return
         end
         terminal.output = terminal.output .. data
-        if terminal.outputByteLimit and #terminal.output > terminal.outputByteLimit then
-          terminal.output = terminal.output:sub(-terminal.outputByteLimit)
+        local limit = params.outputByteLimit
+        if limit and #terminal.output > limit then
+          -- cut at a character boundary: drop UTF-8 continuation bytes at the start
+          terminal.output = terminal.output:sub(-limit):gsub("^[\128-\191]+", "")
           terminal.truncated = true
         end
       end
 
       terminal.instance = vim.system(cmd, {
         text = true,
+        detach = true,
         cwd = params.cwd,
         env = env_to_table(params.env),
         stdout = collect,
@@ -179,13 +255,16 @@ function M.create(opts)
       }, function(exit)
         terminal.exitStatus = {
           exitCode = exit.code,
-          signal = exit.signal,
+          signal = exit.signal ~= 0 and tostring(exit.signal) or vim.NIL,
         }
-        if terminal.on_exit then
-          terminal.on_exit(terminal.exitStatus)
+        for _, waiter in ipairs(terminal.waiters) do
+          waiter(terminal.exitStatus)
         end
       end)
 
+      next_terminal_id = next_terminal_id + 1
+      local term_id = "term-" .. next_terminal_id
+      terminals[term_id] = terminal
       respond({ terminalId = term_id })
       return
     end
@@ -214,19 +293,18 @@ function M.create(opts)
         respond(terminal.exitStatus)
         return
       end
-      terminal.on_exit = function(status)
-        respond(status)
-      end
+      table.insert(terminal.waiters, respond)
       return
     end
 
     if method == "terminal/kill" or method == "terminal/release" then
       local terminal = terminals[params.terminalId]
       if terminal then
-        if terminal.instance and not terminal.instance:is_closing() then
-          terminal.instance:kill(15)
+        kill(terminal)
+        -- kill keeps output and exit status readable until release
+        if method == "terminal/release" then
+          terminals[params.terminalId] = nil
         end
-        terminals[params.terminalId] = nil
         respond(vim.empty_dict())
         return
       end
@@ -236,7 +314,9 @@ function M.create(opts)
 
     logger.warning("Unhandled ACP client method: " .. method)
     respond(nil, { code = rpc.code.method_not_found, message = "Method not found: " .. method })
-  end
+  end,
+    kill_terminals,
+    cancel_permission
 end
 
 return M

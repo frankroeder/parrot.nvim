@@ -714,16 +714,6 @@ describe("MultiProvider", function()
       assert.equals("30", params[4])
     end)
 
-    it("should reject curl_params with holes or non-string entries", function()
-      for _, bad in ipairs({ { "--max-time", nil, "30" }, { "--insecure", true }, { x = "y" }, "--insecure" }) do
-        assert.has_error(function()
-          MultiProvider:new({ name = "bad", endpoint = "https://api.test.com/v1/chat", api_key = "k", model = "m", curl_params = bad })
-        end)
-      end
-      local ok = MultiProvider:new({ name = "ok", endpoint = "https://api.test.com/v1/chat", api_key = "k", model = "m", curl_params = { "--max-time", 30 } })
-      assert.equals(30, ok._curl_params[2])
-    end)
-
     it("should work without curl_params when not provided", function()
       local provider_without_params = MultiProvider:new({
         name = "test-no-curl-params",
@@ -786,7 +776,6 @@ describe("MultiProvider", function()
   end)
   describe("get_available_models_cached", function()
     local mock_state
-    local orig_has_internet
 
     before_each(function()
       mock_state = {
@@ -796,15 +785,6 @@ describe("MultiProvider", function()
         set_cached_models = function() end,
         save = function() end,
       }
-      -- Stub the connectivity gate so tests never hit the real network probe.
-      orig_has_internet = require("parrot.utils").has_internet
-      require("parrot.utils").has_internet = function()
-        return true
-      end
-    end)
-
-    after_each(function()
-      require("parrot.utils").has_internet = orig_has_internet
     end)
 
     it("should return predefined models when no model_endpoint", function()
@@ -947,49 +927,45 @@ describe("MultiProvider", function()
       assert.are.same({ "fresh-model" }, models)
     end)
 
-    it("should short-circuit to static without calling fetch when offline (gate)", function()
-      mock_state.get_cached_models = function() return nil end
-      local fetch_called = false
-      local provider_offline = MultiProvider:new({
-        name = "test-offline",
-        endpoint = "https://api.test.com",
-        model_endpoint = "https://api.test.com/models",
-        api_key = "test",
-        model = { "static-model" },
-        get_available_models = function(self, args)
-          fetch_called = true
-          return { "would-fetch" }
-        end,
-      })
-      -- patch has_internet to simulate offline
-      local orig_has = require("parrot.utils").has_internet
-      require("parrot.utils").has_internet = function() return false end
-      local models = provider_offline:get_available_models_cached(mock_state, 48, nil)
-      require("parrot.utils").has_internet = orig_has
-      assert.are.same({ "static-model" }, models)
-      assert.is_false(fetch_called, "must not invoke inner fetch when offline")
-    end)
-
-    it("should fetch when cache miss and online (via has_internet)", function()
-      mock_state.get_cached_models = function() return nil end
-      local fetch_called = false
-      local provider_online = MultiProvider:new({
-        name = "test-online",
+    it("should pass fresh models to the callback and cache them", function()
+      local cached
+      mock_state.set_cached_models = function(_, _, models)
+        cached = models
+      end
+      local provider_async = MultiProvider:new({
+        name = "test-async",
         endpoint = "https://api.test.com",
         model_endpoint = "https://api.test.com/models",
         api_key = "test",
         model = { "static" },
         get_available_models = function(self, args)
-          fetch_called = true
           return { "fetched-model" }
         end,
       })
-      local orig_has = require("parrot.utils").has_internet
-      require("parrot.utils").has_internet = function() return true end
-      local models = provider_online:get_available_models_cached(mock_state, 48, nil)
-      require("parrot.utils").has_internet = orig_has
-      assert.are.same({ "fetched-model" }, models)
-      assert.is_true(fetch_called)
+      local received
+      provider_async:get_available_models_cached(mock_state, 48, nil, function(models)
+        received = models
+      end)
+      assert.are.same({ "fetched-model" }, received)
+      assert.are.same({ "fetched-model" }, cached)
+    end)
+
+    it("should fall back to static models when the fetch fails", function()
+      local provider_failing = MultiProvider:new({
+        name = "test-failing",
+        endpoint = "https://api.test.com",
+        model_endpoint = "https://api.test.com/models",
+        api_key = "test",
+        model = { "static" },
+        get_available_models = function(self, args)
+          return {}
+        end,
+      })
+      local received
+      provider_failing:get_available_models_cached(mock_state, 48, nil, function(models)
+        received = models
+      end)
+      assert.are.same({ "static" }, received)
     end)
   end)
   describe("resolve_api_key", function()

@@ -78,7 +78,8 @@ end
 --- Cleans up old queries from the collection based on the specified criteria.
 --- @param N number # Number of queries to keep.
 --- @param age number # Age of queries to keep in seconds.
-function Queries:cleanup(N, age)
+--- @param keep? fun(qid: string): boolean # Queries to keep regardless of age (e.g. still running).
+function Queries:cleanup(N, age, keep)
   local current_time = os.time()
 
   local query_count = 0
@@ -91,7 +92,7 @@ function Queries:cleanup(N, age)
   end
 
   for qid, query_data in self:pairs() do
-    if current_time - query_data.timestamp > age then
+    if current_time - query_data.timestamp > age and not (keep and keep(qid)) then
       self:delete(qid)
     end
   end

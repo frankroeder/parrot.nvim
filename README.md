@@ -628,9 +628,9 @@ providers = {
 Use the [Grok Build CLI](https://docs.x.ai/build/overview) as a provider through the
 [Agent Client Protocol](https://agentclientprotocol.com/get-started/introduction).
 This routes chat, inline edits (`PrtRewrite`, etc.), and slash commands through
-`grok agent stdio` instead of direct HTTP API calls. `:PrtModel` uses `grok models`
-when online. `grok-build` stays valid for `grok agent -m grok-build stdio` even
-when it is not in that CLI list.
+`grok agent stdio` instead of direct HTTP API calls. `:PrtModel` lists the models
+of `grok models` (`models` below is the fallback); grok silently runs its default
+model for an id it does not list.
 
 Install the CLI from https://x.ai/cli, then authenticate with `grok login` or
 `XAI_API_KEY`.
@@ -642,12 +642,13 @@ providers = {
     name = "grok",
     command = { "grok", "agent", "stdio" },
     cli_command = { "grok" },
-    models = { "grok-4.6", "grok-build" },
+    models = { "grok-4.7", "grok-4.6" },
     always_approve = false, -- set true to skip ACP permission prompts
     resume_session = true, -- resume a chat's Grok session after restarting Neovim (default)
     command_reasoning_effort = "low", -- inline edits and popups (default); false keeps Grok's default
     -- command_rules = "...", -- replace the rules of command sessions ("" disables)
     -- args = { "--reasoning-effort", "medium" }, -- extra `grok agent` flags, apply to every session
+    -- no_auto_update = true, -- start grok with --no-auto-update
   },
 }
 ```
@@ -663,26 +664,28 @@ The markdown buffer stays the source of truth; Grok sessions follow it.
 
 System prompts (`system_prompt`, chat `system` headers) are passed as session rules, not as prompt text.
 
-**Chat project binding** (`chat_project_cwd` in `state.json`): set at `:PrtChatNew` / first `BufEnter` on a chat file. Legacy chats bind on the **first ACP prompt**, using whatever Neovim `cwd` is then — `:cd` to the intended repo before that prompt. Once bound, the chat's agent works in that project even if you `:cd` elsewhere. Command sessions use the git root of the current file (fallback: Neovim `cwd`).
+**Chat project binding** (`chat_project_cwd` in `state.json`): set at `:PrtChatNew` or when a chat file is first opened while the chat provider is an ACP agent (else at its first ACP prompt), to the git root of Neovim's `cwd` (fallback: the `cwd` itself) — so `:cd` to the intended repo before opening an older chat. Once bound, the chat's agent works in that project even if you `:cd` elsewhere. Command sessions use the git root of the current file (fallback: Neovim `cwd`).
 
 **Lifecycle:**
 
-1. The first prompt spawns `grok agent stdio` (one process per model) → `initialize` → `authenticate`. Nothing is spawned at startup.
+1. The first prompt spawns `grok agent stdio` (one process per model) → `initialize` → `authenticate`. At startup only a stale model cache runs `grok models`, in the background.
 2. Each prompt → `session/new` (or reuse / `session/load` for chats) → `session/prompt`, streamed via `session/update` (`agent_message_chunk`).
 3. Neovim exits → parrot terminates ACP processes (`VimLeavePre`).
 
-**Slash commands:** The full list arrives after `session/new` via `available_commands_update`. Parrot loads it lazily (first `:PrtAcpSlashCommand` or Tab completion) and caches it in `state.json`, keyed by `grok --version`. Output is shown in a popup; in a chat buffer the command runs in that chat's session (e.g. `/compact`). Some commands such as `/compact` and `/context` only act on the session and print nothing over ACP.
+**Slash commands:** The full list arrives after `session/new` via `available_commands_update`. Parrot loads it lazily (first `:PrtAcpSlashCommand` or Tab completion) and caches it in `state.json` (expires like the model cache; `:PrtReloadCache` refreshes it). Output is shown in a popup; in a chat buffer the command runs in that chat's session (e.g. `/compact`). Some commands such as `/compact` and `/context` only act on the session and print nothing over ACP.
 
 **ACP-specific commands** (registered automatically):
 
 - `:PrtAcpSlashCommand [cmd]` — run Grok slash commands (`/compact`, `/context`, `/goal`, …)
-- `:PrtAcpMode [mode]` — session mode picker; for Grok, toggles permission behavior (`always-approve-on` / `always-approve-off`)
+- `:PrtAcpMode [mode]` — toggles Grok's permission behavior (`always-approve-on` / `always-approve-off`)
 - `:PrtReloadCache [provider]` — refresh model and slash-command caches (use after CLI updates)
 
 **Other options:**
 
 - `always_approve = true` — skip ACP permission prompts (same as `/always-approve on`)
 - `show_thoughts = true` — include `agent_thought_chunk` streams in the response (when the agent emits them)
+
+**File edits:** when the agent edits a file that is open in Neovim, it reads the buffer (including unsaved changes) and its edit is written into the buffer and saved.
 
 </details>
 

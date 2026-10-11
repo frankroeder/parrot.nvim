@@ -10,23 +10,10 @@ M.select = function(items, opts, on_select)
   if has_fzf then
     fzf_lua.fzf_exec(items, {
       prompt = opts.prompt .. " ❯",
-      no_hide = true,
-      previewer = false,
-      winopts = {
-        split = false,
-        preview = { hidden = true },
-      },
-      file_icons = false,
-      git_icons = false,
-      color_icons = false,
-      fzf_opts = vim.tbl_extend("force", {}, opts.fzf_opts or {}, {
-        ["--preview-window"] = "hidden",
-      }),
+      fzf_opts = opts.fzf_opts,
       actions = {
         ["default"] = function(selected)
-          vim.schedule(function()
-            on_select(selected and selected[1])
-          end)
+          on_select(selected and selected[1])
         end,
       },
     })

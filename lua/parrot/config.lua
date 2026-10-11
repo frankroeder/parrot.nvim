@@ -179,15 +179,7 @@ local defaults = {
     end,
     Status = function(parrot, _)
       local status_info = parrot.get_status_info()
-      if not status_info then
-        parrot.logger.info("Parrot is not ready yet")
-        return
-      end
       local provider = status_info.is_chat and status_info.prov.chat or status_info.prov.command
-      if not provider or not provider.name then
-        parrot.logger.info("Parrot is not ready yet")
-        return
-      end
       local status = string.format("%s (%s)", provider.name, status_info.model)
       local usage = status_info.usage
       if usage and usage.requests > 0 then
@@ -235,10 +227,11 @@ local defaults = {
     AcpSlashCommand = function(parrot, params)
       require("parrot.acp.ui").select_slash_command(parrot, params)
     end,
-    -- PrtAcpMode — session mode picker (ACP modes or grok permission toggles)
+    -- PrtAcpMode — grok permission toggles (always-approve on/off)
     AcpMode = function(parrot, params)
       require("parrot.acp.ui").select_mode(parrot, params)
     end,
+    -- PrtReloadCache reloads cached models for all or specific providers
     ReloadCache = function(parrot, params)
       local provider = params.args ~= "" and params.args or nil -- Optional provider name from command args
       local state = parrot.chat_handler.state
@@ -257,24 +250,17 @@ local defaults = {
       -- Determine providers to reload (only available ones)
       local providers_to_reload = provider and { provider } or parrot.available_providers
 
-      -- Drop slash commands of live ACP providers; they reload on next picker/completion use
-      for _, prov in pairs(parrot.chat_handler.current_provider) do
-        if prov.is_acp and prov:is_acp() and vim.tbl_contains(providers_to_reload, prov.name) then
-          local runtime = prov:get_runtime_config()
-          runtime._slash_commands_cache = nil
-          runtime._slash_commands_complete = nil
-        end
-      end
-
-      -- Refetch models; get_available_models_cached falls back to static models when offline
+      -- Refetch models (similar to setup logic, only for available providers)
       for _, prov_name in ipairs(providers_to_reload) do
         local _prov = require("parrot.provider").init_provider(
           vim.tbl_deep_extend("force", { name = prov_name }, parrot.providers[prov_name])
         )
         if _prov:online_model_fetching() and parrot.options.model_cache_expiry_hours >= 0 then
+          local endpoint_hash = require("parrot.utils").generate_endpoint_hash(_prov)
           parrot.logger.info("Reloading model cache for " .. prov_name)
-          parrot.available_models[prov_name] =
+          local fresh_models =
             _prov:get_available_models_cached(state, parrot.options.model_cache_expiry_hours, spinner)
+          parrot.available_models[prov_name] = fresh_models
         end
       end
 
@@ -332,9 +318,6 @@ function M.setup(opts)
   math.randomseed(os.time())
 
   M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
-  if not utils.is_curl_args(M.options.curl_params) then
-    return M.logger.notify("parrot.nvim: curl_params must be a list of strings or numbers", vim.log.levels.ERROR)
-  end
   M.providers = opts.providers -- M.merge_providers(defaults.providers, opts.providers)
   -- Ensure each provider has params for chat and command, defaulting to OpenAI-style params or empty
   -- local default_params = (defaults.providers.openai and defaults.providers.openai.params) or { chat = {}, command = {} }
@@ -373,18 +356,31 @@ function M.setup(opts)
   temp_state:cleanup_cache(M.available_providers)
 
   local available_models = {}
+  local stale_providers = {}
 
-  -- Populate exclusively from cache or static models. Never perform net I/O or create spinners here.
-  -- Actual fetches happen lazily later via scheduled async refresh (when net available and stale).
+  -- Check each provider individually; stale model caches are refreshed in the background below
   for _, prov_name in ipairs(M.available_providers) do
-    local provider_config = vim.tbl_deep_extend("force", { name = prov_name }, M.providers[prov_name])
+    -- Create the new provider config format
+    local provider_config = vim.tbl_deep_extend("force", {
+      name = prov_name,
+    }, M.providers[prov_name])
     local _prov = init_provider(provider_config)
 
+    -- Use cached model fetching if provider has model_endpoint
+    -- Note: model_cache_expiry_hours = 0 means "use cached models forever, don't fetch new"
     if _prov:online_model_fetching() and M.options.model_cache_expiry_hours >= 0 then
+      -- Check cache validity for this specific provider
       local endpoint_hash = utils.generate_endpoint_hash(_prov)
-      local cached = temp_state:get_cached_models(prov_name, M.options.model_cache_expiry_hours, endpoint_hash)
-      available_models[prov_name] = cached or _prov.models
+      if not temp_state:is_cache_valid(prov_name, M.options.model_cache_expiry_hours, endpoint_hash) then
+        table.insert(stale_providers, _prov)
+      end
+
+      -- until then, a stale cache of the same endpoint beats the static models (a saved model stays valid)
+      local cache = vim.tbl_get(temp_state.file_state, prov_name, "cached_models") or {}
+      local cached = cache.endpoint_hash == endpoint_hash and cache.models or {}
+      available_models[prov_name] = #cached > 0 and cached or _prov.models
     else
+      -- Fall back to static models for providers without model_endpoint
       available_models[prov_name] = _prov.models
     end
   end
@@ -404,7 +400,7 @@ function M.setup(opts)
     ChatToggle = "chat_toggle",
     ChatPaste = "chat_paste",
     ChatDelete = "chat_delete",
-    ChatRespond = "chat_respond",
+    ChatResponde = "chat_respond",
     Context = "context",
     Model = "model",
     Provider = "provider",
@@ -430,30 +426,14 @@ function M.setup(opts)
 
   M.loaded = true
 
-  -- One-time lazy deferred refresh for model caches (post startup, only if stale + net).
-  -- Does not block setup; uses async probe + async-capable cached getters.
+  -- Fetch the models of stale caches without blocking the startup (`grok models` takes seconds)
   vim.schedule(function()
-    if not M.loaded or not M.chat_handler or not M.available_providers then
-      return
-    end
-    local state = M.chat_handler.state
-    if not state then
-      return
-    end
-    for _, prov_name in ipairs(M.available_providers) do
-      local name = prov_name
-      local pcfg = vim.tbl_deep_extend("force", { name = name }, M.providers[name] or {})
-      local _prov = init_provider(pcfg)
-      if _prov:online_model_fetching() and M.options.model_cache_expiry_hours >= 0 then
-        local eh = utils.generate_endpoint_hash(_prov)
-        if not state:is_cache_valid(name, M.options.model_cache_expiry_hours, eh) then
-          -- the callback path probes connectivity itself and falls back to static models when offline
-          _prov:get_available_models_cached(state, M.options.model_cache_expiry_hours, nil, function(fresh)
-            M.available_models[name] = fresh
-            state:refresh(M.available_providers, M.available_models)
-          end)
-        end
-      end
+    for _, prov in ipairs(stale_providers) do
+      M.logger.info("Updating model cache for " .. prov.name)
+      prov:get_available_models_cached(M.chat_handler.state, M.options.model_cache_expiry_hours, nil, function(models)
+        M.available_models[prov.name] = models
+        M.chat_handler.state:refresh(M.available_providers, M.available_models)
+      end)
     end
   end)
 end

@@ -94,31 +94,6 @@ describe("parrot.acp.client", function()
     end)
   end)
 
-  describe("normalize_slash_commands", function()
-    it("handles vim.NIL input from JSON null", function()
-      local normalized = acp_client.normalize_slash_commands({
-        { name = "context", description = "stats", input = vim.NIL },
-        { name = "compact", description = "compress", input = { hint = "preserve notes" } },
-      })
-      assert.equals(2, #normalized)
-      assert.equals("context", normalized[1].name)
-      assert.is_nil(normalized[1].hint)
-      assert.equals("preserve notes", normalized[2].hint)
-    end)
-
-    it("deduplicates commands and accepts map-shaped payloads", function()
-      local normalized = acp_client.normalize_slash_commands({
-        compact = { name = "compact", description = "compress" },
-        context = { name = "context", description = "stats" },
-        goal = { name = "goal", description = "goal mode" },
-        ["session-info"] = { name = "session-info", description = "session" },
-        ["always-approve"] = { name = "always-approve", description = "approve" },
-        duplicate = { name = "compact", description = "ignored" },
-      })
-      assert.equals(5, #normalized)
-    end)
-  end)
-
   describe("warm_session_cache", function()
     local orig_get_connection
 
@@ -223,21 +198,21 @@ describe("parrot.acp.client", function()
   end)
 
   describe("fetch_models_from_cli", function()
-    it("parses grok models output when available", function()
-      if vim.fn.executable("grok") ~= 1 then
-        pending("grok CLI not installed")
-        return
+    it("parses the model list of `grok models`", function()
+      local real_system = vim.system
+      local ran
+      vim.system = function(cmd)
+        ran = cmd
+        return {
+          wait = function()
+            return { code = 0, stdout = "Available models:\n  * grok-4.6 (default)\n  - grok-build\nnot a model\n" }
+          end,
+        }
       end
-      local models = acp_client.fetch_models_from_cli({ "grok" })
-      assert.is_true(#models > 0)
-      local has_grok = false
-      for _, id in ipairs(models) do
-        if id:match("^grok%-") then
-          has_grok = true
-          break
-        end
-      end
-      assert.is_true(has_grok, "expected grok-* model ids, got: " .. vim.inspect(models))
+      local models = acp_client.fetch_models_from_cli({ "sh" })
+      vim.system = real_system
+      assert.same({ "sh", "models" }, ran)
+      assert.same({ "grok-4.6", "grok-build" }, models)
     end)
   end)
 end)

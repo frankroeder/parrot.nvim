@@ -17,8 +17,10 @@ describe("parrot.acp.ui context", function()
         models = { "grok-build" },
       },
     }
+    local state_dir = vim.fn.tempname() .. "_ui_state"
+    vim.fn.mkdir(state_dir, "p")
     handler = ChatHandler:new({
-      state_dir = vim.fn.tempname() .. "_ui_state",
+      state_dir = state_dir,
       chat_dir = chat_dir,
       cmd_prefix = "Prt",
       enable_spinner = false,
@@ -67,7 +69,6 @@ describe("parrot.acp.ui context", function()
 
     local ctx = acp_ui.get_context(parrot)
     assert.is_not_nil(ctx)
-    assert.is_true(ctx.is_chat)
     assert.equals("chat", ctx.scope.kind)
     assert.equals(buf, ctx.buf)
     assert.is_false(require("parrot.utils").is_chat(buf, chat_file, chat_dir))
