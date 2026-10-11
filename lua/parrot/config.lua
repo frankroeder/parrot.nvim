@@ -400,7 +400,7 @@ function M.setup(opts)
     ChatToggle = "chat_toggle",
     ChatPaste = "chat_paste",
     ChatDelete = "chat_delete",
-    ChatResponde = "chat_respond",
+    ChatRespond = "chat_respond",
     Context = "context",
     Model = "model",
     Provider = "provider",
