@@ -478,7 +478,7 @@ providers = {
       command = { max_tokens = 4096 },
     },
     topic = {
-      model = "claude-3-5-haiku-latest",
+      model = "claude-haiku-5-5",
       params = { max_tokens = 32 },
     },
     headers = function(self)
@@ -489,10 +489,9 @@ providers = {
       }
     end,
     models = {
-      "claude-sonnet-4-20250514",
-      "claude-3-7-sonnet-20250219",
-      "claude-3-5-sonnet-20241022",
-      "claude-3-5-haiku-20241022",
+      "claude-opus-5-5",
+      "claude-sonnet-5-5",
+      "claude-haiku-5-5",
     },
     preprocess_payload = function(payload)
       for _, message in ipairs(payload.messages) do
@@ -532,7 +531,7 @@ providers = {
       command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
     },
     topic = {
-      model = "gemini-1.5-flash",
+      model = "gemini-3.5-flash-lite",
       params = { maxOutputTokens = 64 },
     },
     headers = function(self)
@@ -542,14 +541,10 @@ providers = {
       }
     end,
     models = {
-      "gemini-2.5-flash-preview-05-20",
-      "gemini-2.5-pro-preview-05-06",
-      "gemini-1.5-pro-latest",
-      "gemini-1.5-flash-latest",
-      "gemini-2.5-pro-exp-03-25",
-      "gemini-2.0-flash-lite",
-      "gemini-2.0-flash-thinking-exp",
-      "gemma-3-27b-it",
+      "gemini-3.8-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
     },
     preprocess_payload = function(payload)
       local contents = {}
