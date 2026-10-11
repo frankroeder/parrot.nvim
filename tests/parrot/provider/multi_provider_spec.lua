@@ -601,10 +601,10 @@ describe("MultiProvider", function()
         endpoint = "https://api.custom.com/v1/chat/completions",
         api_key = "test_key",
         model = { "test-model" },
-        headers = function(api_key)
+        headers = function(self)
           return {
             ["Content-Type"] = "application/json",
-            ["X-API-Key"] = api_key,
+            ["X-API-Key"] = self.api_key,
             ["X-Custom"] = "custom-value",
           }
         end,
@@ -619,6 +619,7 @@ describe("MultiProvider", function()
         end
       end
       assert.is_true(found_custom_header)
+      assert.is_true(vim.tbl_contains(curl_params, "X-API-Key: test_key"))
     end)
 
     it("should use custom process_stdout function", function()
