@@ -773,7 +773,48 @@ describe("MultiProvider", function()
       local models = provider:get_available_models()
       assert.are.same({ "gpt-4o" }, models)
     end)
+
+    describe("default fetch via curl", function()
+      local original_system, calls
+      before_each(function()
+        original_system = vim.system
+        calls = {}
+        vim.system = function(cmd, opts)
+          table.insert(calls, cmd)
+          return {
+            wait = function()
+              return { code = 0, stdout = '{"data":[{"id":"m1"},{"id":"m2"}]}' }
+            end,
+          }
+        end
+      end)
+      after_each(function()
+        vim.system = original_system
+      end)
+
+      local new_provider = function(model_endpoint)
+        return MultiProvider:new({
+          name = "proxied",
+          endpoint = "https://api.test.com/v1/chat",
+          model_endpoint = model_endpoint,
+          api_key = "secret",
+          model = { "fallback" },
+          curl_params = { "-k", "--noproxy", "*" },
+        })
+      end
+
+      it("passes provider curl_params and headers to curl", function()
+        local models = new_provider("https://api.test.com/v1/models"):get_available_models()
+        assert.are.same({ "m1", "m2" }, models)
+        local cmd = calls[1]
+        assert.equals("curl", cmd[1])
+        assert.equals("https://api.test.com/v1/models", cmd[2])
+        assert.are.same({ "-k", "--noproxy", "*" }, { cmd[3], cmd[4], cmd[5] })
+        assert.is_true(vim.tbl_contains(cmd, "Authorization: Bearer secret"))
+      end)
+    end)
   end)
+
   describe("get_available_models_cached", function()
     local mock_state
 

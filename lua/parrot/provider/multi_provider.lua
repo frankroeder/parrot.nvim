@@ -436,6 +436,30 @@ function MultiProvider:preprocess_payload(payload)
   return result
 end
 
+-- Provider curl params followed by the headers as `-H "k: v"` pairs
+---@return table
+function MultiProvider:header_args()
+  local args = vim.list_extend({}, self._curl_params)
+  local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
+  for k, v in pairs(hdrs) do
+    table.insert(args, "-H")
+    -- HTTP headers should always be strings, but handle edge cases defensively
+    local header_value
+    if type(v) == "table" then
+      logger.warning("Header value is a table, this is likely a configuration error", {
+        provider = self.name,
+        header = k,
+        value = v,
+      })
+      header_value = table.concat(v, " ")
+    else
+      header_value = tostring(v)
+    end
+    table.insert(args, k .. ": " .. header_value)
+  end
+  return args
+end
+
 -- Returns the curl parameters for the API request
 ---@return table
 function MultiProvider:curl_params()
@@ -443,8 +467,6 @@ function MultiProvider:curl_params()
   if not api_key then
     return {}
   end
-
-  local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
 
   -- Handle endpoint as function or string
   local endp
@@ -469,28 +491,7 @@ function MultiProvider:curl_params()
     endp,
   }
 
-  -- Add provider-specific curl params first
-  for _, param in ipairs(self._curl_params) do
-    table.insert(args, param)
-  end
-
-  for k, v in pairs(hdrs) do
-    table.insert(args, "-H")
-    -- HTTP headers should always be strings, but handle edge cases defensively
-    local header_value
-    if type(v) == "table" then
-      logger.warning("Header value is a table, this is likely a configuration error", {
-        provider = self.name,
-        header = k,
-        value = v,
-      })
-      header_value = table.concat(v, " ")
-    else
-      header_value = tostring(v)
-    end
-    table.insert(args, k .. ": " .. header_value)
-  end
-  return args
+  return vim.list_extend(args, self:header_args())
 end
 
 -- Verifies the API key or executes a routine to retrieve it
@@ -536,8 +537,6 @@ end
 ---@return string[]
 function MultiProvider:get_available_models(callback)
   if self:online_model_fetching() and self:verify() then
-    local hdrs = type(self.headers) == "function" and self.headers(self) or (self.headers or {})
-
     -- Handle model_endpoint as function or string/table
     local args
     if type(self.model_endpoint) == "function" then
@@ -554,27 +553,7 @@ function MultiProvider:get_available_models(callback)
       args = type(self.model_endpoint) == "table" and self.model_endpoint or { self.model_endpoint }
     end
 
-    for _, param in ipairs(self._curl_params) do
-      table.insert(args, param)
-    end
-
-    -- Add headers to args
-    for k, v in pairs(hdrs) do
-      table.insert(args, "-H")
-      -- HTTP headers should always be strings, but handle edge cases defensively
-      local header_value
-      if type(v) == "table" then
-        logger.warning("Header value is a table, this is likely a configuration error", {
-          provider = self.name,
-          header = k,
-          value = v,
-        })
-        header_value = table.concat(v, " ")
-      else
-        header_value = tostring(v)
-      end
-      table.insert(args, k .. ": " .. header_value)
-    end
+    args = vim.list_extend(args, self:header_args())
 
     -- user-provided functions (README examples) are synchronous and ignore the callback
     if self.get_available_models_func ~= defaults.get_available_models then
