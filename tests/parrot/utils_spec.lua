@@ -93,14 +93,6 @@ describe("utils", function()
     end)
   end)
 
-  describe("has_valid_key", function()
-    it("should return true if table has at least one valid key", function()
-      local table = { a = 1, b = 2, c = 3 }
-      assert.is_true(utils.has_valid_key(table, { "b", "d", "e" }))
-      assert.is_false(utils.has_valid_key(table, { "d", "e", "f" }))
-    end)
-  end)
-
   describe("contains", function()
     it("should return true if table contains the value", function()
       local table = { 1, 2, 3, 4, 5 }
@@ -624,18 +616,6 @@ describe("utils improved error handling", function()
       assert.matches("invalid target buffer", log_calls[1].msg)
 
       vim.api.nvim_buf_delete(buf, { force = true })
-    end)
-  end)
-
-  describe("has_valid_key", function()
-    it("should return false for non-table input", function()
-      local result = utils.has_valid_key("invalid", { "key1", "key2" })
-      assert.is_false(result)
-    end)
-
-    it("should return false for invalid valid_keys", function()
-      local result = utils.has_valid_key({ key1 = "value" }, "invalid")
-      assert.is_false(result)
     end)
   end)
 

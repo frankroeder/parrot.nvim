@@ -424,27 +424,6 @@ M.append_selection = function(params, origin_buf, target_buf, template_selection
   return true
 end
 
--- Check if a table has at least one of the specified valid keys.
----@param tbl table<string, any> # the table to check
----@param valid_keys string[] # valid key names to look for
----@return boolean
-M.has_valid_key = function(tbl, valid_keys)
-  if type(tbl) ~= "table" then
-    return false
-  end
-
-  if type(valid_keys) ~= "table" then
-    return false
-  end
-
-  for _, key in ipairs(valid_keys) do
-    if tbl[key] ~= nil then
-      return true
-    end
-  end
-  return false
-end
-
 -- Check if a table contains a specific value.
 ---@param tbl table # The table to search
 ---@param val any # The value to search for
