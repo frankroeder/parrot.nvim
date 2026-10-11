@@ -39,6 +39,17 @@ describe("config.setup", function()
     vim.system = original_system
   end)
 
+  it("does no network I/O itself and refreshes a stale model cache once afterwards", function()
+    assert.equal(0, #calls)
+    assert.are.same({ "m" }, config.available_models.fake)
+
+    vim.wait(1000, function()
+      return config.available_models.fake[1] == "fresh"
+    end)
+    assert.equal(1, #calls)
+    assert.are.same({ "fresh" }, config.available_models.fake)
+  end)
+
   it("maps every default command to a ChatHandler method", function()
     for name, method in pairs(config.cmd) do
       assert.is_function(config.chat_handler[method], name .. " -> " .. method)
