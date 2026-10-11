@@ -43,4 +43,61 @@ describe("Picker", function()
     assert.is_true(called)
     assert.is_nil(choice)
   end)
+
+  describe("telescope", function()
+    local mods = {
+      "telescope",
+      "telescope.pickers",
+      "telescope.finders",
+      "telescope.actions",
+      "telescope.actions.state",
+      "telescope.config",
+    }
+    local maps, closed
+
+    before_each(function()
+      maps, closed = {}, 0
+      package.loaded["telescope"] = {}
+      package.loaded["telescope.finders"] = { new_table = function() end }
+      package.loaded["telescope.config"] = { values = { generic_sorter = function() end } }
+      package.loaded["telescope.actions"] = {
+        close = function()
+          closed = closed + 1
+        end,
+      }
+      package.loaded["telescope.actions.state"] = {
+        get_selected_entry = function()
+          return { value = "b" }
+        end,
+      }
+      package.loaded["telescope.pickers"] = {
+        new = function(_, spec)
+          spec.attach_mappings(0, function(mode, key, fn)
+            maps[mode .. key] = fn
+          end)
+          return { find = function() end }
+        end,
+      }
+    end)
+
+    after_each(function()
+      for _, m in ipairs(mods) do
+        package.loaded[m] = nil
+      end
+    end)
+
+    it("confirms with <CR> in insert and normal mode", function()
+      local choices = {}
+      Picker.select({ "a", "b" }, { prompt = "Model selection" }, function(c)
+        table.insert(choices, c)
+      end)
+
+      assert.is_function(maps["i<CR>"])
+      assert.is_function(maps["n<CR>"])
+      maps["i<CR>"](1)
+      maps["n<CR>"](1)
+      assert.are.same({ "b", "b" }, choices)
+      assert.equal(2, closed)
+    end)
+  end)
 end)
