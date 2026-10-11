@@ -320,7 +320,7 @@ to consider a visual selection within an API request.
         },
       },
       ...
-    }
+    },
 
     -- default system prompts used for the chat sessions and the command routines
     system_prompt = {
@@ -377,7 +377,7 @@ to consider a visual selection within an API request.
     style_popup_margin_left = 1,
     style_popup_margin_right = 2,
     style_popup_margin_top = 2,
-    style_popup_max_width = 160
+    style_popup_max_width = 160,
 
     -- Prompt used for interactive LLM calls like PrtRewrite where {{llm}} is
     -- a placeholder for the llm name
@@ -412,7 +412,7 @@ to consider a visual selection within an API request.
     -- Available options: "dots", "line", "star", "bouncing_bar", "bouncing_ball"
     spinner_type = "star",
     -- Show hints for context added through completion with @file, @buffer or @directory
-    show_context_hints = true
+    show_context_hints = true,
 
     -- Show diff preview before applying changes from rewrite/append/prepend
     enable_preview_mode = true,
@@ -911,8 +911,8 @@ user commands (also known as hooks) is to define prompts as follows:
 require("parrot").setup {
     -- ...
     prompts = {
-        ["Spell"] = "I want you to proofread the provided text and fix the errors." -- e.g., :'<,'>PrtRewrite Spell
-        ["Comment"] = "Provide a comment that explains what the snippet is doing." -- e.g., :'<,'>PrtPrepend Comment
+        ["Spell"] = "I want you to proofread the provided text and fix the errors.", -- e.g., :'<,'>PrtRewrite Spell
+        ["Comment"] = "Provide a comment that explains what the snippet is doing.", -- e.g., :'<,'>PrtPrepend Comment
         ["Complete"] = "Continue the implementation of the provided snippet in the file {{filename}}." -- e.g., :'<,'>PrtAppend Complete
     }
     -- ...
@@ -972,6 +972,7 @@ creating custom hooks calling `prt.ChatNew(params, chat_prompt)` to directly inj
 ```lua
 require("parrot").setup {
     -- ...
+    hooks = {
       CodeConsultant = function(prt, params)
         local chat_prompt = [[
           Your task is to analyze the provided {{filetype}} code and suggest
@@ -1012,6 +1013,7 @@ on a **new line**!
 
 To enable `parrot.nvim` completions, add the source to your `nvim-cmp` configuration:
 
+<!-- lua-skip -->
 ```lua
 ...
 sources = cmp.config.sources({
@@ -1024,6 +1026,7 @@ sources = cmp.config.sources({
 
 For `blink.cmp` you need to add `"parrot"` to the default sources and configure
 the provider the following way:
+<!-- lua-skip -->
 ```lua
 ...
 parrot = {
@@ -1061,6 +1064,7 @@ Below, we provide an example for [lualine](https://github.com/nvim-lualine/luali
   require('lualine').setup {
     sections = {
       lualine_a = { parrot_status }
+    }
   }
 
 ```
