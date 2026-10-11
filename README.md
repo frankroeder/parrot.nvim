@@ -1078,6 +1078,21 @@ processing the LLM responses.
 Please note that configuring providers in this manner is intended for advanced
 users. I encourage you to open an issue or a discussion if you require assistance
 or have suggestions for improving provider support.
+
+All hooks are optional and default to the OpenAI chat completions format:
+
+| Hook                                  | Returns                                                  |
+|---------------------------------------|----------------------------------------------------------|
+| `endpoint`, `model_endpoint`          | a URL string, or `function(self)` returning one          |
+| `headers(self)`                       | header table (`self.api_key` is the resolved key)        |
+| `resolve_api_key(self, api_key)`      | the key string, or `false` on error                      |
+| `preprocess_payload(payload)`         | the request body table                                   |
+| `process_stdout(line)`                | text of one streamed line, or `nil`                      |
+| `process_onexit(response)`            | text of the full (non-streamed) response, or `nil`       |
+| `extract_usage(response)`             | `{ prompt_tokens?, completion_tokens?, total_tokens? }`  |
+| `get_available_models(self, args)`    | list of model ids; `args` are the curl arguments (model endpoint, `curl_params`, headers) |
+
+`curl_params` must be a flat list of strings (or numbers), one curl argument each.
 ```lua
   providers = {
     my_custom_provider = {
@@ -1087,11 +1102,11 @@ or have suggestions for improving provider support.
       model = { "model-1", "model-2" },
       -- Provider-specific curl parameters (optional)
       curl_params = { "--insecure", "--max-time", "30", "--proxy", "http://proxy:8080" },
-      -- Custom headers function
-      headers = function(api_key)
+      -- Custom headers function (or a static table); `self.api_key` holds the resolved key
+      headers = function(self)
         return {
           ["Content-Type"] = "application/json",
-          ["Authorization"] = "Bearer " .. api_key,
+          ["Authorization"] = "Bearer " .. self.api_key,
           ["X-Custom-Header"] = "custom-value",
         }
       end,
