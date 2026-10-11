@@ -30,7 +30,7 @@ A substantial part of the code is based on an early fork of the brilliant work b
     + [xAI API](https://console.x.ai)
     + [Grok Build CLI](https://docs.x.ai/build/overview) via [ACP](https://agentclientprotocol.com/get-started/introduction) (`grok agent stdio`)
     + Local and offline serving via [ollama](https://github.com/ollama/ollama)
-    + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), [NVIDIA API](https://docs.api.nvidia.com), and [EveryAPI](https://everyapi.ai) (multi-provider gateway · 240+ models behind one key)
+    + Any custom OpenAI-compatible endpoint with configurable functions; also supports [Perplexity.ai API](https://blog.perplexity.ai/blog/introducing-pplx-api), [Mistral API](https://docs.mistral.ai/api/), [Groq API](https://console.groq.com), [DeepSeek API](https://platform.deepseek.com), [GitHub Models](https://github.com/marketplace/models), [NVIDIA API](https://docs.api.nvidia.com), and [EveryAPI](https://everyapi.ai)
 - Flexible API credential management from various sources:
     + Environment variables
     + Bash commands
@@ -800,12 +800,7 @@ check the [migration notes](https://docs.perplexity.ai/docs/agent-api/migrate-fr
 </details>
 
 <details>
-<summary>EveryAPI (OpenAI-compatible gateway · 240+ models behind one key)</summary>
-
-[EveryAPI](https://everyapi.ai) aggregates Claude / GPT / Gemini / DeepSeek / Mistral / Bedrock / Azure / …
-behind a single OpenAI-compatible `/v1` endpoint, so one `api_key` and one
-`endpoint` covers every upstream model your account has access to. Configure
-exactly like any OpenAI-compatible provider:
+<summary>EveryAPI</summary>
 
 ```lua
 providers = {
@@ -822,15 +817,7 @@ providers = {
       model = "deepseek-chat",
       params = { max_tokens = 64 },
     },
-    headers = function(self)
-      return {
-        ["Content-Type"] = "application/json",
-        ["Authorization"] = "Bearer " .. self.api_key,
-      }
-    end,
-    -- Drop the explicit `models` list to let parrot auto-fetch from
-    -- /v1/models (the `model_endpoint` above) — useful when your
-    -- EveryAPI account has access to a moving set of upstream models.
+    -- fallback when the model list cannot be fetched
     models = {
       "claude-3-5-sonnet",
       "gpt-4o",
@@ -841,9 +828,6 @@ providers = {
   },
 }
 ```
-
-Create the API key at https://app.everyapi.ai. The same key works for every
-upstream model EveryAPI proxies — no per-provider rotation.
 </details>
 
 ### Adding a new command
