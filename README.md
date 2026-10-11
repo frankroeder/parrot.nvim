@@ -782,7 +782,7 @@ providers = {
       }
     end,
     topic = {
-      model = "r1-1776",
+      model = "sonar",
       params = {
         max_tokens = 64,
       },
@@ -790,14 +790,13 @@ providers = {
     models = {
       "sonar",
       "sonar-pro",
-      "sonar-deep-research",
-      "sonar-reasoning",
-      "sonar-reasoning-pro",
-      "r1-1776",
     },
   }
 }
 ```
+
+Perplexity ended support for Sonar Chat Completions on 2026-09-27 and now reformulates these requests for its Agent API;
+check the [migration notes](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/overview) for the current status.
 </details>
 
 <details>
