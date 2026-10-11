@@ -928,9 +928,10 @@ additional context:
 
 | Placeholder             | Content                              |
 |-------------------------|--------------------------------------|
+| `{{command}}`           | Your instruction (interactive input) |
 | `{{selection}}`         | Current visual selection             |
 | `{{filetype}}`          | Filetype of the current buffer       |
-| `{{filepath}}`          | Full path of the current file        |
+| `{{filename}}`          | Full path of the current file        |
 | `{{filecontent}}`       | Full content of the current buffer   |
 | `{{multifilecontent}}`  | Full content of all open buffers     |
 
