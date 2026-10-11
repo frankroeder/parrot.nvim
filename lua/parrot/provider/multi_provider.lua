@@ -402,6 +402,12 @@ function MultiProvider:validate_config()
     })
     error("curl_params must be a table for provider " .. self.name)
   end
+  -- vim.system takes argv, so every param must be a single string (or number)
+  for i, param in ipairs(self._curl_params) do
+    if type(param) ~= "string" and type(param) ~= "number" then
+      error("curl_params[" .. i .. "] must be a string or number for provider " .. self.name)
+    end
+  end
 end
 
 function MultiProvider:set_model(model)

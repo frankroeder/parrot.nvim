@@ -826,6 +826,30 @@ describe("MultiProvider", function()
     end)
   end)
 
+  describe("curl_params validation", function()
+    it("rejects non-string params", function()
+      assert.has_error(function()
+        MultiProvider:new({
+          name = "bad",
+          endpoint = "https://api.test.com",
+          api_key = "k",
+          model = { "m" },
+          curl_params = { "--max-time", { "30" } },
+        })
+      end, "curl_params[2] must be a string or number for provider bad")
+    end)
+
+    it("accepts strings and numbers", function()
+      local p = MultiProvider:new({
+        name = "ok",
+        endpoint = "https://api.test.com",
+        api_key = "k",
+        model = { "m" },
+        curl_params = { "--max-time", 30 },
+      })
+      assert.are.same({ "--max-time", 30 }, p._curl_params)
+    end)
+  end)
   describe("get_available_models_cached", function()
     local mock_state
 
