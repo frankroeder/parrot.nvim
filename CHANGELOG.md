@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/frankroeder/parrot.nvim/compare/v2.6.0...v2.7.0) (2026-08-24)
+
+
+### Features
+
+* report usage and extract conversation/picker ([86caf5a](https://github.com/frankroeder/parrot.nvim/commit/86caf5ac682049e4025ba5272468161f459a8048))
+
 ## [2.6.0](https://github.com/frankroeder/parrot.nvim/compare/v2.5.1...v2.6.0) (2026-07-21)
 
 
