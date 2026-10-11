@@ -66,7 +66,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
 
+      # Omit release-type so this action loads release-please-config.json.
+      # Setting release-type forces simple mode and ignores the manifest.
       - name: Release with release-please
         uses: googleapis/release-please-action@d1a8f221d7723166f48a584aebba00ef3f6febec
-        with:
-          release-type: simple
