@@ -1,26 +1,14 @@
 ---User-facing ACP helpers: slash commands, permission modes, tab completion.
 local acp_client = require("parrot.acp.client")
 local acp_sessions = require("parrot.acp.sessions")
+local client_handlers = require("parrot.acp.client_handlers")
 local logger = require("parrot.logger")
 local Picker = require("parrot.picker")
 
 local M = {}
 
----Grok permission modes of `:PrtAcpMode` (Grok advertises no ACP session modes).
-M.GROK_TOGGLES = {
-  {
-    id = "always-approve-on",
-    name = "Always approve",
-    description = "Skip permission prompts",
-    slash = "/always-approve on",
-  },
-  {
-    id = "always-approve-off",
-    name = "Ask permission",
-    description = "Prompt before each tool call",
-    slash = "/always-approve off",
-  },
-}
+---`:PrtAcpMode` modes and their `always_approve` value (permission prompts are answered by the client).
+M.MODES = { ["always-approve-off"] = false, ["always-approve-on"] = true }
 
 ---ACP context of the current buffer, or nil when its provider is not an ACP agent.
 ---@param parrot table
@@ -35,32 +23,16 @@ function M.get_context(parrot)
   end
 
   local model_obj = parrot.chat_handler:get_model(scope.kind)
-  -- warm-ups talk to the agent process of this buffer's model
+  -- slash commands are learned from the agent process of this buffer's model
   prov:set_model(model_obj.name)
-  local config = prov:get_runtime_config()
-  config._slash_cache_state = parrot.chat_handler.state
 
   return {
     prov = prov,
-    config = config,
+    config = prov:get_runtime_config(),
     model_obj = model_obj,
     scope = scope,
     buf = buf,
   }
-end
-
----Slash commands cached in state.json, nil until acp_client.warm_session_cache has learned them.
----@param parrot table
----@param ctx table
----@return table[]|nil
-local function slash_commands(parrot, ctx)
-  return parrot.chat_handler.state:get_cached_slash_commands(ctx.prov.name, parrot.options.model_cache_expiry_hours)
-end
-
----@param config table
----@return table[]
-function M.modes(config)
-  return vim.fs.basename((config.command or { "grok" })[1]) == "grok" and M.GROK_TOGGLES or {}
 end
 
 ---@param parrot table
@@ -136,11 +108,11 @@ function M.slash_complete(parrot, arg_lead)
     return {}
   end
 
-  local commands = slash_commands(parrot, ctx)
-  -- completion must not block: learn the full list in the background for the next <Tab>
+  local commands = acp_client.slash_commands(ctx.config)
+  -- completion must not block: learn the list in the background for the next <Tab>
   if not commands then
     vim.schedule(function()
-      acp_client.warm_session_cache(ctx.config)
+      acp_client.load_slash_commands(ctx.config, function() end)
     end)
   end
 
@@ -159,20 +131,12 @@ end
 ---@param arg_lead string
 ---@return string[]
 function M.mode_complete(parrot, arg_lead)
-  local ctx = M.get_context(parrot)
-  if not ctx then
+  if not M.get_context(parrot) then
     return {}
   end
-
-  local lead = (arg_lead or ""):lower()
-  local results = {}
-
-  for _, mode in ipairs(M.modes(ctx.config)) do
-    if vim.startswith(mode.id:lower(), lead) or vim.startswith(mode.name:lower(), lead) then
-      table.insert(results, mode.id)
-    end
-  end
-
+  local results = vim.tbl_filter(function(id)
+    return vim.startswith(id, arg_lead or "")
+  end, vim.tbl_keys(M.MODES))
   table.sort(results)
   return results
 end
@@ -192,8 +156,7 @@ function M.select_slash_command(parrot, params)
     return
   end
 
-  local function show_picker()
-    local commands = slash_commands(parrot, ctx) or {}
+  local function show_picker(commands)
     if #commands == 0 then
       logger.warning("No slash commands advertised by the ACP agent")
       return
@@ -226,9 +189,10 @@ function M.select_slash_command(parrot, params)
     end)
   end
 
-  -- known commands open the picker without starting an agent
-  if slash_commands(parrot, ctx) then
-    show_picker()
+  -- known commands open the picker right away
+  local commands = acp_client.slash_commands(ctx.config)
+  if commands then
+    show_picker(commands)
     return
   end
 
@@ -237,14 +201,14 @@ function M.select_slash_command(parrot, params)
     spinner:start("Loading ACP slash commands...", false)
   end
 
-  acp_client.warm_session_cache(ctx.config, function(err)
+  acp_client.load_slash_commands(ctx.config, function(err, loaded)
     if spinner then
       spinner:stop()
     end
     if err then
       logger.warning("Failed to load slash commands: " .. tostring(err))
     end
-    show_picker()
+    show_picker(loaded or {})
   end)
 end
 
@@ -257,54 +221,27 @@ function M.select_mode(parrot, params)
     return
   end
 
+  -- applies to every agent process and session of the provider, current and future
   local function apply(mode)
-    -- permission prompts are answered by the client handlers: toggle the provider of both slots
-    local always_approve = mode.id == "always-approve-on"
-    for _, is_chat in ipairs({ true, false }) do
-      local prov = parrot.chat_handler:get_provider(is_chat)
-      if prov.name == ctx.prov.name then
-        prov:get_runtime_config().always_approve = always_approve
-        prov:get_runtime_config()._current_mode_id = mode.id
-      end
+    if M.MODES[mode] == nil then
+      logger.error("Unknown mode: " .. mode)
+      return
     end
-    acp_client.set_always_approve(ctx.prov.name, always_approve)
-    -- the chat's own session is toggled too
-    if ctx.scope.kind == "chat" then
-      M.run_slash_command(parrot, mode.slash)
-    end
-    logger.info("ACP mode set to: " .. mode.name)
+    client_handlers.always_approve[ctx.prov.name] = M.MODES[mode]
+    logger.info("ACP mode set to: " .. mode)
   end
 
-  local modes = M.modes(ctx.config)
   local arg = vim.trim(params.args or "")
   if arg ~= "" then
-    for _, mode in ipairs(modes) do
-      if mode.id == arg or mode.name == arg then
-        apply(mode)
-        return
-      end
-    end
-    logger.error("Unknown mode: " .. arg)
+    apply(arg)
     return
   end
 
-  if #modes == 0 then
-    logger.warning("No session modes available for this ACP agent")
-    return
-  end
-
-  local labels, by_label = {}, {}
-  for _, mode in ipairs(modes) do
-    local prefix = mode.id == ctx.config._current_mode_id and "● " or "○ "
-    local desc = mode.description and (" — " .. mode.description) or ""
-    local label = prefix .. mode.name .. desc
-    by_label[label] = mode
-    table.insert(labels, label)
-  end
-
-  Picker.select(labels, { prompt = "ACP session mode", fzf_opts = parrot.options.fzf_lua_opts }, function(choice)
-    if by_label[choice] then
-      apply(by_label[choice])
+  local modes = vim.tbl_keys(M.MODES)
+  table.sort(modes)
+  Picker.select(modes, { prompt = "ACP mode", fzf_opts = parrot.options.fzf_lua_opts }, function(choice)
+    if choice then
+      apply(choice)
     end
   end)
 end

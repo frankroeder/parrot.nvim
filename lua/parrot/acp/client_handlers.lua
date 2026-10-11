@@ -3,6 +3,9 @@ local rpc = require("parrot.acp.rpc")
 
 local M = {}
 
+---`:PrtAcpMode` overrides of the providers' `always_approve`, by provider name
+M.always_approve = {}
+
 local function env_to_table(env)
   if not env then
     return nil
@@ -77,7 +80,7 @@ local function read_file(path, params)
 end
 
 ---Create client-side ACP method handlers.
----@param opts { always_approve?: boolean } Provider runtime config (read on each request)
+---@param opts { name?: string, always_approve?: boolean } Provider runtime config
 ---@return fun(method: string, params: table, respond: fun(result: any?, err: table?)) handler
 ---@return fun() kill_terminals Kills the agent's running terminals (when its connection goes away)
 ---@return fun(session_id: string) cancel_permission Answers an open permission prompt with `cancelled`
@@ -174,12 +177,21 @@ function M.create(opts)
     end
 
     if method == "session/request_permission" then
-      if opts.always_approve then
+      local approve = M.always_approve[opts.name]
+      if approve == nil then
+        approve = opts.always_approve
+      end
+      if approve then
+        -- prefer allow_once: an allow_always answer would outlive turning always_approve off again
+        local allow
         for _, option in ipairs(params.options or {}) do
-          if vim.startswith(option.kind or "", "allow") then
-            respond({ outcome = { outcome = "selected", optionId = option.optionId } })
-            return
+          if option.kind == "allow_once" or (not allow and vim.startswith(option.kind or "", "allow")) then
+            allow = option
           end
+        end
+        if allow then
+          respond({ outcome = { outcome = "selected", optionId = allow.optionId } })
+          return
         end
       end
 

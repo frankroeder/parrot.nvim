@@ -627,46 +627,17 @@ describe("State", function()
     end)
   end)
 
-  describe("cached slash commands", function()
+  describe("clear_cache", function()
     before_each(setup_mocks)
     after_each(teardown_mocks)
 
-    it("should cache slash commands with timestamp", function()
-      local state = State:new("/tmp")
-      local commands = { { name = "compact" }, { name = "context" } }
-      local before_time = os.time()
-
-      state:set_cached_slash_commands("grok", commands)
-
-      local cached = state.file_state.grok.cached_slash_commands
-      assert.are.same(commands, cached.commands)
-      assert.is_true(cached.timestamp >= before_time)
-      assert.are.same(commands, state:get_cached_slash_commands("grok", 48))
-    end)
-
-    it("should return nil when the cache expired, unless it never expires", function()
-      local state = State:new("/tmp")
-      local commands = { { name = "goal" } }
-      state.file_state.grok = {
-        cached_slash_commands = { commands = commands, timestamp = os.time() - 49 * 3600 },
-      }
-
-      assert.is_nil(state:get_cached_slash_commands("grok", 48))
-      assert.are.same(commands, state:get_cached_slash_commands("grok", 0))
-    end)
-
-    it("should be persisted by save and dropped by clear_cache, leaving other state alone", function()
+    it("should leave the chat project binding alone", function()
       local state = State:new("/tmp")
       state.file_state.chat_project_cwd = { ["/chats/a.md"] = "/proj" }
       state:refresh({ "grok" }, { grok = { "grok-build" } })
-      state:set_cached_slash_commands("grok", { { name = "goal" } })
-      state:save()
-      assert.is_not_nil(state._state.grok.cached_slash_commands)
 
       state:clear_cache()
       state:save()
-      assert.is_nil(state:get_cached_slash_commands("grok", 48))
-      assert.is_nil(state._state.grok.cached_slash_commands)
       assert.same({ ["/chats/a.md"] = "/proj" }, state._state.chat_project_cwd)
       assert.is_nil(state._state.current_provider.cached_models)
     end)

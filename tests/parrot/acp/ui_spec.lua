@@ -1,22 +1,23 @@
+local acp_client = require("parrot.acp.client")
 local acp_ui = require("parrot.acp.ui")
 
 describe("parrot.acp.ui", function()
-  local function fake_parrot(config, cached)
+  local orig_slash_commands, orig_load
+
+  local function fake_parrot(commands)
+    acp_client.slash_commands = function()
+      return commands
+    end
     local prov = {
       name = "grok",
       type = "acp",
       set_model = function() end,
       get_runtime_config = function()
-        return config
+        return { command = { "grok" } }
       end,
     }
     return {
       chat_handler = {
-        state = {
-          get_cached_slash_commands = function()
-            return cached
-          end,
-        },
         get_provider = function()
           return prov
         end,
@@ -24,20 +25,26 @@ describe("parrot.acp.ui", function()
           return { name = "grok-build" }
         end,
       },
-      options = { chat_dir = "/tmp/chats", model_cache_expiry_hours = 48 },
+      options = { chat_dir = "/tmp/chats" },
     }
   end
 
-  it("offers the grok permission toggles as modes", function()
-    local modes = acp_ui.modes({ command = { "grok", "agent", "stdio" } })
-    assert.equals(2, #modes)
-    assert.equals("always-approve-on", modes[1].id)
-    assert.equals(2, #acp_ui.modes({ command = { "/home/u/.grok/bin/grok", "agent", "stdio" } }))
-    assert.same({}, acp_ui.modes({ command = { "other-agent" } }))
+  before_each(function()
+    orig_slash_commands, orig_load = acp_client.slash_commands, acp_client.load_slash_commands
   end)
 
-  it("slash_complete returns the matching cached command names", function()
-    local parrot = fake_parrot({ command = { "grok" } }, {
+  after_each(function()
+    acp_client.slash_commands, acp_client.load_slash_commands = orig_slash_commands, orig_load
+  end)
+
+  it("completes the permission modes", function()
+    local parrot = fake_parrot(nil)
+    assert.same({ "always-approve-off", "always-approve-on" }, acp_ui.mode_complete(parrot, ""))
+    assert.same({ "always-approve-on" }, acp_ui.mode_complete(parrot, "always-approve-on"))
+  end)
+
+  it("slash_complete returns the matching known command names", function()
+    local parrot = fake_parrot({
       { name = "compact", description = "Compress history" },
       { name = "context", description = "Show context usage" },
     })
@@ -45,22 +52,32 @@ describe("parrot.acp.ui", function()
     assert.same({ "compact", "context" }, acp_ui.slash_complete(parrot, "/co"))
   end)
 
-  it("opens the slash command picker from the cache without starting an agent", function()
-    local acp_client = require("parrot.acp.client")
-    local orig_warm, orig_select = acp_client.warm_session_cache, vim.ui.select
-    local warmed, items = false, nil
-    acp_client.warm_session_cache = function()
-      warmed = true
+  it("opens the slash command picker from known commands without loading them", function()
+    local orig_select = vim.ui.select
+    local loaded, items = false, nil
+    acp_client.load_slash_commands = function()
+      loaded = true
     end
     vim.ui.select = function(list)
       items = list
     end
-    acp_ui.select_slash_command(
-      fake_parrot({ command = { "grok" } }, { { name = "goal", input = { hint = "x" } } }),
-      {}
-    )
-    acp_client.warm_session_cache, vim.ui.select = orig_warm, orig_select
-    assert.is_false(warmed)
-    assert.same({ "goal" }, items)
+    acp_ui.select_slash_command(fake_parrot({ { name = "goal", hint = "x" } }), {})
+    vim.ui.select = orig_select
+    assert.is_false(loaded)
+    assert.same({ "goal — x" }, items)
+  end)
+
+  it("loads unknown slash commands before opening the picker", function()
+    local orig_select = vim.ui.select
+    local items
+    acp_client.load_slash_commands = function(_, cb)
+      cb(nil, { { name = "compact" } })
+    end
+    vim.ui.select = function(list)
+      items = list
+    end
+    acp_ui.select_slash_command(fake_parrot(nil), {})
+    vim.ui.select = orig_select
+    assert.same({ "compact" }, items)
   end)
 end)

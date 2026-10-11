@@ -94,8 +94,22 @@ describe("parrot.acp.client", function()
     end)
   end)
 
-  describe("warm_session_cache", function()
+  describe("load_slash_commands", function()
     local orig_get_connection
+    local config = { name = "grok", command = { "grok", "agent", "stdio" }, model = "grok-build" }
+
+    -- answers session/new with a session id, records every request
+    local function fake_connection(requests)
+      return {
+        sessions = {},
+        rpc = {
+          request = function(method, params, cb)
+            table.insert(requests, method)
+            cb(nil, method == "session/new" and { sessionId = "warm" } or {})
+          end,
+        },
+      }
+    end
 
     before_each(function()
       orig_get_connection = acp_client.get_connection
@@ -105,95 +119,44 @@ describe("parrot.acp.client", function()
       acp_client.get_connection = orig_get_connection
     end)
 
-    it("finishes when slash_commands_complete becomes true after session creation", function()
-      local cwd = vim.fn.tempname() .. "_warm"
-      vim.fn.mkdir(cwd, "p")
-      local connection = {
-        config = {},
-        slash_commands = {},
-        slash_commands_complete = false,
-        sessions = {},
-        rpc = { request = function() end },
-      }
-
-      local get_calls = 0
+    it("waits for the commands of a throwaway session, shared by concurrent loads, then deletes it", function()
+      local requests = {}
+      local connection = fake_connection(requests)
       acp_client.get_connection = function(_, _, cb)
-        get_calls = get_calls + 1
         cb(nil, connection)
       end
 
-      local done = false
-      local err = "pending"
-      acp_client.warm_session_cache({
-        command = { "grok", "agent", "stdio" },
-        model = "grok-build",
-        cwd = cwd,
-      }, function(e)
-        err = e
-        done = true
-      end)
+      local results = {}
+      for _ = 1, 2 do
+        acp_client.load_slash_commands(config, function(err, commands)
+          table.insert(results, { err = err, commands = commands })
+        end)
+      end
+      assert.same({ "session/new" }, requests)
+      assert.same({}, results)
 
-      assert.is_not_nil(connection._slash_warm_cb)
+      -- the agent's available_commands_update
       connection.slash_commands = { { name = "compact" } }
-      connection.slash_commands_complete = true
-      connection._slash_warm_cb()
+      connection._slash_commands_ready()
 
-      vim.wait(1000, function()
-        return done
-      end)
-
-      assert.is_true(done)
-      assert.is_nil(err)
-      assert.equals(1, get_calls)
-
-      vim.fn.delete(cwd, "rf")
+      assert.same({ { commands = { { name = "compact" } } }, { commands = { { name = "compact" } } } }, results)
+      assert.same({ "session/new", "_x.ai/session/delete" }, requests)
     end)
 
-    it("coalesces concurrent warm requests for the same connection", function()
-      local cwd = vim.fn.tempname() .. "_coalesce"
-      vim.fn.mkdir(cwd, "p")
-      local connection = {
-        config = {},
-        slash_commands = {},
-        slash_commands_complete = false,
-        sessions = {},
-        rpc = { request = function() end },
-      }
-
-      local get_calls = 0
+    it("returns known commands without opening a session", function()
+      local requests = {}
+      local connection = fake_connection(requests)
+      connection.slash_commands = { { name = "goal" } }
       acp_client.get_connection = function(_, _, cb)
-        get_calls = get_calls + 1
         cb(nil, connection)
       end
 
-      local done = 0
-      local config = {
-        command = { "grok", "agent", "stdio" },
-        model = "grok-build",
-        cwd = cwd,
-      }
-
-      acp_client.warm_session_cache(config, function()
-        done = done + 1
+      local got
+      acp_client.load_slash_commands(config, function(_, commands)
+        got = commands
       end)
-      acp_client.warm_session_cache(config, function()
-        done = done + 1
-      end)
-
-      assert.equals(1, get_calls)
-      assert.is_not_nil(connection._slash_warm_cb)
-
-      connection.slash_commands = { { name = "context" } }
-      connection.slash_commands_complete = true
-      connection._slash_warm_cb()
-
-      vim.wait(1000, function()
-        return done == 2
-      end)
-
-      assert.equals(2, done)
-
-      vim.fn.delete(cwd, "rf")
+      assert.same({ { name = "goal" } }, got)
+      assert.same({}, requests)
     end)
   end)
 

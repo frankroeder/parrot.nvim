@@ -122,7 +122,6 @@ function State:save()
   for provider, data in pairs(self.file_state) do
     if type(data) == "table" and data.cached_models and self._state[provider] then
       self._state[provider].cached_models = data.cached_models
-      self._state[provider].cached_slash_commands = data.cached_slash_commands
     end
   end
 
@@ -237,26 +236,6 @@ function State:forget_chat(chat_file)
   return removed
 end
 
---- Caches the slash commands an ACP agent advertised (session/update available_commands_update).
----@param provider string
----@param commands table[]
-function State:set_cached_slash_commands(provider, commands)
-  self.file_state[provider] = self.file_state[provider] or { cached_models = {} }
-  self.file_state[provider].cached_slash_commands = { commands = commands, timestamp = os.time() }
-end
-
---- Returns the cached slash commands unless expired (cache_expiry_hours = 0 never expires).
----@param provider string
----@param cache_expiry_hours number
----@return table[]|nil
-function State:get_cached_slash_commands(provider, cache_expiry_hours)
-  local cached = vim.tbl_get(self.file_state, provider, "cached_slash_commands")
-  if not cached or (cache_expiry_hours > 0 and os.time() - cached.timestamp > cache_expiry_hours * 3600) then
-    return nil
-  end
-  return cached.commands
-end
-
 --- Sets cached models for a provider with timestamp
 --- @param provider string # Provider name
 --- @param models table # Array of model names
@@ -337,14 +316,12 @@ function State:clear_cache(provider)
     -- Clear cache for specific provider
     if self.file_state[provider] and self.file_state[provider].cached_models then
       self.file_state[provider].cached_models = {}
-      self.file_state[provider].cached_slash_commands = nil
     end
   else
     -- Clear all caches
     for prov_name, prov_data in pairs(self.file_state) do
       if type(prov_data) == "table" and prov_data.cached_models then
         prov_data.cached_models = {}
-        prov_data.cached_slash_commands = nil
       end
     end
   end

@@ -18,6 +18,10 @@ jobs:
             rev: v0.12.4/nvim-linux-x86_64.tar.gz
             manager: sudo apt-get
             packages: -y ripgrep
+          - os: ubuntu-latest
+            rev: v0.11.0/nvim-linux-x86_64.tar.gz
+            manager: sudo apt-get
+            packages: -y ripgrep
     steps:
       - uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
       - run: date +%F > todays-date

@@ -102,10 +102,16 @@ Let the parrot fix your bugs.
 
 This plugin requires the latest version of Neovim and relies on a carefully selected set of established plugins.
 
-- [`neovim 0.10+`](https://github.com/neovim/neovim/releases)
+- [`neovim 0.11+`](https://github.com/neovim/neovim/releases)
 - [`ripgrep`](https://github.com/BurntSushi/ripgrep) (optional)
 - [`fzf`](https://github.com/junegunn/fzf) (optional, requires ripgrep)
 - [`telescope`](https://github.com/nvim-telescope/telescope.nvim) (optional)
+
+> [!IMPORTANT]
+> **Breaking:** parrot.nvim now requires Neovim 0.11+ and no longer depends on [`plenary`](https://github.com/nvim-lua/plenary.nvim): processes run via `vim.system` and filetypes are detected with `vim.filetype.match`.
+> You can drop plenary from parrot's `dependencies` unless another plugin needs it.
+> Custom `get_available_models` functions that use `require("plenary.job")` must keep plenary installed or switch to `vim.system` (see the Ollama example below).
+> Models of an outdated cache are now refreshed in the background after startup instead of blocking it.
 
 ### Installation
 
@@ -640,6 +646,8 @@ providers = {
   grok = {
     type = "acp",
     name = "grok",
+    -- the subcommand comes last; parrot inserts `-m <model>` before it. Extra flags go into the
+    -- command, e.g. { "grok", "--no-auto-update", "agent", "--reasoning-effort", "medium", "stdio" }
     command = { "grok", "agent", "stdio" },
     cli_command = { "grok" },
     models = { "grok-4.7", "grok-4.6" },
@@ -647,8 +655,6 @@ providers = {
     resume_session = true, -- resume a chat's Grok session after restarting Neovim (default)
     command_reasoning_effort = "low", -- inline edits and popups (default); false keeps Grok's default
     -- command_rules = "...", -- replace the rules of command sessions ("" disables)
-    -- args = { "--reasoning-effort", "medium" }, -- extra `grok agent` flags, apply to every session
-    -- no_auto_update = true, -- start grok with --no-auto-update
   },
 }
 ```
@@ -672,17 +678,17 @@ System prompts (`system_prompt`, chat `system` headers) are passed as session ru
 2. Each prompt → `session/new` (or reuse / `session/load` for chats) → `session/prompt`, streamed via `session/update` (`agent_message_chunk`).
 3. Neovim exits → parrot terminates ACP processes (`VimLeavePre`).
 
-**Slash commands:** The full list arrives after `session/new` via `available_commands_update`. Parrot loads it lazily (first `:PrtAcpSlashCommand` or Tab completion) and caches it in `state.json` (expires like the model cache; `:PrtReloadCache` refreshes it). Output is shown in a popup; in a chat buffer the command runs in that chat's session (e.g. `/compact`). Some commands such as `/compact` and `/context` only act on the session and print nothing over ACP.
+**Slash commands:** The full list arrives after `session/new` via `available_commands_update`. Parrot learns it lazily per agent process (first `:PrtAcpSlashCommand` or Tab completion, which opens a throwaway session if needed). Output is shown in a popup; in a chat buffer the command runs in that chat's session (e.g. `/compact`). Some commands such as `/compact` and `/context` only act on the session and print nothing over ACP.
 
 **ACP-specific commands** (registered automatically):
 
 - `:PrtAcpSlashCommand [cmd]` — run Grok slash commands (`/compact`, `/context`, `/goal`, …)
-- `:PrtAcpMode [mode]` — toggles Grok's permission behavior (`always-approve-on` / `always-approve-off`)
-- `:PrtReloadCache [provider]` — refresh model and slash-command caches (use after CLI updates)
+- `:PrtAcpMode [mode]` — toggles the auto-approval of permission prompts (`always-approve-on` / `always-approve-off`)
+- `:PrtReloadCache [provider]` — refresh the model cache (use after CLI updates)
 
 **Other options:**
 
-- `always_approve = true` — skip ACP permission prompts (same as `/always-approve on`)
+- `always_approve = true` — approve ACP permission prompts automatically (toggle with `:PrtAcpMode`)
 - `show_thoughts = true` — include `agent_thought_chunk` streams in the response (when the agent emits them)
 
 **File edits:** when the agent edits a file that is open in Neovim, it reads the buffer (including unsaved changes) and its edit is written into the buffer and saved.

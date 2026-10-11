@@ -233,6 +233,26 @@ describe("parrot.acp.client sessions", function()
     assert.not_equals("busy", state:get_acp_session("grok", "/chats/e.md").id)
   end)
 
+  it("keeps the replacing session when a stopped turn finishes late", function()
+    local requests = {}
+    local conn = fake_connection(requests)
+    local request, held = conn.rpc.request, nil
+    conn.rpc.request = function(method, params, cb)
+      if method == "session/prompt" and not held then
+        held = cb -- the first turn is still running
+        return
+      end
+      request(method, params, cb)
+    end
+    local messages = { { role = "user", content = "q1" } }
+    prompt(conn, { session_kind = "chat", session_key = "/chats/h.md", messages = messages })
+    prompt(conn, { session_kind = "chat", session_key = "/chats/h.md", messages = messages })
+    local replacement = state:get_acp_session("grok", "/chats/h.md").id
+
+    held(nil, { stopReason = "cancelled" })
+    assert.equals(replacement, state:get_acp_session("grok", "/chats/h.md").id)
+  end)
+
   it("drops a chat's new session when its prompt is cancelled before it is sent", function()
     local requests = {}
     local conn = fake_connection(requests)

@@ -1627,14 +1627,9 @@ function ChatHandler:prompt(params, target, model_obj, prompt, template, reset_h
   end)
 end
 
-function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
-  if not provider:verify() then
-    if on_exit then
-      on_exit(nil)
-    end
-    return
-  end
-
+--- Registers a new query and drops old ones that are no longer running.
+---@return string # the query id
+function ChatHandler:add_query(buf, provider, payload, handler, on_exit)
   local qid = utils.uuid()
   self.queries:add(qid, {
     timestamp = os.time(),
@@ -1649,12 +1644,23 @@ function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
     ns_id = nil,
     ex_id = nil,
     error_occurred = false,
+    usage = {},
   })
-
   self.queries:cleanup(8, 60, function(id)
     return self.pool:has_qid(id)
   end)
+  return qid
+end
 
+function ChatHandler:acp_query(buf, provider, payload, handler, on_exit)
+  if not provider:verify() then
+    if on_exit then
+      on_exit(nil)
+    end
+    return
+  end
+
+  local qid = self:add_query(buf, provider, payload, handler, on_exit)
   provider:set_model(payload.model)
 
   local acp_sessions = require("parrot.acp.sessions")
@@ -1808,22 +1814,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
     return
   end
 
-  local qid = utils.uuid()
-  self.queries:add(qid, {
-    timestamp = os.time(),
-    buf = buf,
-    provider = provider.name,
-    payload = payload,
-    handler = handler,
-    on_exit = on_exit,
-    response = "",
-    first_line = -1,
-    last_line = -1,
-    ns_id = nil,
-    ex_id = nil,
-    error_occurred = false,
-    usage = {},
-  })
+  local qid = self:add_query(buf, provider, payload, handler, on_exit)
 
   -- Merge the token counts a chunk reports; APIs may send them in several pieces.
   local collect_usage = function(raw)
@@ -1839,10 +1830,6 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       qt.usage[key] = value
     end
   end
-
-  self.queries:cleanup(8, 60, function(id)
-    return self.pool:has_qid(id)
-  end)
 
   local curl_params = vim.deepcopy(self.options.curl_params or {})
   payload = provider:preprocess_payload(payload)

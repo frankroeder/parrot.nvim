@@ -121,14 +121,26 @@ describe("parrot.acp.client_handlers", function()
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
 
-  it("always_approve picks an allow option", function()
+  it("always_approve picks the allow_once option", function()
     local h = client_handlers.create({ always_approve = true })
     local res = call(h, "session/request_permission", {
       options = {
+        { optionId = "always", kind = "allow_always" },
         { optionId = "no", kind = "reject_once" },
         { optionId = "yes", kind = "allow_once" },
       },
     })
+    assert.equals("yes", res.outcome.optionId)
+    res = call(h, "session/request_permission", { options = { { optionId = "always", kind = "allow_always" } } })
+    assert.equals("always", res.outcome.optionId)
+  end)
+
+  it(":PrtAcpMode overrides the always_approve of the provider's config", function()
+    local h = client_handlers.create({ name = "appr", always_approve = false })
+    local options = { options = { { optionId = "yes", kind = "allow_once" } } }
+    client_handlers.always_approve.appr = true
+    local res = call(h, "session/request_permission", options)
+    client_handlers.always_approve.appr = nil
     assert.equals("yes", res.outcome.optionId)
   end)
 
@@ -235,14 +247,6 @@ describe("parrot.acp.client connections", function()
   local function agents_running()
     return tonumber(vim.fn.system("ps -eo args | grep -c '^sleep 7.4242'"))
   end
-
-  it("set_always_approve reaches a live connection spawned by another provider instance", function()
-    local spawned_with = { name = "appr", command = { "sh", "-c", "sleep 7.4242" }, models = { "m" } }
-    acp_client.get_connection(spawned_with, "m", function() end)
-    acp_client.set_always_approve("appr", true) -- e.g. :PrtAcpMode from a new provider instance
-    assert.is_true(spawned_with.always_approve)
-    acp_client.terminate_all()
-  end)
 
   it("terminate_all stops every agent process (VimLeavePre)", function()
     acp_client.get_connection(
