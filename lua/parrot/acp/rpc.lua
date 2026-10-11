@@ -102,6 +102,7 @@ function M.start(cmd, dispatchers)
 
   system_obj = vim.system(cmd, {
     stdin = true,
+    detach = true, -- own process group, so terminate also stops children of wrapper scripts
     stdout = function(err, data)
       if err then
         logger.error("ACP connection error: " .. tostring(err))
@@ -147,7 +148,7 @@ function M.start(cmd, dispatchers)
       state.closing = true
       fail_pending("ACP connection terminated")
       if not system_obj:is_closing() then
-        system_obj:kill(15)
+        vim.uv.kill(-system_obj.pid, "sigterm")
       end
     end,
   }
