@@ -1863,7 +1863,7 @@ function ChatHandler:query(buf, provider, payload, handler, on_exit)
       logger.debug("ChatHandler:query on_stdout", {
         data = data,
       })
-      data = data and data:gsub("\r", "") -- plenary stripped carriage returns
+      data = data and data:gsub("\r", "") -- strip carriage returns of CRLF streams
       table.insert(stdout_chunks, data or "")
       -- keep the trailing partial line until the next chunk; flush it at EOF (data == nil)
       local lines = vim.split(pending .. (data or ""), "\n")
