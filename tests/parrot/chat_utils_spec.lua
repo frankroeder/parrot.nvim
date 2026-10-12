@@ -43,5 +43,30 @@ describe("chat_utils", function()
         vim.api.nvim_buf_delete(buf, { force = true })
       end)
     end)
+
+    it("registers the autosave autocmd once per buffer", function()
+      local path = vim.fn.tempname() .. "_prep.md"
+      vim.fn.writefile({ "# topic" }, path)
+      vim.cmd("edit " .. vim.fn.fnameescape(path))
+      local buf = vim.api.nvim_get_current_buf()
+
+      local function autosaves()
+        return vim.api.nvim_get_autocmds({ group = "ParrotPrepMd", buffer = buf })
+      end
+
+      chat_utils.prep_md(buf)
+      local once = #autosaves()
+      chat_utils.prep_md(buf)
+      chat_utils.prep_md(buf)
+      assert.is_true(once > 0)
+      assert.equals(once, #autosaves())
+
+      vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "saved-line" })
+      vim.api.nvim_exec_autocmds("TextChanged", { buffer = buf })
+      assert.truthy(table.concat(vim.fn.readfile(path), "\n"):find("saved-line", 1, true))
+
+      vim.cmd("bdelete! " .. buf)
+      vim.fn.delete(path)
+    end)
   end)
 end)
