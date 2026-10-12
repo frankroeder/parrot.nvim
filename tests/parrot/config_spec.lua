@@ -61,3 +61,25 @@ describe("config.setup", function()
     assert.is_not_nil(vim.api.nvim_get_commands({}).PrtChatRespond)
   end)
 end)
+
+describe("PrtInfo masking", function()
+  it("masks keys of 6 characters or fewer and does not reveal a longer key", function()
+    local original = vim.api.nvim_get_current_buf()
+    config.hooks.Info({
+      providers = {
+        short = { api_key = "secret" },
+        tiny = { api_key = "zz9" },
+        long = { api_key = "sk-1234567890abcdef" },
+        cmd = { api_key = { "printf", "%s", "not-a-string-key" } },
+      },
+    }, {})
+    local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+    assert.is_nil(text:find("secret", 1, true))
+    assert.is_nil(text:find("zz9", 1, true))
+    assert.is_nil(text:find("sk-1234567890abcdef", 1, true))
+    assert.truthy(text:find("sk%-", 1, false))
+    assert.truthy(text:find("******", 1, true))
+    assert.truthy(text:find("printf", 1, true))
+    vim.api.nvim_win_set_buf(0, original)
+  end)
+end)
