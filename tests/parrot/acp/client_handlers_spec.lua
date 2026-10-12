@@ -10,12 +10,14 @@ local function call(handler, method, params)
 end
 
 describe("parrot.acp.client_handlers", function()
-  local dir, handler
+  local dir, handler, access
 
   before_each(function()
     dir = vim.fn.tempname() .. "_acp_fs"
     vim.fn.mkdir(dir, "p")
-    handler = client_handlers.create({})
+    -- existing cases run as an approved agent jailed to this directory
+    handler, _, _, access = client_handlers.create({ always_approve = true })
+    access.note_session(nil, dir)
   end)
 
   after_each(function()
@@ -227,7 +229,8 @@ describe("parrot.acp.client_handlers", function()
   end)
 
   it("kill_terminals stops and forgets all terminals when the agent goes away", function()
-    local h, kill_terminals = client_handlers.create({})
+    local h, kill_terminals, _, kill_access = client_handlers.create({ always_approve = true })
+    kill_access.note_session(nil, dir)
     local res = call(h, "terminal/create", { command = "sleep 5; echo done" })
     local exit_status
     h("terminal/wait_for_exit", { terminalId = res.terminalId }, function(r)
@@ -239,6 +242,167 @@ describe("parrot.acp.client_handlers", function()
     end))
     local _, err = call(h, "terminal/output", { terminalId = res.terminalId })
     assert.is_not_nil(err)
+  end)
+end)
+
+describe("parrot.acp.client_handlers permissions and path jail", function()
+  local dir, outside
+
+  before_each(function()
+    dir = vim.fn.tempname() .. "_acp_root"
+    outside = vim.fn.tempname() .. "_acp_outside"
+    vim.fn.mkdir(dir, "p")
+    vim.fn.mkdir(outside, "p")
+  end)
+
+  after_each(function()
+    vim.fn.delete(dir, "rf")
+    vim.fn.delete(outside, "rf")
+    vim.fn.delete(dir .. "_old", "rf")
+  end)
+
+  it("does not read, write, or spawn when approval is off", function()
+    local secret = dir .. "/secret.txt"
+    vim.fn.writefile({ "pw" }, secret)
+    local marker = dir .. "/spawned"
+    local h, _, _, access = client_handlers.create({ always_approve = false })
+    access.note_session("s1", dir)
+
+    local res, err = call(h, "fs/read_text_file", { sessionId = "s1", path = secret })
+    assert.is_nil(res)
+    assert.matches("Permission denied", err.message)
+
+    _, err = call(h, "fs/write_text_file", { sessionId = "s1", path = dir .. "/written.txt", content = "nope\n" })
+    assert.matches("Permission denied", err.message)
+    assert.equals(0, vim.fn.filereadable(dir .. "/written.txt"))
+
+    res, err = call(h, "terminal/create", {
+      sessionId = "s1",
+      command = "touch",
+      args = { marker },
+      cwd = dir,
+    })
+    assert.is_nil(res)
+    assert.matches("Permission denied", err.message)
+    vim.wait(300)
+    assert.equals(0, vim.fn.filereadable(marker))
+  end)
+
+  it("allows fs and terminal inside the root only after an allow permission", function()
+    local h, _, _, access = client_handlers.create({})
+    access.note_session("s1", dir)
+    local orig_select = vim.ui.select
+    vim.ui.select = function(_, _, cb)
+      cb("Allow", 1)
+    end
+    local outcome = call(h, "session/request_permission", {
+      sessionId = "s1",
+      options = {
+        { optionId = "ok", kind = "allow_once", name = "Allow" },
+        { optionId = "no", kind = "reject_once", name = "Reject" },
+      },
+    })
+    vim.ui.select = orig_select
+    assert.equals("ok", outcome.outcome.optionId)
+
+    local path = dir .. "/note.txt"
+    local _, err = call(h, "fs/write_text_file", { sessionId = "s1", path = path, content = "kept\n" })
+    assert.is_nil(err)
+    assert.equals("kept\n", call(h, "fs/read_text_file", { sessionId = "s1", path = path }).content)
+
+    local outside_file = outside .. "/nope.txt"
+    _, err = call(h, "fs/write_text_file", { sessionId = "s1", path = outside_file, content = "x\n" })
+    assert.matches("outside", err.message)
+    assert.equals(0, vim.fn.filereadable(outside_file))
+  end)
+
+  it("does not grant fs access when the user rejects", function()
+    local h, _, _, access = client_handlers.create({})
+    access.note_session("s1", dir)
+    local orig_select = vim.ui.select
+    vim.ui.select = function(_, _, cb)
+      cb("Reject", 1)
+    end
+    call(h, "session/request_permission", {
+      sessionId = "s1",
+      options = { { optionId = "no", kind = "reject_once", name = "Reject" } },
+    })
+    vim.ui.select = orig_select
+    local _, err = call(h, "fs/read_text_file", { sessionId = "s1", path = dir .. "/a.txt" })
+    assert.matches("Permission denied", err.message)
+  end)
+
+  it("drops fs access when always_approve is turned off, without a prior user grant", function()
+    local h = client_handlers.create({ name = "mode-off", always_approve = true, roots = { dir } })
+    client_handlers.always_approve["mode-off"] = false
+    local _, err = call(h, "fs/read_text_file", { sessionId = "s1", path = dir .. "/a.txt" })
+    client_handlers.always_approve["mode-off"] = nil
+    assert.matches("Permission denied", err.message)
+  end)
+
+  it("refuses paths outside the root, sibling prefixes, symlink escapes, and null bytes", function()
+    local h = client_handlers.create({ always_approve = true, roots = { dir } })
+    local secret = outside .. "/secret.txt"
+    vim.fn.writefile({ "hidden" }, secret)
+
+    local res, err = call(h, "fs/read_text_file", { path = secret })
+    assert.is_nil(res)
+    assert.matches("outside", err.message)
+
+    local sibling = dir .. "_old"
+    vim.fn.mkdir(sibling, "p")
+    vim.fn.writefile({ "sib" }, sibling .. "/a.txt")
+    res, err = call(h, "fs/read_text_file", { path = sibling .. "/a.txt" })
+    assert.is_nil(res)
+    assert.matches("outside", err.message)
+
+    vim.uv.fs_symlink(secret, dir .. "/leak")
+    res, err = call(h, "fs/read_text_file", { path = dir .. "/leak" })
+    assert.is_nil(res)
+    assert.is_nil(res and res.content)
+
+    vim.uv.fs_symlink(outside, dir .. "/escape")
+    local pwned = outside .. "/pwned.txt"
+    _, err = call(h, "fs/write_text_file", { path = dir .. "/escape/pwned.txt", content = "nope\n" })
+    assert.is_not_nil(err)
+    assert.equals(0, vim.fn.filereadable(pwned))
+
+    local nul = dir .. "/a\0.txt"
+    _, err = call(h, "fs/write_text_file", { path = nul, content = "nope\n" })
+    assert.is_not_nil(err)
+    assert.equals(0, vim.fn.filereadable(dir .. "/a"))
+
+    -- `..` that normalizes back inside the root is still allowed
+    vim.fn.writefile({ "inside" }, dir .. "/inside.txt")
+    res = call(h, "fs/read_text_file", { path = dir .. "/sub/../inside.txt" })
+    assert.equals("inside\n", res.content)
+  end)
+
+  it("does not spawn a terminal whose cwd is outside the root", function()
+    local h = client_handlers.create({ always_approve = true, roots = { dir } })
+    local marker = outside .. "/spawned"
+    local res, err = call(h, "terminal/create", { command = "touch", args = { marker }, cwd = outside })
+    assert.is_nil(res)
+    assert.matches("outside", err.message)
+    vim.wait(300)
+    assert.equals(0, vim.fn.filereadable(marker))
+  end)
+
+  it("limits a session to its own cwd when several projects share a connection", function()
+    local other = vim.fn.tempname() .. "_acp_other"
+    vim.fn.mkdir(other, "p")
+    vim.fn.writefile({ "other" }, other .. "/a.txt")
+    vim.fn.writefile({ "mine" }, dir .. "/a.txt")
+    local h, _, _, access = client_handlers.create({ always_approve = true })
+    access.note_session("sA", dir)
+    access.note_session("sB", other)
+
+    local res, err = call(h, "fs/read_text_file", { sessionId = "sA", path = other .. "/a.txt" })
+    assert.is_nil(res)
+    assert.matches("outside", err.message)
+    assert.equals("mine\n", call(h, "fs/read_text_file", { sessionId = "sA", path = dir .. "/a.txt" }).content)
+    assert.equals("other\n", call(h, "fs/read_text_file", { sessionId = "sB", path = other .. "/a.txt" }).content)
+    vim.fn.delete(other, "rf")
   end)
 end)
 
@@ -260,6 +424,26 @@ describe("parrot.acp.client connections", function()
     assert.is_true(vim.wait(2000, function()
       return agents_running() == 0
     end))
+  end)
+
+  it("retries from a start-failure callback without crashing", function()
+    local name = "reenter-" .. vim.fn.tempname():gsub(".*/", "")
+    local config = { name = name, command = { "parrot-audit-missing-bin" }, models = { "m" } }
+    local errs = {}
+    local ok, err = pcall(function()
+      acp_client.get_connection(config, "m", function(start_err)
+        table.insert(errs, start_err or "ok")
+        if #errs == 1 then
+          acp_client.get_connection(config, "m", function(retry_err)
+            table.insert(errs, retry_err or "ok")
+          end)
+        end
+      end)
+    end)
+    assert.is_true(ok, tostring(err))
+    assert.equals(2, #errs)
+    assert.matches("Could not start", errs[1])
+    assert.matches("Could not start", errs[2])
   end)
 end)
 
