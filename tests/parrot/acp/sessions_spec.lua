@@ -62,6 +62,64 @@ describe("parrot.acp.sessions", function()
     vim.fn.delete(project, "rf")
   end)
 
+  it("uses a worktree as the command cwd when the buffer file lives there", function()
+    local repo = vim.fn.tempname() .. "_scope_repo"
+    local worktree = vim.fn.tempname() .. "_scope_wt"
+    local elsewhere = vim.fn.tempname() .. "_scope_else"
+    vim.fn.mkdir(repo, "p")
+    vim.fn.mkdir(elsewhere, "p")
+    local function git(args)
+      return vim.system(args, { text = true }):wait().code
+    end
+    assert.equals(0, git({ "git", "init", repo }))
+    assert.equals(
+      0,
+      git({
+        "git",
+        "-C",
+        repo,
+        "-c",
+        "user.email=parrot@example.com",
+        "-c",
+        "user.name=Parrot Test",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "init",
+      })
+    )
+    assert.equals(0, git({ "git", "-C", repo, "worktree", "add", "--detach", worktree }))
+
+    vim.cmd("cd " .. vim.fn.fnameescape(elsewhere))
+    local buf = chat_buf(worktree .. "/file.lua")
+    local scope = acp_sessions.session_scope(buf, "/tmp/parrot_not_a_chat_dir", state)
+    assert.equals("command", scope.kind)
+    assert.equals(vim.fn.resolve(worktree), vim.fn.resolve(scope.cwd))
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+    vim.fn.delete(worktree, "rf")
+    vim.fn.delete(repo, "rf")
+    vim.fn.delete(elsewhere, "rf")
+  end)
+
+  it("uses the file's directory when that directory is not a git repo", function()
+    local file_dir = vim.fn.tempname() .. "_plain_file"
+    local elsewhere = vim.fn.tempname() .. "_plain_cwd"
+    vim.fn.mkdir(file_dir, "p")
+    vim.fn.mkdir(elsewhere, "p")
+    vim.cmd("cd " .. vim.fn.fnameescape(elsewhere))
+    local buf = chat_buf(file_dir .. "/a.lua")
+
+    local scope = acp_sessions.session_scope(buf, "/tmp/parrot_not_a_chat_dir", state)
+    assert.equals(vim.fn.resolve(file_dir), vim.fn.resolve(scope.cwd))
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+    vim.fn.delete(file_dir, "rf")
+    vim.fn.delete(elsewhere, "rf")
+  end)
+
   it("session_scope without a buffer is a command scope in Neovim's cwd", function()
     local scope = acp_sessions.session_scope(nil, "/tmp/parrot_scope_test", state)
     assert.equals("command", scope.kind)

@@ -299,7 +299,7 @@ to consider a visual selection within an API request.
         -- Using GPG for decryption:
         -- api_key = { "gpg", "--decrypt", vim.fn.expand("$HOME") .. "/my_api_key.txt.gpg" },
         -- Using macOS Keychain:
-        -- api_key = { "/usr/bin/security", "find-generic-password", "-s my-api-key", "-w" },
+        -- api_key = { "/usr/bin/security", "find-generic-password", "-s", "my-api-key", "-w" },
         --- default model parameters used for chat and interactive commands
         params = {
           chat = { temperature = 1.1, top_p = 1 },

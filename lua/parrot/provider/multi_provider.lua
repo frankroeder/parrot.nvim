@@ -22,6 +22,9 @@ local utils = require("parrot.utils")
 local MultiProvider = {}
 MultiProvider.__index = MultiProvider
 
+-- How long a command-table api_key may run before it is killed.
+MultiProvider.api_key_command_timeout_ms = 10000
+
 -- Default OpenAI-style implementation
 local defaults = {
   headers = function(self)
@@ -207,25 +210,31 @@ local defaults = {
         end
       end
 
-      local command = table.concat(api_key, " ")
-      -- Use a timeout to prevent hanging on command execution
-      local handle = io.popen(command) -- Capture stderr as well
-      if handle then
-        local resolved_key = handle:read("*a")
-        handle:close()
-
-        -- Clean up the resolved key
-        resolved_key = resolved_key:gsub("%s+$", ""):gsub("^%s+", "")
-        if resolved_key == "" then
-          logger.error("Error verifying API key for provider " .. self.name .. ": command returned empty result")
-          return false
-        end
-
-        return resolved_key
-      else
-        logger.error("Error verifying API key for provider " .. self.name .. ": failed to execute command")
+      -- argv only: joining with spaces would run a shell and split arguments
+      local timeout = self.api_key_command_timeout_ms or MultiProvider.api_key_command_timeout_ms
+      local ok, system_obj = pcall(vim.system, api_key, { text = true })
+      if not ok or not system_obj then
+        logger.error(
+          "Error verifying API key for provider " .. self.name .. ": failed to execute command: " .. tostring(system_obj)
+        )
         return false
       end
+
+      local completed = system_obj:wait(timeout)
+      if not completed or completed.code ~= 0 then
+        logger.error(
+          "Error verifying API key for provider " .. self.name .. ": command failed or timed out"
+        )
+        return false
+      end
+
+      local resolved_key = (completed.stdout or ""):gsub("%s+$", ""):gsub("^%s+", "")
+      if resolved_key == "" then
+        logger.error("Error verifying API key for provider " .. self.name .. ": command returned empty result")
+        return false
+      end
+
+      return resolved_key
     elseif type(api_key) == "string" and api_key:match("%S") then
       -- Trim surrounding whitespace from API key
       return api_key:gsub("^%s*(.-)%s*$", "%1")
@@ -472,6 +481,10 @@ function MultiProvider:curl_params()
   local api_key = self:resolve_api_key(self.api_key)
   if not api_key then
     return {}
+  end
+  -- headers concatenate self.api_key; a command table or function must already be a string
+  if type(api_key) == "string" then
+    self.api_key = api_key
   end
 
   -- Handle endpoint as function or string

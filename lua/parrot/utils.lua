@@ -311,7 +311,9 @@ M.is_chat = function(buf, file_name, chat_dir)
 
   -- Compare resolved paths: a buffer name is the real path, so a chat_dir behind a
   -- symlink (e.g. /tmp on macOS) would never match a plain prefix comparison.
-  if not M.starts_with(M.resolve_path(file_name), M.resolve_path(chat_dir)) then
+  -- Trailing separator so a sibling directory (`chats_old`) is not inside `chats`.
+  local root = M.resolve_path(chat_dir):gsub("/$", "") .. "/"
+  if not M.starts_with(M.resolve_path(file_name), root) then
     return false
   end
 

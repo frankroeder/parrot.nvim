@@ -592,10 +592,11 @@ function ChatHandler:open_buf(file_name, target, kind, toggle)
       self:toggle_add(self._toggle_kind.popup, { win = win, buf = buf, close = close })
     end
 
+    local escaped = vim.fn.fnameescape(file_name)
     if old_buf == nil then
       -- read file into buffer and force write it
-      vim.api.nvim_command("silent 0read " .. file_name)
-      vim.api.nvim_command("silent file " .. file_name)
+      vim.api.nvim_command("silent 0read " .. escaped)
+      vim.api.nvim_command("silent file " .. escaped)
       vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
     else
       -- move cursor to the beginning of the file and scroll to the end
@@ -607,13 +608,13 @@ function ChatHandler:open_buf(file_name, target, kind, toggle)
     vim.api.nvim_buf_set_lines(buf, last_content_line, -1, false, {})
     -- insert a new line at the end of the file
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
-    vim.api.nvim_command("silent write! " .. file_name)
+    vim.api.nvim_command("silent write! " .. escaped)
   elseif target == ui.BufTarget.split then
-    vim.api.nvim_command("split " .. file_name)
+    vim.api.nvim_command("split " .. vim.fn.fnameescape(file_name))
   elseif target == ui.BufTarget.vsplit then
-    vim.api.nvim_command("vsplit " .. file_name)
+    vim.api.nvim_command("vsplit " .. vim.fn.fnameescape(file_name))
   elseif target == ui.BufTarget.tabnew then
-    vim.api.nvim_command("tabnew " .. file_name)
+    vim.api.nvim_command("tabnew " .. vim.fn.fnameescape(file_name))
   else
     -- is it already open in a buffer?
     for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -628,7 +629,7 @@ function ChatHandler:open_buf(file_name, target, kind, toggle)
     end
 
     -- open in new buffer
-    vim.api.nvim_command("edit " .. file_name)
+    vim.api.nvim_command("edit " .. vim.fn.fnameescape(file_name))
   end
 
   buf = vim.api.nvim_get_current_buf()
@@ -806,8 +807,9 @@ function ChatHandler:chat_delete()
   local buf = vim.api.nvim_get_current_buf()
   local file_name = vim.api.nvim_buf_get_name(buf)
 
-  -- check if file is in the chat dir (resolved paths: chat_dir may be a symlink)
-  if not utils.starts_with(utils.resolve_path(file_name), utils.resolve_path(self.options.chat_dir)) then
+  -- trailing separator: a sibling like `chats_old` is not inside `chats`
+  local chat_root = utils.resolve_path(self.options.chat_dir):gsub("/$", "") .. "/"
+  if not utils.starts_with(utils.resolve_path(file_name), chat_root) then
     logger.warning("File is not in expected chat dir", { file_name = file_name })
     return
   end
@@ -1054,7 +1056,8 @@ function ChatHandler:chat_finder()
   end
 
   if has_fzf then
-    local actions = require("fzf-lua").defaults.actions.files
+    -- copy: defaults.actions.files is shared by every fzf-lua files picker
+    local actions = vim.tbl_extend("force", {}, require("fzf-lua").defaults.actions.files)
     actions["ctrl-p"] = function(selected)
       local filename = filename_from_selection(selected)
       return self:open_buf(self.options.chat_dir .. "/" .. filename, ui.BufTarget.popup, self._toggle_kind.chat, false)
