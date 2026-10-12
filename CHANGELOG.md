@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.0](https://github.com/frankroeder/parrot.nvim/compare/v2.7.1...v3.0.0) (2026-10-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **acp:** requires Neovim 0.11+; plenary.nvim is no longer a dependency. Custom get_available_models functions using plenary.job need plenary installed or vim.system.
+
+### Features
+
+* **acp:** scope sessions per chat file ([2b45f39](https://github.com/frankroeder/parrot.nvim/commit/2b45f394913a207297e11a100d15413d429258ee))
+
+
+### Bug Fixes
+
+* **config:** register PrtChatRespond instead of PrtChatResponde ([e31ecfa](https://github.com/frankroeder/parrot.nvim/commit/e31ecfa4cda629b2bdbf1ed4bc0e700c24c289fb))
+* **file_utils:** check delete_file target dir on resolved paths ([1970b2b](https://github.com/frankroeder/parrot.nvim/commit/1970b2b49862371930d91e88b90083f1a22d03e1))
+* **provider:** do not grow a returned model_endpoint table on every fetch ([22d3ed0](https://github.com/frankroeder/parrot.nvim/commit/22d3ed098718a6d5525b8cb98eef8bc3a9e35c7a))
+* **provider:** reject curl_params entries that are not strings or numbers ([73e6925](https://github.com/frankroeder/parrot.nvim/commit/73e692506c64b3d8037cc6d892a52c47a6fa6c19))
+* rpc ([56b1ede](https://github.com/frankroeder/parrot.nvim/commit/56b1ede642f19af452a85ee7816c3746644baafb))
+
+
+### Code Refactoring
+
+* **acp:** trim slash cache, modes, command building ([4ada349](https://github.com/frankroeder/parrot.nvim/commit/4ada3499de4ec1740ab693201bcc6a8ab72cf97c))
+
 ## [2.7.0](https://github.com/frankroeder/parrot.nvim/compare/v2.6.0...v2.7.0) (2026-08-24)
 
 
