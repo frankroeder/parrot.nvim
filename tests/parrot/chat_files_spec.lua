@@ -31,6 +31,67 @@ describe("ChatHandler chat files", function()
       assert.truthy(cmd:find('"# topic:"', 1, true))
       assert.is_nil(cmd:find("'", 1, true))
     end)
+
+    it("does not mutate fzf-lua's shared file actions", function()
+      local shared = { ["ctrl-p"] = "original-ctrl-p", ["ctrl-d"] = "original-ctrl-d" }
+      local passed
+      package.loaded["fzf-lua"] = {
+        defaults = { actions = { files = shared } },
+        fzf_exec = function(_, opts)
+          passed = opts.actions
+        end,
+      }
+      handler:chat_finder()
+      assert.equals("original-ctrl-p", shared["ctrl-p"])
+      assert.equals("original-ctrl-d", shared["ctrl-d"])
+      assert.equal("function", type(passed["ctrl-p"]))
+      assert.equal("table", type(passed["ctrl-d"]))
+    end)
+  end)
+
+  describe("open_buf path escaping", function()
+    local ui = require("parrot.ui")
+
+    after_each(function()
+      pcall(vim.api.nvim_del_user_command, "ParrotAuditInject")
+      vim.g.parrot_audit_injected = nil
+    end)
+
+    local function inject_command()
+      vim.api.nvim_create_user_command("ParrotAuditInject", function()
+        vim.g.parrot_audit_injected = 1
+      end, {})
+    end
+
+    it("does not run an Ex command hidden after a pipe in the path", function()
+      inject_command()
+      local path = chat_dir .. "/notes|ParrotAuditInject"
+      vim.fn.writefile({ "hello" }, path)
+      local buf = handler:open_buf(path, ui.BufTarget.current, 1, false)
+      assert.is_nil(vim.g.parrot_audit_injected)
+      assert.truthy(vim.api.nvim_buf_get_name(buf):find("|ParrotAuditInject", 1, true))
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    it("opens a path that contains a space", function()
+      local path = chat_dir .. "/my chat.md"
+      vim.fn.writefile({ "# topic: spaced" }, path)
+      local buf = handler:open_buf(path, ui.BufTarget.current, 1, false)
+      assert.truthy(vim.api.nvim_buf_get_name(buf):find("my chat.md", 1, true))
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    it("reads and writes a popup whose path contains a pipe", function()
+      inject_command()
+      local path = chat_dir .. "/pop|ParrotAuditInject.md"
+      vim.fn.writefile({ "line-one" }, path)
+      local buf = handler:open_buf(path, ui.BufTarget.popup, 1, false)
+      assert.is_nil(vim.g.parrot_audit_injected)
+      assert.truthy(table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n"):find("line-one", 1, true))
+      assert.equal(1, vim.fn.filereadable(path))
+      assert.truthy(table.concat(vim.fn.readfile(path), "\n"):find("line-one", 1, true))
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
   end)
 
   describe("chat_delete", function()
@@ -78,6 +139,25 @@ describe("ChatHandler chat files", function()
       handler:chat_delete()
       assert.is_nil(prompted)
       assert.equal(0, vim.fn.filereadable(file))
+    end)
+
+    it("does not delete a sibling directory that shares the chat dir prefix", function()
+      local sibling = chat_dir .. "_old"
+      vim.fn.mkdir(sibling, "p")
+      local sibling_file = sibling .. "/notes.md"
+      vim.fn.writefile({ "# topic: x" }, sibling_file)
+      vim.cmd("edit " .. vim.fn.fnameescape(sibling_file))
+      local sibling_buf = vim.api.nvim_get_current_buf()
+      local utils = require("parrot.utils")
+      handler._chat_usage[utils.resolve_path(sibling_file)] = { requests = 1 }
+      handler.options.chat_confirm_delete = false
+
+      handler:chat_delete()
+
+      assert.equal(1, vim.fn.filereadable(sibling_file))
+      assert.equal(1, handler._chat_usage[utils.resolve_path(sibling_file)].requests)
+      vim.api.nvim_buf_delete(sibling_buf, { force = true })
+      vim.fn.delete(sibling, "rf")
     end)
   end)
 end)
