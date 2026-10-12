@@ -60,7 +60,9 @@ end
 M.find_git_root = function(start_dir)
   local cwd = start_dir or vim.fn.expand("%:p:h")
   while cwd ~= "" do
-    if vim.fn.isdirectory(cwd .. "/.git") == 1 then
+    -- a worktree or submodule has a `.git` file (`gitdir: ...`), not a directory
+    local git_path = cwd .. "/.git"
+    if vim.fn.isdirectory(git_path) == 1 or vim.fn.filereadable(git_path) == 1 then
       return cwd
     end
     local parent = vim.fn.fnamemodify(cwd, ":h")
