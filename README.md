@@ -785,10 +785,9 @@ upstream model EveryAPI proxies — no per-provider rotation.
 <details>
 <summary>Tsubasa (preview configuration)</summary>
 
-[Tsubasa](https://tsubasa.sh) uses the OpenAI Chat Completions format. Its public
-service is currently website-only: this configuration requires an enabled
-inference endpoint and a valid `TSUBASA_API_KEY`. Live inference has not been
-qualified for this example.
+[Tsubasa](https://tsubasa.sh) uses the OpenAI Chat Completions format. This
+configuration requires a valid `TSUBASA_API_KEY`. Live inference through this
+client has not been qualified for this example.
 
 Add this provider to your `setup` options. The static model list avoids a model
 discovery request during startup. Chat titles use the smaller output limit.
