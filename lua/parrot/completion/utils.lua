@@ -106,67 +106,23 @@ function M.resolve_path(path, cwd)
   return target_dir
 end
 
-function M.scan_dir_async(path, async)
-  local max_entries = 200
-  return async.task.new(function(resolve, reject)
-    vim.uv.fs_opendir(path, function(err, handle)
-      if err ~= nil or handle == nil then
-        return reject(err)
+--- Reads up to `byte_limit` bytes of `path` with libuv.
+--- `callback(err, data)` runs in a libuv fast event; wrap it with vim.schedule_wrap
+--- before calling Vimscript functions or touching editor state.
+---@param path string
+---@param byte_limit integer
+---@param callback fun(err: string|nil, data: string|nil)
+function M.read_file(path, byte_limit, callback)
+  vim.uv.fs_open(path, "r", 438, function(open_err, fd)
+    if open_err or fd == nil then
+      return callback(open_err or "failed to open " .. path)
+    end
+    vim.uv.fs_read(fd, byte_limit, 0, function(read_err, data)
+      vim.uv.fs_close(fd, function() end)
+      if read_err or data == nil then
+        return callback(read_err or "failed to read " .. path)
       end
-      local all_entries = {}
-      local function read_dir()
-        vim.uv.fs_readdir(handle, function(err, entries)
-          if err ~= nil or entries == nil then
-            return reject(err)
-          end
-          vim.list_extend(all_entries, entries)
-          if #entries == max_entries then
-            read_dir()
-          else
-            resolve(all_entries)
-          end
-        end)
-      end
-      read_dir()
-    end, max_entries)
-  end)
-end
-
-function M.fs_stat_all_async(cwd, entries, async)
-  local tasks = {}
-  for _, entry in ipairs(entries) do
-    table.insert(
-      tasks,
-      async.task.new(function(resolve)
-        vim.uv.fs_stat(utils.path_join(cwd, entry.name), function(err, stat)
-          if err then
-            return resolve(nil)
-          end
-          resolve({ name = entry.name, type = entry.type, stat = stat })
-        end)
-      end)
-    )
-  end
-  return async.task.await_all(tasks):map(function(entries)
-    return vim.tbl_filter(function(entry)
-      return entry ~= nil
-    end, entries)
-  end)
-end
-
-function M.read_file_async(path, byte_limit, async)
-  return async.task.new(function(resolve, reject)
-    vim.uv.fs_open(path, "r", 438, function(open_err, fd)
-      if open_err or fd == nil then
-        return reject(open_err)
-      end
-      vim.uv.fs_read(fd, byte_limit, 0, function(read_err, data)
-        vim.uv.fs_close(fd, function() end)
-        if read_err or data == nil then
-          return reject(read_err)
-        end
-        resolve(data)
-      end)
+      callback(nil, data)
     end)
   end)
 end
