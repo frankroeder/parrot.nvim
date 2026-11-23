@@ -346,7 +346,7 @@ to consider a visual selection within an API request.
     -- Explicitly confirm deletion of a chat file
     chat_confirm_delete = true,
 
-    -- Local chat buffer shortcuts
+    -- Local chat buffer shortcuts; set one to `false` to disable it
     chat_shortcut_respond = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g><C-g>" },
     chat_shortcut_delete = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>d" },
     chat_shortcut_stop = { modes = { "n", "i", "v", "x" }, shortcut = "<C-g>s" },
@@ -454,6 +454,19 @@ This plugin provides the following default key mappings:
 | `<C-g><C-g>` | Trigger the API to generate a response via `PrtChatRespond` |
 | `<C-g>s`     | Stop any ongoing Parrot generation via `PrtStop`            |
 | `<C-g>d`     | Delete the current chat file via `PrtChatDelete`            |
+
+These are buffer-local to chat files. To define your own keymaps instead, disable
+any or all of them with `false`:
+
+```lua
+require("parrot").setup({
+  -- providers = { ... },
+  chat_shortcut_respond = false,
+  chat_shortcut_delete = false,
+  chat_shortcut_stop = false,
+  chat_shortcut_new = false,
+})
+```
 
 ### Provider Configuration Examples
 

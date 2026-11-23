@@ -181,46 +181,40 @@ function ChatHandler:prep_chat(buf, file_name)
 
   chatutils.prep_md(buf)
 
-  -- setup chat specific commands
+  -- setup chat specific commands; a shortcut set to `false` is not mapped
   local range_commands = {
-    {
-      command = "ChatRespond",
-      modes = self.options.chat_shortcut_respond.modes,
-      shortcut = self.options.chat_shortcut_respond.shortcut,
-      comment = "Parrot Chat Respond",
-    },
-    {
-      command = "ChatNew",
-      modes = self.options.chat_shortcut_new.modes,
-      shortcut = self.options.chat_shortcut_new.shortcut,
-      comment = "Parrot Chat New",
-    },
+    { command = "ChatRespond", key = self.options.chat_shortcut_respond, comment = "Parrot Chat Respond" },
+    { command = "ChatNew", key = self.options.chat_shortcut_new, comment = "Parrot Chat New" },
   }
   for _, rc in ipairs(range_commands) do
     local cmd = self.options.cmd_prefix .. rc.command .. "<cr>"
-    for _, mode in ipairs(rc.modes) do
+    for _, mode in ipairs(rc.key and rc.key.modes or {}) do
       if mode == "n" or mode == "i" then
-        utils.set_keymap({ buf }, mode, rc.shortcut, function()
+        utils.set_keymap({ buf }, mode, rc.key.shortcut, function()
           vim.api.nvim_command(self.options.cmd_prefix .. rc.command)
           -- go to normal mode
           vim.api.nvim_command("stopinsert")
           utils.feedkeys("<esc>", "xn")
         end, rc.comment)
       else
-        utils.set_keymap({ buf }, mode, rc.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
+        utils.set_keymap({ buf }, mode, rc.key.shortcut, ":<C-u>'<,'>" .. cmd, rc.comment)
       end
     end
   end
 
   local ds = self.options.chat_shortcut_delete
-  utils.set_keymap({ buf }, ds.modes, ds.shortcut, function()
-    self:chat_delete()
-  end, "Parrot Chat Delete")
+  if ds then
+    utils.set_keymap({ buf }, ds.modes, ds.shortcut, function()
+      self:chat_delete()
+    end, "Parrot Chat Delete")
+  end
 
   local ss = self.options.chat_shortcut_stop
-  utils.set_keymap({ buf }, ss.modes, ss.shortcut, function()
-    self:stop()
-  end, "Parrot Chat Stop")
+  if ss then
+    utils.set_keymap({ buf }, ss.modes, ss.shortcut, function()
+      self:stop()
+    end, "Parrot Chat Stop")
+  end
 
   -- remember last opened chat file
   self.state:set_last_chat(file_name)
