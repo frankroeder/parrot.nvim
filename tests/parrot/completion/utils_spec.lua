@@ -1,6 +1,5 @@
 local comp_utils = require("parrot.completion.utils")
 local mock = require("luassert.mock")
-local async = require("plenary.async")
 
 describe("completion.utils", function()
   describe("resolve_path", function()
@@ -95,24 +94,32 @@ describe("completion.utils", function()
     end)
   end)
 
-  -- describe("read_file_async", function()
-  --   it("should read file content asynchronously", function()
-  --     local uv_mock = mock(vim.uv, true)
-  --     uv_mock.fs_open.returns(1)
-  --     uv_mock.fs_read.returns("test content")
-  --     uv_mock.fs_close.returns(true)
+  describe("read_file", function()
+    it("reads up to byte_limit bytes", function()
+      local path = vim.fn.tempname()
+      vim.fn.writefile({ "0123456789" }, path)
+      local result
+      comp_utils.read_file(path, 4, function(err, data)
+        result = { err = err, data = data }
+      end)
+      vim.wait(1000, function()
+        return result ~= nil
+      end, 10)
+      vim.fn.delete(path)
+      assert.is_nil(result.err)
+      assert.are.equal("0123", result.data)
+    end)
 
-  --     local content
-  --     async.run(function()
-  --       comp_utils.read_file_async("test.txt", 1024, async).map(function(data)
-  --         content = data
-  --       end)
-  --     end)
-
-  --     vim.wait(100, function() return content ~= nil end)
-  --     assert.are.equal("test content", content)
-
-  --     mock.revert(uv_mock)
-  --   end)
-  -- end)
+    it("reports an error for a missing file", function()
+      local result
+      comp_utils.read_file(vim.fn.tempname(), 4, function(err, data)
+        result = { err = err, data = data }
+      end)
+      vim.wait(1000, function()
+        return result ~= nil
+      end, 10)
+      assert.is_not_nil(result.err)
+      assert.is_nil(result.data)
+    end)
+  end)
 end)
