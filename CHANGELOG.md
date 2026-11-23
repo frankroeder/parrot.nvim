@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.1](https://github.com/frankroeder/parrot.nvim/compare/v3.0.0...v3.0.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* allow disabling chat buffer shortcuts with false ([#205](https://github.com/frankroeder/parrot.nvim/issues/205)) ([#208](https://github.com/frankroeder/parrot.nvim/issues/208)) ([2278016](https://github.com/frankroeder/parrot.nvim/commit/22780166f753cb113f67c35ad79491be120d4daf))
+* **completion:** drop blink.cmp internal async dependency for blink.cmp v2 ([#209](https://github.com/frankroeder/parrot.nvim/issues/209)) ([a737057](https://github.com/frankroeder/parrot.nvim/commit/a7370579388a1a70317efd8ca6096353c449ab8b)), closes [#206](https://github.com/frankroeder/parrot.nvim/issues/206)
+
 ## [3.0.0](https://github.com/frankroeder/parrot.nvim/compare/v2.7.1...v3.0.0) (2026-10-12)
 
 
