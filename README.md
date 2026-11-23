@@ -178,13 +178,11 @@ The minimal requirement is to at least set up one provider, such as the one prov
             command = { temperature = 1.1, top_p = 1 },
           },
           topic = {
-            model = "gpt-4.1-nano",
-            params = { max_completion_tokens = 64 },
+            model = "gpt-5.6-luna",
+            params = { max_completion_tokens = 64, reasoning_effort = "none" },
           },
           models ={
             "gpt-4o",
-            "o4-mini",
-            "gpt-4.1-nano",
           }
         },
       },
@@ -307,16 +305,14 @@ to consider a visual selection within an API request.
         },
         -- topic model parameters to summarize chats
         topic = {
-          model = "gpt-4.1-nano",
-          params = { max_completion_tokens = 64 },
+          model = "gpt-5.6-luna",
+          params = { max_completion_tokens = 64, reasoning_effort = "none" },
         },
         --  a selection of models that parrot can remember across sessions
         --  NOTE: This will be handled more intelligently in a future version
         models = {
           "gpt-4.1",
-          "o4-mini",
           "gpt-4.1-mini",
-          "gpt-4.1-nano",
         },
       },
       ...
