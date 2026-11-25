@@ -24,8 +24,15 @@ M.prep_md = function(buf)
 
   -- better text wrapping
   vim.api.nvim_command("setlocal wrap linebreak")
-  -- auto save on TextChanged, InsertLeave
-  vim.api.nvim_command("autocmd TextChanged,InsertLeave <buffer=" .. buf .. "> silent! write")
+  -- one buffer-local autosave; prep_md runs on every BufEnter and must not stack
+  local group = vim.api.nvim_create_augroup("ParrotPrepMd", { clear = false })
+  vim.api.nvim_clear_autocmds({ group = group, buffer = buf })
+  vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave" }, {
+    group = group,
+    buffer = buf,
+    desc = "parrot: autosave chat",
+    command = "silent! write",
+  })
 
   -- register shortcuts local to this buffer
   buf = buf or vim.api.nvim_get_current_buf()

@@ -549,6 +549,19 @@ describe("utils improved error handling", function()
 
       assert.is_true(result)
     end)
+
+    it("does not match a sibling directory that shares the chat dir prefix", function()
+      local chat_dir = vim.fn.tempname() .. "_chats"
+      local sibling = chat_dir .. "_old"
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# topic: x", "---", "", "hi", "" })
+
+      assert.is_true(utils.is_chat(buf, chat_dir .. "/chat.md", chat_dir))
+      assert.is_true(utils.is_chat(buf, chat_dir .. "/chat.md", chat_dir .. "/"))
+      assert.is_false(utils.is_chat(buf, sibling .. "/notes.md", chat_dir))
+
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
   end)
 
   describe("resolve_path", function()

@@ -119,6 +119,43 @@ describe("file_utils", function()
       local result = file_utils.find_git_root(nested)
       assert.equal(vim.fn.resolve(temp_dir), vim.fn.resolve(result))
     end)
+
+    it("finds a worktree whose .git entry is a file", function()
+      local repo = vim.fn.tempname() .. "_wt_repo"
+      local worktree = vim.fn.tempname() .. "_wt"
+      vim.fn.mkdir(repo, "p")
+      local function git(args)
+        return vim.system(args, { text = true }):wait()
+      end
+      assert.equals(0, git({ "git", "init", repo }).code)
+      assert.equals(
+        0,
+        git({
+          "git",
+          "-C",
+          repo,
+          "-c",
+          "user.email=parrot@example.com",
+          "-c",
+          "user.name=Parrot Test",
+          "-c",
+          "commit.gpgsign=false",
+          "commit",
+          "--allow-empty",
+          "-m",
+          "init",
+        }).code
+      )
+      assert.equals(0, git({ "git", "-C", repo, "worktree", "add", "--detach", worktree }).code)
+
+      local git_file = worktree .. "/.git"
+      assert.equals(0, vim.fn.isdirectory(git_file))
+      assert.equals(1, vim.fn.filereadable(git_file))
+      assert.equal(vim.fn.resolve(worktree), vim.fn.resolve(file_utils.find_git_root(worktree .. "/nested")))
+
+      vim.fn.delete(worktree, "rf")
+      vim.fn.delete(repo, "rf")
+    end)
   end)
 
   describe("delete_file", function()

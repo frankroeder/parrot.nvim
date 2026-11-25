@@ -217,6 +217,9 @@ local function create_session(config, connection, tool_free, cwd, system, callba
     end
 
     connection.sessions[result.sessionId] = true
+    if connection.note_session then
+      connection.note_session(result.sessionId, cwd)
+    end
 
     -- inline edits are simple tasks; a lower reasoning effort roughly halves their latency
     local effort = config.command_reasoning_effort
@@ -268,6 +271,9 @@ local function open_session(config, connection, tool_free, cwd, entry, system, c
     return
   end
   if connection.sessions[entry.id] then
+    if connection.note_session then
+      connection.note_session(entry.id, cwd)
+    end
     callback(nil, entry.id)
     return
   end
@@ -288,6 +294,9 @@ local function open_session(config, connection, tool_free, cwd, entry, system, c
         return
       end
       connection.sessions[entry.id] = true
+      if connection.note_session then
+        connection.note_session(entry.id, cwd)
+      end
       callback(nil, entry.id)
     end)
   end
@@ -326,18 +335,23 @@ function M.get_connection(config, model, callback)
   if existing then
     if existing.initialized then
       callback(nil, existing)
-    else
+    elseif existing._pending_callbacks then
       table.insert(existing._pending_callbacks, callback)
+    else
+      -- a failed connection can still be registered with no waiter list; start a new one
+      connections[key] = nil
+      return M.get_connection(config, model, callback)
     end
     return
   end
 
-  local handler, kill_terminals, cancel_permission = client_handlers.create(config)
+  local handler, kill_terminals, cancel_permission, access = client_handlers.create(config)
 
   local connection = {
     sessions = {},
     kill_terminals = kill_terminals,
     cancel_permission = cancel_permission,
+    note_session = access.note_session,
     active_prompts = {},
     _streams = {},
     initialized = false,
@@ -346,12 +360,13 @@ function M.get_connection(config, model, callback)
 
   connections[key] = connection
 
-  -- callbacks first: terminating fails the pending requests, whose callbacks end up here again
+  -- Clear the registry before callbacks. A callback that calls get_connection again for this
+  -- key must start a new connection; inserting into a nil waiter list crashes.
   local function fail(err)
-    finish_connection_callbacks(connection, err)
     if connections[key] == connection then
       connections[key] = nil
     end
+    finish_connection_callbacks(connection, err)
     if connection.rpc then
       connection.rpc.terminate()
     end

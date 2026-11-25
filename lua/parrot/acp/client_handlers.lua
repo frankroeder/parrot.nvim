@@ -19,16 +19,66 @@ local function env_to_table(env)
   return result
 end
 
+---Reject empty, relative, and NUL paths before any filesystem access.
 ---@param path string
----@return boolean, string?
-local function valid_path(path)
+---@return string|nil norm
+---@return string|nil err
+local function absolute_path(path)
   if type(path) ~= "string" or path == "" then
-    return false, "Path must be a non-empty string"
+    return nil, "Path must be a non-empty string"
+  end
+  if path:find("\0", 1, true) then
+    return nil, "Path must not contain null bytes"
   end
   if not vim.startswith(path, "/") then
-    return false, "Path must be absolute"
+    return nil, "Path must be absolute"
   end
-  return true
+  return vim.fs.normalize(path)
+end
+
+---Real path of `path`, walking up to the nearest existing ancestor for files not created yet.
+---Symlinks are resolved, so a link inside a root that points outside does not stay inside.
+---@param path string
+---@return string|nil resolved
+---@return string|nil err
+local function resolve_real(path)
+  local norm, err = absolute_path(path)
+  if not norm then
+    return nil, err
+  end
+
+  local real = vim.uv.fs_realpath(norm)
+  if real then
+    return vim.fs.normalize(real):gsub("/$", "")
+  end
+
+  local suffix = ""
+  local current = norm
+  while true do
+    local parent = vim.fs.dirname(current)
+    if not parent or parent == current then
+      return nil, "Path is outside the allowed project root"
+    end
+    local base = vim.fs.basename(current)
+    if base == "" or base == "." or base == ".." then
+      return nil, "Path must not contain .."
+    end
+    suffix = "/" .. base .. suffix
+    local parent_real = vim.uv.fs_realpath(parent)
+    if parent_real then
+      return (vim.fs.normalize(parent_real):gsub("/$", "")) .. suffix
+    end
+    current = parent
+  end
+end
+
+---True when `resolved` is `root` or a file inside it (`root_old` is not inside `root`).
+---@param resolved string
+---@param root string
+---@return boolean
+local function inside_root(resolved, root)
+  root = root:gsub("/$", "")
+  return resolved == root or vim.startswith(resolved, root .. "/")
 end
 
 ---Loaded buffer of exactly this path, symlinks resolved (vim.fn.bufnr would also match e.g. `a.lua.orig`).
@@ -80,15 +130,91 @@ local function read_file(path, params)
 end
 
 ---Create client-side ACP method handlers.
----@param opts { name?: string, always_approve?: boolean } Provider runtime config
+---@param opts { name?: string, always_approve?: boolean, roots?: string[] } Provider runtime config
 ---@return fun(method: string, params: table, respond: fun(result: any?, err: table?)) handler
 ---@return fun() kill_terminals Kills the agent's running terminals (when its connection goes away)
 ---@return fun(session_id: string) cancel_permission Answers an open permission prompt with `cancelled`
+---@return { note_session: fun(session_id: string|nil, cwd: string) } access Register a session cwd as an allowed root
 function M.create(opts)
   opts = opts or {}
   local terminals = {}
   local next_terminal_id = 0
   local pending_permissions = {} -- sessionId -> { [key] = fun() answering an open prompt with `cancelled` }
+  local roots = {} -- real paths the agent may read, write, and use as a terminal cwd
+  local session_root = {} -- sessionId -> one of `roots`
+  local grants = {} -- sessionId -> true after the user picks an allow_* permission option
+
+  local function add_root(path)
+    if type(path) ~= "string" or path == "" or path:find("\0", 1, true) then
+      return nil
+    end
+    local norm = vim.fs.normalize(vim.fn.fnamemodify(path, ":p"))
+    local real = vim.uv.fs_realpath(norm)
+    if not real then
+      return nil
+    end
+    real = vim.fs.normalize(real):gsub("/$", "")
+    for _, existing in ipairs(roots) do
+      if existing == real then
+        return real
+      end
+    end
+    table.insert(roots, real)
+    return real
+  end
+
+  for _, root in ipairs(opts.roots or {}) do
+    add_root(root)
+  end
+
+  local access = {}
+
+  ---Remember `cwd` as an allowed root and, when `session_id` is set, bind the session to it.
+  ---@param session_id string|nil
+  ---@param cwd string
+  function access.note_session(session_id, cwd)
+    local real = add_root(cwd)
+    if real and type(session_id) == "string" and session_id ~= "" then
+      session_root[session_id] = real
+    end
+  end
+
+  local function approved(session_id)
+    local approve = M.always_approve[opts.name]
+    if approve == nil then
+      approve = opts.always_approve
+    end
+    if approve then
+      return true
+    end
+    return type(session_id) == "string" and grants[session_id] == true
+  end
+
+  ---@param session_id string|nil
+  ---@param path string
+  ---@return string|nil resolved
+  ---@return string|nil err
+  local function authorize(session_id, path)
+    if not approved(session_id) then
+      return nil, "Permission denied"
+    end
+    local resolved, err = resolve_real(path)
+    if not resolved then
+      return nil, err
+    end
+    local candidates = (type(session_id) == "string" and session_root[session_id]) and { session_root[session_id] }
+      or roots
+    for _, root in ipairs(candidates) do
+      if inside_root(resolved, root) then
+        return resolved
+      end
+    end
+    return nil, "Path is outside the allowed project root"
+  end
+
+  local function deny(respond, err)
+    respond(nil, { code = rpc.code.invalid_params, message = err or "Permission denied" })
+  end
 
   -- ACP: after session/cancel the client must answer pending permission requests with `cancelled`
   local function cancel_permission(session_id)
@@ -114,13 +240,13 @@ function M.create(opts)
 
   return function(method, params, respond)
     if method == "fs/read_text_file" then
-      local ok, err = valid_path(params.path)
-      if not ok then
-        respond(nil, { code = rpc.code.invalid_params, message = err })
+      local resolved, err = authorize(params.sessionId, params.path)
+      if not resolved then
+        deny(respond, err)
         return
       end
 
-      local content = read_file(params.path, params)
+      local content = read_file(resolved, params)
       if content == nil then
         respond(nil, { code = rpc.code.internal_error, message = "Could not read file: " .. params.path })
         return
@@ -131,13 +257,13 @@ function M.create(opts)
     end
 
     if method == "fs/write_text_file" then
-      local ok, err = valid_path(params.path)
-      if not ok then
-        respond(nil, { code = rpc.code.invalid_params, message = err })
+      local resolved, err = authorize(params.sessionId, params.path)
+      if not resolved then
+        deny(respond, err)
         return
       end
 
-      local bufnr = loaded_buf(params.path)
+      local bufnr = loaded_buf(resolved)
       if bufnr then
         -- the final newline is the buffer's eol, not an extra empty line
         local lines = vim.split(params.content:gsub("\n$", ""), "\n", { plain = true })
@@ -161,11 +287,11 @@ function M.create(opts)
           return
         end
       else
-        local dir = vim.fn.fnamemodify(params.path, ":h")
+        local dir = vim.fn.fnamemodify(resolved, ":h")
         vim.fn.mkdir(dir, "p")
-        local f = io.open(params.path, "w")
+        local f = io.open(resolved, "w")
         if not f then
-          respond(nil, { code = rpc.code.internal_error, message = "Could not open file for writing: " .. params.path })
+          respond(nil, { code = rpc.code.internal_error, message = "Could not open file for writing: " .. resolved })
           return
         end
         f:write(params.content)
@@ -226,7 +352,14 @@ function M.create(opts)
         prompt = (params.toolCall and params.toolCall.title or "Permission required") .. " — choose:",
       }, function(_, idx)
         if idx then
-          answer({ outcome = "selected", optionId = params.options[idx].optionId })
+          local option = params.options[idx]
+          -- only an explicit allow survives with always_approve off; auto-approve does not grant this
+          if option and type(option.kind) == "string" and vim.startswith(option.kind, "allow") then
+            if type(params.sessionId) == "string" and params.sessionId ~= "" then
+              grants[params.sessionId] = true
+            end
+          end
+          answer({ outcome = "selected", optionId = option.optionId })
         else
           answer({ outcome = "cancelled" })
         end
@@ -235,6 +368,27 @@ function M.create(opts)
     end
 
     if method == "terminal/create" then
+      if not approved(params.sessionId) then
+        deny(respond, "Permission denied")
+        return
+      end
+
+      local cwd = params.cwd
+      if type(cwd) ~= "string" or cwd == "" then
+        cwd = (type(params.sessionId) == "string" and session_root[params.sessionId]) or roots[1]
+        if not cwd then
+          deny(respond, "Path is outside the allowed project root")
+          return
+        end
+      else
+        local resolved_cwd, cwd_err = authorize(params.sessionId, cwd)
+        if not resolved_cwd then
+          deny(respond, cwd_err)
+          return
+        end
+        cwd = resolved_cwd
+      end
+
       local args = params.args or {}
       -- grok sends a whole command line (`bash -lc '...'`) without args; run it through a shell
       local cmd = #args == 0 and { "sh", "-c", params.command } or vim.list_extend({ params.command }, args)
@@ -260,7 +414,7 @@ function M.create(opts)
       terminal.instance = vim.system(cmd, {
         text = true,
         detach = true,
-        cwd = params.cwd,
+        cwd = cwd,
         env = env_to_table(params.env),
         stdout = collect,
         stderr = collect,
@@ -328,7 +482,8 @@ function M.create(opts)
     respond(nil, { code = rpc.code.method_not_found, message = "Method not found: " .. method })
   end,
     kill_terminals,
-    cancel_permission
+    cancel_permission,
+    access
 end
 
 return M

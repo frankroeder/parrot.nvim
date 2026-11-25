@@ -165,7 +165,12 @@ local defaults = {
       for provider, _ in pairs(copy.providers) do
         local s = copy.providers[provider].api_key
         if s and type(s) == "string" then
-          copy.providers[provider].api_key = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
+          -- keys of 6 characters or fewer used to leak (`string.rep` of a negative count is "")
+          if #s <= 6 then
+            copy.providers[provider].api_key = "******"
+          else
+            copy.providers[provider].api_key = s:sub(1, 3) .. string.rep("*", #s - 6) .. s:sub(-3)
+          end
         end
       end
       local plugin_info = string.format("Plugin structure:\n%s", vim.inspect(copy))

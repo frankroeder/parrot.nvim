@@ -17,12 +17,18 @@ function M.is_chat_dir_file(file_name, chat_dir)
   return utils.starts_with(utils.resolve_path(file_name), dir)
 end
 
----Git root of dir, or Neovim's cwd: the working directory of ACP sessions.
+---Git root of dir, or dir itself when it is not inside a repository.
 ---@param dir string
 ---@return string
 local function project_root(dir)
   local git_root = futils.find_git_root(dir)
-  return vim.fn.resolve(git_root ~= "" and git_root or vim.fn.getcwd())
+  if git_root ~= "" then
+    return vim.fn.resolve(git_root)
+  end
+  if type(dir) == "string" and dir ~= "" then
+    return vim.fn.resolve(dir)
+  end
+  return vim.fn.resolve(vim.fn.getcwd())
 end
 
 ---Bind a chat file to the current project when it is first opened, so its agent keeps working

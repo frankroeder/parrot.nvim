@@ -89,13 +89,17 @@ function Preview:create_diff(old_lines, new_lines)
   return diff_lines
 end
 
---- Applies syntax highlighting to the diff buffer
+--- Applies syntax highlighting to the diff buffer.
+--- `line_offset` is the number of header rows above the first diff line. The diff list itself
+--- stays dense: storing rows at `i + header` and walking them with ipairs stops at the hole.
 ---@param buf number Buffer number
 ---@param diff_lines table Diff lines with metadata
-function Preview:apply_diff_highlighting(buf, diff_lines)
+---@param line_offset number|nil Header rows to skip (0-based extmark row is `i + offset - 1`)
+function Preview:apply_diff_highlighting(buf, diff_lines, line_offset)
   local ns_id = vim.api.nvim_create_namespace("ParrotPreviewDiff")
+  line_offset = line_offset or 0
 
-  for line_idx, diff_line in ipairs(diff_lines) do
+  for i, diff_line in ipairs(diff_lines) do
     local hl_group = nil
     if diff_line.type == "add" then
       hl_group = DIFF_ADD_HL
@@ -106,10 +110,15 @@ function Preview:apply_diff_highlighting(buf, diff_lines)
     end
 
     if hl_group then
-      vim.api.nvim_buf_set_extmark(buf, ns_id, line_idx - 1, 0, {
-        end_col = -1,
-        hl_group = hl_group,
-      })
+      local row = i + line_offset - 1
+      local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+      -- end_col -1 is out of range; highlight the bytes that are actually on the row
+      if #line > 0 then
+        vim.api.nvim_buf_set_extmark(buf, ns_id, row, 0, {
+          end_col = #line,
+          hl_group = hl_group,
+        })
+      end
     end
   end
 end
@@ -198,13 +207,8 @@ function Preview:show_diff_preview(
   vim.api.nvim_set_option_value("readonly", true, { buf = self.preview_buf })
   vim.api.nvim_set_option_value("filetype", "diff", { buf = self.preview_buf })
 
-  -- Apply diff highlighting (skip header lines)
-  local header_lines = #header
-  local adj_diff_lines = {}
-  for i, diff_line in ipairs(diff_lines) do
-    adj_diff_lines[i + header_lines] = diff_line
-  end
-  self:apply_diff_highlighting(self.preview_buf, adj_diff_lines)
+  -- Apply diff highlighting below the header. Keep diff_lines dense so ipairs visits every row.
+  self:apply_diff_highlighting(self.preview_buf, diff_lines, #header)
 
   -- Store callbacks
   self.apply_fn = apply_callback

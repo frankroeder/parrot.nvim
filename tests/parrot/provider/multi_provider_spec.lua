@@ -1074,6 +1074,13 @@ describe("MultiProvider", function()
         assert.spy(logger_mock.error).was_called()
       end)
 
+      it("does not execute a string api_key", function()
+        local marker = vim.fn.tempname() .. "_string_key"
+        local key = "echo hi > " .. marker
+        assert.equals(key, provider:resolve_api_key(key))
+        assert.equals(0, vim.fn.filereadable(marker))
+      end)
+
       it("should return false for nil", function()
         local result = provider:resolve_api_key(nil)
         assert.equals(false, result)
@@ -1235,6 +1242,42 @@ describe("MultiProvider", function()
         local special_command = { "echo", "key-with-special_chars.123" }
         local result = provider:resolve_api_key(special_command)
         assert.equals("key-with-special_chars.123", result)
+      end)
+
+      it("does not run a shell when an argument contains metacharacters", function()
+        local marker = vim.fn.tempname() .. "_api_key_pwned"
+        local payload = "secret; touch " .. marker .. "; echo"
+        local result = provider:resolve_api_key({ "printf", "%s", payload })
+        vim.wait(200)
+        assert.equals(payload, result)
+        assert.equals(0, vim.fn.filereadable(marker))
+      end)
+
+      it("keeps a space inside one argument", function()
+        assert.equals("a b", provider:resolve_api_key({ "printf", "%s", "a b" }))
+      end)
+
+      it("kills a command that exceeds the timeout", function()
+        provider.api_key_command_timeout_ms = 200
+        local started = vim.uv.hrtime()
+        local result = provider:resolve_api_key({ "sleep", "30" })
+        local elapsed_ms = (vim.uv.hrtime() - started) / 1e6
+        provider.api_key_command_timeout_ms = nil
+        assert.is_false(result)
+        assert.is_true(elapsed_ms < 5000)
+        assert.spy(logger_mock.error).was_called()
+      end)
+
+      it("resolves a command table before curl headers are built", function()
+        local keyed = MultiProvider:new({
+          name = "argv-key",
+          endpoint = "https://example.test/v1/chat/completions",
+          api_key = { "printf", "%s", "token-from-argv" },
+          model = { "m" },
+        })
+        local args = table.concat(keyed:curl_params(), "\n")
+        assert.truthy(args:find("Bearer token-from-argv", 1, true))
+        assert.equals("token-from-argv", keyed.api_key)
       end)
     end)
 
